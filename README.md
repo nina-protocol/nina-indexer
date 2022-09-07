@@ -3,7 +3,7 @@
 The Nina API makes available the Artist, Collector, Release, and Hub data from the [Nina Protocol](https://www.ninaprotocol.com).
 
 [Documentation](https://dev.ninaprotocol.com/api)
-Public Endpoint: [https://api.ninaprotocol.com](https://api.ninaprotocol.com)
+Public Endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/v1)
 ---
 
 ## What's inside
