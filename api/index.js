@@ -29,7 +29,7 @@ app.use(ratelimit({
 
 registerApi(router)
 app.use(bodyParser())
-app.use(router.routes())
+app.use(router.routes('/v1'))
 app.use(router.allowedMethods())
 
 app.listen(process.env.PORT, async () => {
