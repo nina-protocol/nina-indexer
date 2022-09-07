@@ -8,7 +8,9 @@ const { connectDb } = require('../indexer/db/index');
 
 const registerApi = require('./api');
 
-const router = new KoaRouter()
+const router = new KoaRouter({
+  prefix: '/v1'
+})
 const app = new Koa()
 app.use(cors())
 const db = new Map();
@@ -29,7 +31,7 @@ app.use(ratelimit({
 
 registerApi(router)
 app.use(bodyParser())
-app.use(router.routes('/v1'))
+app.use(router.routes())
 app.use(router.allowedMethods())
 
 app.listen(process.env.PORT, async () => {
