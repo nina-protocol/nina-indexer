@@ -6,8 +6,10 @@
   "scripts": {
     "start:indexer": "node indexer/index.js",
     "start:indexer:prod": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer",
+    "restart:indexer": "pm2 stop nina-indexer && pm2 delete nina-indexer && yarn start:indexer:prod",
     "start:api": "node api/index.js",
     "start:api:prod": "pm2 start yarn --interpreter bash --name nina-api -- start:api",
+    "restart:api": "pm2 stop nina-api && pm2 delete nina-api && yarn start:api:prod",
     "test": "echo \"Error: no test specified\" && exit 1",
     "connect": "ssh -i \"nina.pem\" ec2-user@ec2-3-16-216-16.us-east-2.compute.amazonaws.com",
     "connect-dev": "ssh -i \"nina.pem\" ec2-user@ec2-13-58-48-193.us-east-2.compute.amazonaws.com"
