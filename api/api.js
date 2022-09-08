@@ -33,7 +33,7 @@ module.exports = (router) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
       const collected = await account.$relatedQuery('collected')
-      for await (let release of collection) {
+      for await (let release of collected) {
         await release.format();
       }
       const published = await account.$relatedQuery('published')
