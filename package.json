@@ -1,5 +1,5 @@
 {
-  "name": "nina-api",
+  "name": "@nina-protocol/nina-api",
   "version": "0.0.1",
   "description": "",
   "main": "api/index.js",
@@ -16,8 +16,8 @@
     "type": "git",
     "url": "git+https://github.com/nina-protocol/nina-api.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "contact@ninaprotocol.com",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/nina-protocol/nina-api/issues"
   },
