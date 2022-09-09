@@ -59,7 +59,13 @@ module.exports = (router) => {
         await exchange.format();
         exchanges.push(exchange)
       }
-      ctx.body = {collected, published, hubs, posts, exchanges};
+      const revenueShares = []
+      const releases = await account.$relatedQuery('revenueShares')
+      for await (let release of releases) {
+        await release.format();
+        revenueShares.push(release)
+      }
+      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -144,6 +150,24 @@ module.exports = (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
+    try {
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const revenueShares = []
+      const releases = await account.$relatedQuery('revenueShares')
+      
+      for await (let release of releases) {
+        await release.format();
+        revenueShares.push(release)
+      }
+
+      ctx.body = { revenueShares };
+    } catch (err) {
+      console.log(err)
+      accountNotFound(ctx)
+    }
+  });
+
   router.get('/releases', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
@@ -219,6 +243,19 @@ module.exports = (router) => {
     }
   })
 
+  router.get('/releases/:publicKey/revenueShareRecipients', async (ctx) => {
+    try {
+      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      const revenueShareRecipients = await release.$relatedQuery('revenueShareRecipients')
+      for await (let account of revenueShareRecipients) {
+        await account.format();
+      }
+      ctx.body = { revenueShareRecipients };
+    } catch (error) {
+      console.log(error)
+      releaseNotFound(ctx)
+    }
+  })
 
   router.get('/hubs', async (ctx) => {
     try {
@@ -459,7 +496,6 @@ const postNotFound = (ctx) => {
 }
 
 const hubForPublicKeyOrHandle = async (ctx) => {
-  console.log(ctx.params)
   let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
   if (!hub) {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})

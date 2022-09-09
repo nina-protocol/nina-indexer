@@ -96,6 +96,18 @@ class Account extends Model {
           to: 'posts.publisherId',
         },
       },
+      revenueShares: {
+        relation: Model.ManyToManyRelation,
+        modelClass: Release,
+        join: {
+          from: 'accounts.id',
+          through: {
+            from: 'releases_revenue_share.accountId',
+            to: 'releases_revenue_share.releaseId',
+          },
+          to: 'releases.id',
+        },
+      }
     };
   }
 }

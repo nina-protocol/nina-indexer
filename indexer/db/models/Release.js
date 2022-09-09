@@ -122,6 +122,18 @@ class Release extends Model {
           to: 'posts.id',
         },
       },
+      revenueShareRecipients: {
+        relation: Model.ManyToManyRelation,
+        modelClass: Account,
+        join: {
+          from: 'releases.id',
+          through: {
+            from: 'releases_revenue_share.releaseId',
+            to: 'releases_revenue_share.accountId',
+          },
+          to: 'accounts.id',
+        },
+      }
     };
   }
 }

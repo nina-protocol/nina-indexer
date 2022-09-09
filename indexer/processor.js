@@ -184,16 +184,28 @@ class NinaProcessor {
   
         let publisher = await Account.findOrCreate(release.account.authority.toBase58());
   
-        await Release.query().insertGraph({
+        const releaseRecord = await Release.query().insertGraph({
           publicKey: release.publicKey.toBase58(),
           mint: release.account.releaseMint.toBase58(),
           metadata: metadataJson,
           datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
         })
+        await this.processRevenueSharesForRelease(release, releaseRecord);
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
+      }
+    }
+
+    for await (let releaseRecord of existingReleases) {
+      try {
+        const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
+        if (release) {
+          await this.processRevenueSharesForRelease(release, releaseRecord);
+        }
+      } catch (error) {
+        console.log('error processRevenueSharesForRelease existingReleases: ', error)
       }
     }
   }
@@ -344,6 +356,19 @@ class NinaProcessor {
         }      
       } catch (err) {
         console.log(err)
+      }
+    }
+  }
+
+  async processRevenueSharesForRelease (releaseData, releaseRecord) {
+    for await (let recipient of releaseData.account.royaltyRecipients) {
+      try {
+        if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
+          const recipientAccount = await Account.findOrCreate(recipient.recipientAuthority.toBase58());
+          await Account.relatedQuery('revenueShares').for(recipientAccount.id).relate(releaseRecord.id);
+        }
+      } catch (error) {
+        console.log('error processing royaltyRecipients: ', error)
       }
     }
   }
