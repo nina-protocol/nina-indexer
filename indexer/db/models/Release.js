@@ -106,6 +106,7 @@ class Release extends Model {
           through : {
             from: 'hubs_releases.releaseId',
             to: 'hubs_releases.hubId',
+            extra: ['publicKey'],
           },
           to: 'hubs.id',
         },

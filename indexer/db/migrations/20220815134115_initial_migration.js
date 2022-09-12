@@ -89,6 +89,9 @@
         .inTable('releases')
         .onDelete('CASCADE')
         .index();
+      table.string('publicKey')
+        .unique()
+        .notNullable();
     }),
     knex.schema.createTable('posts_releases', table => {
       table.primary(['postId', 'releaseId']);
@@ -118,7 +121,10 @@
         .references('id')
         .inTable('accounts')
         .onDelete('CASCADE')
-        .index();        
+        .index();
+      table.string('publicKey')
+        .unique()
+        .notNullable();        
     }),
     knex.schema.createTable('hubs_posts', table => {
       table.primary(['hubId', 'postId']);
@@ -132,6 +138,54 @@
         .unsigned()
         .references('id')
         .inTable('posts')
+        .onDelete('CASCADE')
+        .index();
+      table.string('publicKey')
+        .unique()
+        .notNullable();
+    }),
+    knex.schema.createTable('exchanges', table => {
+      table.increments('id').primary();
+      table.string('publicKey').unique().notNullable();
+      table.boolean('isSale').notNullable();
+      table.decimal('expectedAmount').notNullable();
+      table.decimal('initializerAmount').notNullable();
+      table.boolean('cancelled').notNullable();
+      table.string('createdAt').notNullable();
+      table.string('updatedAt');
+      table.integer('initializerId')
+        .notNullable()
+        .unsigned()
+        .references('id')
+        .inTable('accounts')
+        .onDelete('SET NULL')
+        .index();
+      table.integer('completedById')
+        .unsigned()
+        .references('id')
+        .inTable('accounts')
+        .onDelete('SET NULL')
+        .index();
+      table.integer('releaseId')
+        .notNullable()
+        .unsigned()
+        .references('id')
+        .inTable('releases')
+        .onDelete('SET NULL')
+        .index();
+    }),
+    knex.schema.createTable('releases_revenue_share', table => {
+      table.primary(['releaseId', 'accountId']);
+      table.integer('releaseId')
+        .unsigned()
+        .references('id')
+        .inTable('releases')
+        .onDelete('CASCADE')
+        .index();
+      table.integer('accountId')
+        .unsigned()
+        .references('id')
+        .inTable('accounts')
         .onDelete('CASCADE')
         .index();
     }),
@@ -153,5 +207,7 @@ exports.down = function(knex) {
     .dropTableIfExists('posts_releases')
     .dropTableIfExists('posts')
     .dropTableIfExists('hubs')
-    .dropTableIfExists('accounts');
+    .dropTableIfExists('accounts')
+    .dropTableIfExists('exchanges')
+    .dropTableIfExists('releases_revenue_share')
 };

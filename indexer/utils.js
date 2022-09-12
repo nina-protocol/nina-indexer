@@ -9,12 +9,11 @@ const removeQuotesFromStartAndEndOfString = (string) => {
 }
 
 const stripHtmlIfNeeded = (object, value) => {
-  const strippedDescription = striptags(object[value]);
+  const strippedDescription = striptags(object[value], [], " ");
   if (strippedDescription !== object[value]) {
     object[value+"Html"] = object[value];
     object[value] = removeQuotesFromStartAndEndOfString(strippedDescription);
   }
-
 }
 
 module.exports = {

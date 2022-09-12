@@ -40,6 +40,7 @@ class Post extends Model {
     const Account = require('./Account');
     const Hub = require('./Hub');
     const Release = require('./Release');
+    
     return {
       publishedThroughHub: {
         relation: Model.BelongsToOneRelation,
@@ -65,6 +66,7 @@ class Post extends Model {
           through : {
             from: 'hubs_posts.postId',
             to: 'hubs_posts.hubId',
+            extra: ['publicKey'],
           },
           to: 'hubs.id',
         },
