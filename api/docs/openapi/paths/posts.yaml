@@ -2,8 +2,6 @@ get:
   tags:
     - Posts
   summary: Get All Posts
-  description: |
-    Post description
   operationId: getPosts
   responses:
     '200':

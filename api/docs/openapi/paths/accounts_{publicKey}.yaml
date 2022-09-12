@@ -2,8 +2,7 @@ get:
   tags:
     - Accounts
   summary: Get Account by publicKey
-  description: |
-    Returns an Account by publicKey.
+
   operationId: getAccountByPublicKey
   parameters:
     - name: publicKey

@@ -2,8 +2,6 @@ get:
   tags:
     - Releases
   summary: Get Hubs by publicKey
-  description: |
-    An Array of publicKeys of all [Hubs](#tag/Hub) that have collected this Release.
   operationId: getHubsByReleasePublicKey
   parameters:
     - name: publicKey

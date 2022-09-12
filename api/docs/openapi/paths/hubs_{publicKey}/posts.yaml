@@ -2,8 +2,6 @@ get:
   tags:
     - Hubs
   summary: Get Posts by publicKey
-  description: |
-    An Array of all [Posts](/#tag/Posts) on this Hub.
   operationId: getPostsByHubPublicKey
   parameters:
     - name: publicKey

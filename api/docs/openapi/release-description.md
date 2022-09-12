@@ -1,0 +1,1 @@
+`Releases` are a Nina primitive that assembles token logic and metadata to create a purchasble edition of music.

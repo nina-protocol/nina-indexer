@@ -1,7 +1,7 @@
 get:
   tags:
     - Accounts
-  summary: Get Exchanges
+  summary: Get Exchanges by publicKey
   description: |
     An Array of all Exhanges this Account has created or completed.
   operationId: getExchangesByAccountPublicKey
@@ -18,10 +18,13 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              properties:
-              $ref: ../../components/schemas/Exchange.yaml
+            type: object
+            properties: 
+              exchanges:
+                type: array
+                items:
+                  properties:
+                  $ref: ../../components/schemas/Exchange.yaml
     '404':
       description: Account not found
       $ref: ../../components/responses/Problem.yaml

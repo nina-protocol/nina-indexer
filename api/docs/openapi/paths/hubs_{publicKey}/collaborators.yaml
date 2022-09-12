@@ -2,8 +2,6 @@ get:
   tags:
     - Hubs
   summary: Get Collaborators by publicKey
-  description: |
-    An Array of publicKeys of all [Accounts](/#tag/Accounts) that are Collaborators on this Hub.
   operationId: getCollaboratorsByHubPublicKey
   parameters:
     - name: publicKey

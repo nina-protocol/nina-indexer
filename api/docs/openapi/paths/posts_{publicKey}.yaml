@@ -2,10 +2,6 @@ get:
   tags:
     - Posts
   summary: Get Post by publicKey
-  description: |
-    Returns a `Post` by publicKey.  
-
-    Additionally returns the `Publisher`'s [Account](/#/tag/Account) publicKey, and the [Hub](/#/tag/Hub) that the post was published to.
   parameters:
     - name: publicKey
       in: path

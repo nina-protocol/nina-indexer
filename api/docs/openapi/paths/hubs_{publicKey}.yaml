@@ -2,10 +2,6 @@ get:
   tags:
     - Hubs
   summary: Get Hub by publicKey
-  description: |
-    Returns a `Hub` by publicKey.  
-
-    Additionally returns the hubs `Collaborators`, [Releases](/#tag/Release) and [Posts](#tag/Post) that are associated with the hub.
   operationId: getHubByPublicKey
   parameters:
     - name: publicKey

@@ -14,15 +14,20 @@ info:
     $ref: ./info-description.md
 tags:
   - name: Accounts
-    description: Account Description
+    description: 
+          $ref: ./account-description.md
   - name: Hubs
-    description: Hub Description
+    description: 
+          $ref: ./hub-description.md
   - name: Posts
-    description: Post Description
+    description: 
+          $ref: ./post-description.md
   - name: Releases
-    description: Release Description
+    description: 
+      $ref: ./release-description.md
   - name: Search
-    description: Search Description
+    description: 
+      $ref: ./search-description.md
 servers:
   - url: 'https://{tenant}/api/v1'
     variables:

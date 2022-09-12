@@ -2,10 +2,6 @@ get:
   tags:
     - Hubs
   summary: Get All Hubs
-  description: |
-    `Hubs` are a Nina Primitive used for context, organization, and collaboration.    
-    
-     Hubs are allow their authority to publish and manage [Releases](#tag/Release) and [Posts](#tag/Post) as well as add collaborators.
   operationId: getHubs
   responses:
     '200':

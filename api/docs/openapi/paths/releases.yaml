@@ -2,9 +2,6 @@ get:
   tags:
     - Releases
   summary: Get All Releases
-  description: |
-    `Releases` are the base Primtive on Nina.  
-     Releases can be published through [Hubs](#tag/Hub) or associated with [Posts](#tag/Post).
   operationId: getReleases
   responses:
     '200':

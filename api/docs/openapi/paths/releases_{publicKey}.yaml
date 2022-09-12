@@ -2,8 +2,6 @@ get:
   tags:
     - Releases
   summary: Get Release by publicKey
-  description: |
-    Returns a [Release](#tag/Release) by publicKey.
   operationId: getReleaseByPublicKey
   parameters:
     - name: publicKey

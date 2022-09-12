@@ -2,8 +2,6 @@ get:
   tags:
     - Releases
   summary: Get Collectors by publicKey
-  description: |
-    An Array of publicKeys of all [Accounts](#tag/Account) that have collected this Release.
   operationId: getCollectorsByReleasePublicKey
   parameters:
     - name: publicKey

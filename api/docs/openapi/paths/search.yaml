@@ -26,5 +26,3 @@ post:
         application/json:
           schema:
             $ref: ../components/schemas/SearchResponse.yaml
-    '400':
-      $ref: ../components/responses/Problem.yaml

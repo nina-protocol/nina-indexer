@@ -2,10 +2,6 @@ get:
   tags:
     - Accounts
   summary: Get All Accounts
-  description: |
-    `Accounts` are the people who own and manage [Releases](#tag/Release) and [Hubs](#tag/Hub).  
-
-    basePath: `/accounts`
   operationId: getAccounts
   responses:
     '200':
