@@ -23,6 +23,10 @@ get:
                     publicKey:
                       type: string
                       description: The public key of the Account
+              total:
+                type: integer
+                description: The total number of Accounts
+                example: 100
 
     '404':
       description: Accounts not found

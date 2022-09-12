@@ -5,8 +5,7 @@ get:
   description: |
     Returns a `Post` by publicKey.  
 
-    Additionally returns the hubs `Collaborators`, [Releases](/#tag/Release) and [Posts](#tag/Post) that are associated with the hub.
-  operationId: getPostByPublicKey
+    Additionally returns the `Publisher`'s [Account](/#/tag/Account) publicKey, and the [Hub](/#/tag/Hub) that the post was published to.
   parameters:
     - name: publicKey
       in: path
@@ -20,7 +19,18 @@ get:
       content:
         application/json:
           schema:
-            $ref: ../components/schemas/Post.yaml
+            type: object
+            properties: 
+              post:
+                $ref: ../components/schemas/Post.yaml
+              publisher:
+                type: object
+                properties:
+                  publicKey:
+                    type: string
+              publishedThroughHub:
+                  $ref: ../components/schemas/Hub.yaml
+
 
     '404':
       description: Hub not found

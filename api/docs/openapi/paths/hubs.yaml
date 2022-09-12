@@ -19,6 +19,10 @@ get:
                 type: array
                 items:
                     $ref: ../components/schemas/Hub.yaml
+              total:
+                type: integer
+                description: The total number of hubs
+                example: 21
     '404':
       description: Hubs not found
       $ref: ../components/responses/Problem.yaml

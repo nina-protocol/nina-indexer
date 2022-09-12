@@ -67,6 +67,8 @@ paths:
     $ref: 'paths/releases_{publicKey}/collectors.yaml'
   /releases/{publicKey}/hubs:
     $ref: 'paths/releases_{publicKey}/hubs.yaml'
+  /releases/{publicKey}/exchanges:
+    $ref: 'paths/releases_{publicKey}/exchanges.yaml'
   /search:
     $ref: 'paths/search.yaml'
 components:

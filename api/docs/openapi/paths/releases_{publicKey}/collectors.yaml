@@ -1,7 +1,7 @@
 get:
   tags:
     - Releases
-  summary: Get Collectors
+  summary: Get Collectors by publicKey
   description: |
     An Array of publicKeys of all [Accounts](#tag/Account) that have collected this Release.
   operationId: getCollectorsByReleasePublicKey
@@ -18,15 +18,17 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                publicKey:
-                  type: string
-                  description: The publicKey of the Account that collected this Release 
-                  example: J1Uk2DNkcBaCmfzrXbe2TN5MQYNpszhvWaYrSNh5bkFX
-
+            type: object
+            properties: 
+              collectors:
+                type: array
+                items:
+                  type: object
+                  properties: 
+                    publicKey:
+                      type: string
+                      description: The publicKey of the Collector's Account
+                      example: "8gmohsY8Agbx9vQuBcaDRxUC5YHt7v76VLBeXgGyGWSn"
     '404':
       description: Release not found
       $ref: ../../components/responses/Problem.yaml

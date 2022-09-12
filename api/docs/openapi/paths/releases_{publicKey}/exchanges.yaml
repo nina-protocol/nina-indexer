@@ -1,10 +1,10 @@
 get:
   tags:
     - Releases
-  summary: Get Hubs by publicKey
+  summary: Get Exchanges by publicKey
   description: |
-    An Array of publicKeys of all [Hubs](#tag/Hub) that have collected this Release.
-  operationId: getHubsByReleasePublicKey
+    An Array of publicKeys of all `Exchanges` that have collected this Release.
+  operationId: getExchangesbyReleasePublicKey
   parameters:
     - name: publicKey
       in: path
