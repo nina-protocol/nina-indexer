@@ -299,6 +299,7 @@ module.exports = (router) => {
       }
 
       for await (let release of releases) {
+        console.log('release', release)
         await release.format();
       }
 
@@ -376,7 +377,7 @@ module.exports = (router) => {
         .query()
         .joinRelated('hubs')
         .where('hubs_join.hubId', hub.id)
-        .where('hubs_join.publicKey', ctx.params.hubReleasePublicKey)
+        .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
       await hub.format();
       await release.format();
@@ -397,7 +398,7 @@ module.exports = (router) => {
         .query()
         .joinRelated('hubs')
         .where('hubs_join.hubId', hub.id)
-        .where('hubs_join.publicKey', ctx.params.hubPostPublicKey)
+        .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
         .first()
       await hub.format();
       await post.format();

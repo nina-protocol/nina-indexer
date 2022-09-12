@@ -63,7 +63,7 @@ class Hub extends Model {
           if (release) {
             await Hub.relatedQuery('releases').for(hub.id).relate({
               id: release.id,
-              publicKey: hubRelease.publicKey.toBase58(),
+              hubReleasePublicKey: hubRelease.publicKey.toBase58(),
             });
             if (hubContent.account.publishedThroughHub) {
               await release.$query().patch({hubId: hub.id});
@@ -86,7 +86,7 @@ class Hub extends Model {
         if (collaboratorRecord) {
           await Hub.relatedQuery('collaborators').for(hub.id).relate({
             id: collaboratorRecord.id,
-            publicKey: hubCollaborator.publicKey.toBase58(),
+            hubCollaboratorPublicKey: hubCollaborator.publicKey.toBase58(),
           })
           console.log('Related Collaborator to Hub:', collaboratorRecord.publicKey, hub.publicKey);
         }
@@ -125,7 +125,7 @@ class Hub extends Model {
           if (post) {
             await Hub.relatedQuery('posts').for(hub.id).relate({
               id: post.id,
-              publicKey: hubPost.publicKey.toBase58(),
+              hubPostPublicKey: hubPost.publicKey.toBase58(),
             });
             if (hubContent.account.publishedThroughHub) {
               await post.$query().patch({hubId: hub.id});
@@ -178,7 +178,7 @@ class Hub extends Model {
           through: {
             from: 'hubs_collaborators.hubId',
             to: 'hubs_collaborators.accountId',
-            extra: ['publicKey'],
+            extra: ['hubCollaboratorPublicKey'],
           },
           to: 'accounts.id',
         },
@@ -191,7 +191,7 @@ class Hub extends Model {
           through: {
             from: 'hubs_posts.hubId',
             to: 'hubs_posts.postId',
-            extra: ['publicKey'],
+            extra: ['hubPostPublicKey'],
           },
           to: 'posts.id',
         },
@@ -204,7 +204,7 @@ class Hub extends Model {
           through: {
             from: 'hubs_releases.hubId',
             to: 'hubs_releases.releaseId',
-            extra: ['publicKey'],
+            extra: ['hubReleasePublicKey'],
           },
           to: 'releases.id',
         },

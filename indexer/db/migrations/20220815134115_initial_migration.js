@@ -89,7 +89,7 @@
         .inTable('releases')
         .onDelete('CASCADE')
         .index();
-      table.string('publicKey')
+      table.string('hubReleasePublicKey')
         .unique()
         .notNullable();
     }),
@@ -122,7 +122,7 @@
         .inTable('accounts')
         .onDelete('CASCADE')
         .index();
-      table.string('publicKey')
+      table.string('hubCollaboratorPublicKey')
         .unique()
         .notNullable();        
     }),
@@ -140,7 +140,7 @@
         .inTable('posts')
         .onDelete('CASCADE')
         .index();
-      table.string('publicKey')
+      table.string('hubPostPublicKey')
         .unique()
         .notNullable();
     }),

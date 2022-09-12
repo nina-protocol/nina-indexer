@@ -66,7 +66,7 @@ class Post extends Model {
           through : {
             from: 'hubs_posts.postId',
             to: 'hubs_posts.hubId',
-            extra: ['publicKey'],
+            extra: ['hubPostPublicKey'],
           },
           to: 'hubs.id',
         },
