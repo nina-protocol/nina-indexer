@@ -1,0 +1,24 @@
+get:
+  tags:
+    - Account
+  summary: Get Account by publicKey
+  description: |
+    Returns an Account by publicKey.
+  operationId: getAccountByPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Account to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Account.yaml
+    '404':
+      description: Account not found
+      $ref: ../components/responses/Problem.yaml

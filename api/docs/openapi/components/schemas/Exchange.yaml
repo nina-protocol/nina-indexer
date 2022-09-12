@@ -1,0 +1,46 @@
+description: Exchange
+type: object
+properties: 
+  publicKey:
+    type: string
+    description: >-
+      The publicKey of the Exchange 
+    example: "2w1LbxjmPRHjhFpfMuvhLVhqZrNpTfdLo9nYptvZD2YK"
+  isSale:
+    type: boolean
+    description: >-
+      Describes whether the exchange is a sale or not (i.e. True = Sale, False = Bid)
+  expectedAmount:
+    type: 'string'
+    description: >-
+      If isSale is True, this is the amount of USDC expected to be received by the seller. If isSale is False, this is the amount of Releases expected to be received by the buyer (1)
+    example: "249.00"
+  initializerAmount:
+    type: 'string'
+    description: >-
+      If isSale is True, this is the amount of Releases to be sold to the buyer (1). If isSale is False, this is the amount of USDC being bid to purchase the Release
+    example: "1.00"
+  cancelled:
+    type: boolean
+    description: >-
+      Describes whether the exchange has been cancelled or not
+  createdAt:
+    type: string
+    format: date-time
+    description: >-
+      The datetime the Exchange was created
+    example: "2020-01-01T00:00:00Z"
+  updatedAt:
+    type: ['null', string] 
+    format: date-time
+    description: >-
+      The datetime the Exchange was last updated
+    example: "2020-01-01T00:00:00Z"
+  release:
+    type: string
+    description: >-
+      The publicKey of the Release associated with the Exchange
+  initializer:
+    type: string
+    description: >-
+      The publicKey of the Account that initialized the Exchange

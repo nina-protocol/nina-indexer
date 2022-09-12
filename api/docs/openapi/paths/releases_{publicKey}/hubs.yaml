@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Release
+  summary: Get Hubs
+  description: |
+    An Array of publicKeys of all [Hubs](#tag/Hub) that have collected this Release.
+  operationId: getHubsByReleasePublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Release to be fetch Hubs for
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties:
+              $ref: ../../components/schemas/Hub.yaml
+    '404':
+      description: Release not found
+      $ref: ../../components/responses/Problem.yaml

@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Hub
+  summary: Get Posts
+  description: |
+    An Array of all [Posts](/#tag/Posts) on this Hub.
+  operationId: getPostsByHubPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Hub to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties:
+              $ref: ../../components/schemas/Post.yaml
+    '404':
+      description: Hub not found
+      $ref: ../../components/responses/Problem.yaml

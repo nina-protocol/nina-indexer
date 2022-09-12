@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Account
+  summary: Get Account Hubs
+  description: |
+    An Array of all [Hubs](#tag/Hub) this Account is a collaborator on.
+  operationId: getHubsByAccountPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Account to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties:
+              $ref: ../../components/schemas/Hub.yaml
+    '404':
+      description: Account not found
+      $ref: ../../components/responses/Problem.yaml

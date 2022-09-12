@@ -1,0 +1,22 @@
+get:
+  tags:
+    - Hub
+  summary: Get All Hubs
+  description: |
+    `Hubs` are a Nina Primitive used for context, organization, and collaboration.    
+    
+     Hubs are allow their authority to publish and manage [Releases](#tag/Release) and [Posts](#tag/Post) as well as add collaborators.
+  operationId: getHubs
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties: 
+              $ref: ../components/schemas/Hub.yaml
+    '404':
+      description: Hubs not found
+      $ref: ../components/responses/Problem.yaml

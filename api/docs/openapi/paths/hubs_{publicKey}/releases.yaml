@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Hub
+  summary: Get Releases
+  description: |
+    An Array of all [Releases](/#tag/Releases) on this Hub.
+  operationId: getReleasesByHubPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Hub to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties:
+              $ref: ../../components/schemas/Release.yaml
+    '404':
+      description: Hub not found
+      $ref: ../../components/responses/Problem.yaml

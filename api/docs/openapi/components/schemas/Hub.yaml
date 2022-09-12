@@ -1,0 +1,45 @@
+type: object
+properties:
+  publicKey:
+    description: The Hub's public key
+    type: string
+    example: Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF
+  handle:
+    description: the-testing-place
+    type: string
+    example: Nina's Picks
+  data:
+    description: Hub Data
+    type: object
+    properties: 
+      image:
+        description: The Hub's image
+        type: string
+        format: uri
+        example: https://arweave.net/dKgfL3dJnuYZmV_tnYkcM8zTHoNGwUC4LJmffUIViBU
+      displayName:
+        description: The Hub's display name
+        type: string
+        example: Nina's Picks
+      description:
+        description: the Hub's description
+        type: string
+        example: "Nina's Picks is a collection of the best music from Nina."
+      externalUrl: 
+        type: string
+        format: uri
+        description: The Hub's external URL
+        example: https://hubs.ninaprotocol.com/kontravoid"
+      descriptionHtml:
+        description: the Hub's description with HTML formatting
+        type: string
+        example: "Nina's Picks is a collection of the best music from Nina."
+  dateTime:
+    description: The Hub's datetime
+    type: string
+    format: date-time
+    example: "2020-01-01T00:00:00Z"
+  authority:
+    description: The Hub's authority
+    type: string
+    example: 5JcXwSDJwtvDvuaTeChEXWGFDwjZDfUBPvtDKp9fbc25

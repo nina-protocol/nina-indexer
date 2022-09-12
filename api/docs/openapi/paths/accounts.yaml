@@ -1,0 +1,30 @@
+get:
+  tags:
+    - Account
+  summary: Get All Accounts
+  description: |
+    `Accounts` are the people who own and manage [Releases](#tag/Release) and [Hubs](#tag/Hub).  
+
+    basePath: `/accounts`
+  operationId: getAccounts
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            name: Accounts
+            properties:
+              accounts:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    publicKey:
+                      type: string
+                      description: The public key of the Account
+
+    '404':
+      description: Accounts not found
+      $ref: ../components/responses/Problem.yaml

@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Account
+  summary: Get Releases Published
+  description: |
+    An Array of all [Releases](#tag/Release) this Account has published.
+  operationId: getPublishedByAccountPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Account to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties:
+              $ref: ../../components/schemas/Release.yaml
+    '404':
+      description: Account not found
+      $ref: ../../components/responses/Problem.yaml

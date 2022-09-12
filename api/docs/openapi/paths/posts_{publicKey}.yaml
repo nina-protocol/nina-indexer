@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Post
+  summary: Get Post by publicKey
+  description: |
+    Returns a `Post` by publicKey.  
+
+    Additionally returns the hubs `Collaborators`, [Releases](/#tag/Release) and [Posts](#tag/Post) that are associated with the hub.
+  operationId: getPostByPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Post to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Post.yaml
+
+    '404':
+      description: Hub not found
+      $ref: ../components/responses/Problem.yaml

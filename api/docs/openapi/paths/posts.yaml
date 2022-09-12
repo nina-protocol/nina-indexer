@@ -1,0 +1,20 @@
+get:
+  tags:
+    - Post
+  summary: Get All Posts
+  description: |
+    Post description
+  operationId: getPosts
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              properties: 
+              $ref: ../components/schemas/Post.yaml
+    '404':
+      description: Hubs not found
+      $ref: ../components/responses/Problem.yaml

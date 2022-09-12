@@ -1,0 +1,56 @@
+type: object
+properties:
+  artists:
+    description: Artists that match the Search Query
+    type: array
+    items:
+      type: object
+      properties: 
+        name:
+          type: string
+          description: Artist name
+          example: 'John Smith'
+        publicKey:
+          type: string
+          description: Artist publicKey
+          example: 'J1Uk2DNkcBaCmfzrXbe2TN5MQYNpszhvWaYrSNh5bkFX'
+  releases:
+    description: Releases that match the Search Query
+    type: array
+    items:
+      type: object
+      properties: 
+        artist:
+          type: string
+          description: Artist name
+          example: 'John Smith'
+        title:
+          type: string
+          description: Release title
+        image:
+          type: string
+          description: Release image
+          example: 'https://i.scdn.co/image/ab67616d0000b273f8f8f8f8f8f8f8f8f8f8f8f8f8'
+        publicKey:
+          type: string
+          description: Release publicKey
+          example: 'B3n45RrLRg9MG4yswBQ8xrku8WXgmt7dX394eDfqzWSo'
+  hubs:
+    description: Hubs that match the Search Query
+    type: array
+    items:
+      type: object
+      properties:
+        handle:
+          type: string
+          description: Hub handle
+          example: 'the-testing-place'
+        publicKey:
+          type: string
+          description: Hub publicKey
+          example: 'Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF'
+        image:
+          type: string
+          description: Hub image
+          example: 'https://arweave.net/dKgfL3dJnuYZmV_tnYkcM8zTHoNGwUC4LJmffUIViBU'
+      
