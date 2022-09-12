@@ -1,7 +1,7 @@
 get:
   tags:
-    - Account
-  summary: Get Releases Collected 
+    - Accounts
+  summary: Get Collected 
   description: |
     An Array of all [Releases](#tag/Release) collected by this Account.
   operationId: getCollectedByAccountPublicKey

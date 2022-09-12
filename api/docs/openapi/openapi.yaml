@@ -13,14 +13,14 @@ info:
   description:
     $ref: ./info-description.md
 tags:
-  - name: Account
+  - name: Accounts
     description: Account Description
-  - name: Release
-    description: Release Description
-  - name: Hub
+  - name: Hubs
     description: Hub Description
-  - name: Post
+  - name: Posts
     description: Post Description
+  - name: Releases
+    description: Release Description
   - name: Search
     description: Search Description
 servers:
@@ -37,6 +37,8 @@ paths:
     $ref: 'paths/accounts_{publicKey}.yaml'
   /accounts/{publicKey}/collected:
     $ref: paths/accounts_{publicKey}/collected.yaml
+  /accounts/{publicKey}/exchanges:
+    $ref: paths/accounts_{publicKey}/exchanges.yaml
   /accounts/{publicKey}/hubs:
     $ref: paths/accounts_{publicKey}/hubs.yaml
   /accounts/{publicKey}/posts:

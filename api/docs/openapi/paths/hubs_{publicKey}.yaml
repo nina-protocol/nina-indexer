@@ -1,6 +1,6 @@
 get:
   tags:
-    - Hub
+    - Hubs
   summary: Get Hub by publicKey
   description: |
     Returns a `Hub` by publicKey.  

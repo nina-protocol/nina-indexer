@@ -1,6 +1,6 @@
 get:
   tags:
-    - Post
+    - Posts
   summary: Get All Posts
   description: |
     Post description

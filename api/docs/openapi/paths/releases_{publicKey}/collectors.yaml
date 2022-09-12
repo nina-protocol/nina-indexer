@@ -1,6 +1,6 @@
 get:
   tags:
-    - Release
+    - Releases
   summary: Get Collectors
   description: |
     An Array of publicKeys of all [Accounts](#tag/Account) that have collected this Release.

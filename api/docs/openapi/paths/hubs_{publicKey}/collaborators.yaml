@@ -1,6 +1,6 @@
 get:
   tags:
-    - Hub
+    - Hubs
   summary: Get Collaborators 
   description: |
     An Array of publicKeys of all [Accounts](/#tag/Accounts) that are Collaborators on this Hub.

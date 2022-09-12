@@ -1,14 +1,14 @@
 get:
   tags:
-    - Releases
-  summary: Get Hubs
+    - Accounts
+  summary: Get Exchanges
   description: |
-    An Array of publicKeys of all [Hubs](#tag/Hub) that have collected this Release.
-  operationId: getHubsByReleasePublicKey
+    An Array of all Exhanges this Account has created or completed.
+  operationId: getExchangesByAccountPublicKey
   parameters:
     - name: publicKey
       in: path
-      description: The publicKey of the Release to be fetch Hubs for
+      description: The publicKey of the Account to be fetched
       required: true
       schema:
         type: string
@@ -21,7 +21,7 @@ get:
             type: array
             items:
               properties:
-              $ref: ../../components/schemas/Hub.yaml
+              $ref: ../../components/schemas/Exchange.yaml
     '404':
-      description: Release not found
+      description: Account not found
       $ref: ../../components/responses/Problem.yaml

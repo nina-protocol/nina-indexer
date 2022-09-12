@@ -1,7 +1,7 @@
 get:
   tags:
-    - Account
-  summary: Get Releases Published
+    - Accounts
+  summary: Get Published
   description: |
     An Array of all [Releases](#tag/Release) this Account has published.
   operationId: getPublishedByAccountPublicKey

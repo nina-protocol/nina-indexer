@@ -1,7 +1,7 @@
 get:
   tags:
-    - Account
-  summary: Get Account Posts
+    - Accounts
+  summary: Get Posts
   description: |
     An Array of all [Posts](#tag/Post) this Account has published.
   operationId: getPostsByAccountPublicKey

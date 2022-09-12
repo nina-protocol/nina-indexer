@@ -1,6 +1,6 @@
 get:
   tags:
-    - Hub
+    - Hubs
   summary: Get All Hubs
   description: |
     `Hubs` are a Nina Primitive used for context, organization, and collaboration.    

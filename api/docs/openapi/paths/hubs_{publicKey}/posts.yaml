@@ -1,6 +1,6 @@
 get:
   tags:
-    - Hub
+    - Hubs
   summary: Get Posts
   description: |
     An Array of all [Posts](/#tag/Posts) on this Hub.

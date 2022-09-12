@@ -1,6 +1,6 @@
 get:
   tags:
-    - Post
+    - Posts
   summary: Get Post by publicKey
   description: |
     Returns a `Post` by publicKey.  

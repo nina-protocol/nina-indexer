@@ -1,6 +1,6 @@
 get:
   tags:
-    - Release
+    - Releases
   summary: Get Release by publicKey
   description: |
     Returns a [Release](#tag/Release) by publicKey.

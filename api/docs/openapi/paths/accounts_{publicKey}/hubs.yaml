@@ -1,7 +1,7 @@
 get:
   tags:
-    - Account
-  summary: Get Account Hubs
+    - Accounts
+  summary: Get Hubs
   description: |
     An Array of all [Hubs](#tag/Hub) this Account is a collaborator on.
   operationId: getHubsByAccountPublicKey

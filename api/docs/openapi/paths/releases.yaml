@@ -1,6 +1,6 @@
 get:
   tags:
-    - Release
+    - Releases
   summary: Get All Releases
   description: |
     `Releases` are the base Primtive on Nina.  

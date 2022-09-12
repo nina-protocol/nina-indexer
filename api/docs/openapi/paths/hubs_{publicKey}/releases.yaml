@@ -1,6 +1,6 @@
 get:
   tags:
-    - Hub
+    - Hubs
   summary: Get Releases
   description: |
     An Array of all [Releases](/#tag/Releases) on this Hub.
