@@ -20,31 +20,26 @@ get:
       content:
         application/json:
           schema:
-            $ref: ../components/schemas/Hub.yaml
             type: object
             properties:
+              hub:
+                $ref: ../components/schemas/Hub.yaml
               collaborators:
-                description: The Hub's collaborators
                 type: array
-                items:
+                items: 
                   type: object
-                  properties: 
-                    publickey:
+                  properties:
+                    publicKey:
                       type: string
-                      description: The collaborator's public key
-                      example: 3Afmiq7pXRnxaSY3wH2fQqoHNoWPXBf6eSMPuQnPxRHE
               releases:
-                description: The Hub's releases
                 type: array
                 items:
-                  type: object
-                  properties: 
-                    $ref: './Release.yaml'
+                  $ref: ../components/schemas/Release.yaml
               posts:
-                description: The Hub's posts
                 type: array
                 items:
-                  $ref: './Post.yaml'
+                  $ref: ../components/schemas/Post.yaml
+ 
     '404':
       description: Hub not found
       $ref: ../components/responses/Problem.yaml

@@ -1,7 +1,7 @@
 get:
   tags:
     - Hubs
-  summary: Get Collaborators 
+  summary: Get Collaborators by publicKey
   description: |
     An Array of publicKeys of all [Accounts](/#tag/Accounts) that are Collaborators on this Hub.
   operationId: getCollaboratorsByHubPublicKey
@@ -18,14 +18,21 @@ get:
       content:
         application/json:
           schema:
-            type: array
-            items:
-              type: object
-              properties:
-                publicKey:
-                  type: string
-                  description: The publicKey of Collaborator's Account
-                  example: 6Bi3eJ5fpNrfNbNrdAyf5jZwCasrMYk3TAQWkgw2At98
+            type: object
+            properties:
+              collaborators:
+                type: array
+                items:
+                  type: object
+                  properties: 
+                    publicKey:
+                      type: string
+                      description: The publicKey of the Account
+                      example: "7Z4Bvx6kqLvRF6tseWG9dkj1Xy4G5hJs4BV78ecddG7P"
+              publicKey:
+                type: string
+                description: the publicKey of the Hub
+                example: "BY2CWqiV5oUWvLcSfGhcg6a75mNG5uLKLDAKMmaYnuix"
     '404':
       description: Hub not found
       $ref: ../../components/responses/Problem.yaml
