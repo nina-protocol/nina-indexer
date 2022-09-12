@@ -220,6 +220,11 @@ module.exports = (router) => {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
       for await (let account of collectors) {
+        if (ctx.request.query.withCollection) {
+          const collectedReleases = await account.$relatedQuery('collected')
+          const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
+          account.collection = collectedPublicKeys
+        }
         await account.format();
       }
       ctx.body = { collectors };
