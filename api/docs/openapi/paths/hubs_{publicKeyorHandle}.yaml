@@ -2,14 +2,21 @@ get:
   tags:
     - Hubs
   summary: Get Hub by publicKey or handle
-  operationId: getHubByPublicKey
+  operationId: getHubByPublicKeyOrHandle
   parameters:
-    - name: publicKeyorHandle
+    - name: publicKeyOrHandle
       in: path
-      description: The publicKey of the Hub to be fetched
+      description: The publicKey or handle of the Hub to be fetched
       required: true
       schema:
         type: string
+      examples:
+        handle:
+          value: "ninas-picks"
+          summary: 'A Hub Handle'
+        publicKey:
+          value: "4QECgzp8hjknK3pvPEMoXATywcsNnH4MU49tVvDWLgKg"
+          summary: 'A Hub publicKey'
   responses:
     '200':
       description: Success

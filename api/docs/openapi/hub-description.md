@@ -1,6 +1,5 @@
-`Hubs` are a Nina primitive that creates a container around [Releases](/#tag/Releases), [Posts](/#tag/Posts).
+`Hubs` are a Nina primitive that creates a container around [Releases](/#tag/Releases), [Posts](/#tag/Posts), and `Collaborators`.
 
-`Hubs` have `Collaborators`:
 - `Collaborators` are [Accounts](/#tag/Accounts) that have varying permissions on the `Hub`. 
 - Permissions are as follows:
   - `canAddHubContent`  (`boolean`)

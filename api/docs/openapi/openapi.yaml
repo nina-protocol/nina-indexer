@@ -9,7 +9,7 @@ info:
     name: Apache 2.0
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
   x-logo:
-    url: 'https://redocly.github.io/openapi-template/logo.png'
+    url: 'https://dokuapveew3fcnpixu2zglmhvin46l5p3akgg662wcb6n55dureq.arweave.net/G5VAPqQltlE16L01ky2HqhvPL6_YFGN72rCD5vejpEk'
   description:
     $ref: ./info-description.md
 tags:
@@ -52,14 +52,14 @@ paths:
     $ref: paths/accounts_{publicKey}/published.yaml
   /hubs:
     $ref: 'paths/hubs.yaml'
-  /hubs/{publicKey}:
-    $ref: 'paths/hubs_{publicKey}.yaml'
-  /hubs/{publicKey}/collaborators:
-    $ref: paths/hubs_{publicKey}/collaborators.yaml
-  /hubs/{publicKey}/posts:
-    $ref: paths/hubs_{publicKey}/posts.yaml
-  /hubs/{publicKey}/releases:
-    $ref: paths/hubs_{publicKey}/releases.yaml
+  /hubs/{publicKeyOrHandle}:
+    $ref: 'paths/hubs_{publicKeyOrHandle}.yaml'
+  /hubs/{publicKeyOrHandle}/collaborators:
+    $ref: paths/hubs_{publicKeyOrHandle}/collaborators.yaml
+  /hubs/{publicKeyOrHandle}/posts:
+    $ref: paths/hubs_{publicKeyOrHandle}/posts.yaml
+  /hubs/{publicKeyOrHandle}/releases:
+    $ref: paths/hubs_{publicKeyOrHandle}/releases.yaml
   /posts:
     $ref: 'paths/posts.yaml'
   /posts/{publicKey}:
