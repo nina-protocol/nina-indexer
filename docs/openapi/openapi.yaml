@@ -29,12 +29,8 @@ tags:
     description: 
       $ref: ./search-description.md
 servers:
-  - url: 'https://{tenant}/api/v1'
-    variables:
-      tenant:
-        default: www
-        description: Your tenant id
-  - url: 'https://example.com/api/v1'
+  - url: 'https://api.ninaprotocol.com/v1'
+  - url: 'https://dev.api.ninaprotocol.com/v1'
 paths:
   /accounts:
     $ref: 'paths/accounts.yaml'
