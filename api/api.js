@@ -220,6 +220,11 @@ module.exports = (router) => {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
       for await (let account of collectors) {
+        if (ctx.request.query.withCollection) {
+          const collectedReleases = await account.$relatedQuery('collected')
+          const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
+          account.collection = collectedPublicKeys
+        }
         await account.format();
       }
       ctx.body = { collectors };
@@ -294,6 +299,7 @@ module.exports = (router) => {
       }
 
       for await (let release of releases) {
+        console.log('release', release)
         await release.format();
       }
 
@@ -362,6 +368,48 @@ module.exports = (router) => {
       console.log(err)
       hubNotFound(ctx)
     }
+  })
+
+  router.get('/hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      const release = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
+        .first()
+      await hub.format();
+      await release.format();
+      ctx.body = {
+        release,
+        hub,
+      }
+    } catch (err) {
+      console.log(err)
+      hubReleaseNotFound(ctx)
+    }   
+  })
+
+  router.get('/hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      const post = await Post
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
+        .first()
+      await hub.format();
+      await post.format();
+      ctx.body = {
+        post,
+        hub,
+      }
+    } catch (err) {
+      console.log(err)
+      hubPostNotFound(ctx)
+    }   
   })
 
   router.get('/posts', async (ctx) => {
@@ -471,6 +519,20 @@ const hubNotFound = (ctx) => {
   ctx.status = 404
   ctx.body = {
     message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+  }
+}
+
+const hubReleaseNotFound = (ctx) => {
+  ctx.status = 404
+  ctx.body = {
+    message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
+  }
+}
+
+const hubPostNotFound = (ctx) => {
+  ctx.status = 404
+  ctx.body = {
+    message: `HubPost not found with hub: ${ctx.params.publicKeyOrHandle} and HubPost publicKey: ${ctx.params.hubPostPublicKey}`
   }
 }
 

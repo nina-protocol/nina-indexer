@@ -84,6 +84,7 @@ class Account extends Model {
           through : {
             from: 'hubs_collaborators.accountId',
             to: 'hubs_collaborators.hubId',
+            extra: ['hubCollaboratorPublicKey'],
           },
           to: 'hubs.id',
         },
