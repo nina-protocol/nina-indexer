@@ -108,7 +108,7 @@ properties:
     example: FXfR3cqeTZBWi3eGMwh3vFpR7teJYNqUiqfnnmRFPy1C
   publisher:
     type: string
-    description: publicKey of Publishers Account
+    description: publicKey of Publisher's Account
     example:  4nnJ47qxEoD54tbnhd9pFjDeit5qvjZDh5oA95QXT5fq
   
                 

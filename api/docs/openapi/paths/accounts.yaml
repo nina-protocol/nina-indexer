@@ -14,11 +14,7 @@ get:
               accounts:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    publicKey:
-                      type: string
-                      description: The public key of the Account
+                  $ref: ../components/schemas/Account.yaml
               total:
                 type: integer
                 description: The total number of Accounts

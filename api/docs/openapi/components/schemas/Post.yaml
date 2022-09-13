@@ -17,6 +17,10 @@ properties:
         description: The Post's body
         type: string
         example: "Nina's Picks is a collection of the best music from Nina."
+      bodyHtml:
+        description: The Post's body with HTML (user's Rich Text formatting)
+        type: string
+        example: "Nina's Picks is a collection of the best music from Nina."
       reference:
         description: A Reference to a Release associated with the Post
         type: string

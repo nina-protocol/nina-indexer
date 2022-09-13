@@ -18,10 +18,10 @@ get:
           schema:
             type: object
             properties: 
-              hubs:
+              exchanges:
                 type: array
                 items:
-                  $ref: ../../components/schemas/Hub.yaml
+                  $ref: ../../components/schemas/Exchange.yaml
     '404':
       description: Release not found
       $ref: ../../components/responses/Problem.yaml

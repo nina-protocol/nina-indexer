@@ -1,10 +1,10 @@
 get:
   tags:
     - Hubs
-  summary: Get Hub by publicKey
+  summary: Get Hub by publicKey or handle
   operationId: getHubByPublicKey
   parameters:
-    - name: publicKey
+    - name: publicKeyorHandle
       in: path
       description: The publicKey of the Hub to be fetched
       required: true
@@ -26,6 +26,8 @@ get:
                   type: object
                   properties:
                     publicKey:
+                      type: string
+                    hubCollaboratorPublicKey:
                       type: string
               releases:
                 type: array
