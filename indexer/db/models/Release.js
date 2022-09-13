@@ -41,12 +41,10 @@ class Release extends Model {
   
   async format() {
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
-    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub').select('publicKey');
-
+    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
     }
-
     this.publisher = publisher.publicKey;
     delete this.publisherId
     delete this.hubId
