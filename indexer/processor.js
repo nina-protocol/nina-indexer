@@ -361,7 +361,7 @@ class NinaProcessor {
   }
 
   async processRevenueSharesForRelease (releaseData, releaseRecord) {
-    const royaltyRecipients = releaseData.account.royaltyRecipients || releaseData.royaltyRecipients
+    const royaltyRecipients = releaseData.account?.royaltyRecipients || releaseData.royaltyRecipients
     for await (let recipient of royaltyRecipients) {
       try {
         if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
