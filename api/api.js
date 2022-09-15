@@ -194,9 +194,12 @@ module.exports = (router) => {
   router.get('/releases/:publicKey', async (ctx) => {
     try {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
-      await release.format();
-      
-      ctx.body = { release };
+      if (!release) {
+        throw('Release not found')
+      } else {
+        await release.format();
+        ctx.body = { release };
+      }
     } catch (err) {
       console.log(err)
       releaseNotFound(ctx)
@@ -383,12 +386,13 @@ module.exports = (router) => {
         .first()
       if (!release) {
         throw('Release not found')
-      }
-      await hub.format();
-      await release.format();
-      ctx.body = {
-        release,
-        hub,
+      } else {
+        await hub.format();
+        await release.format();
+        ctx.body = {
+          release,
+          hub,
+        }
       }
     } catch (err) {
       console.log(err)
@@ -532,7 +536,9 @@ const hubReleaseNotFound = async (ctx) => {
   const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
   if (hubRelease) {
     const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
+    console.log('release', release)
     const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint)
+    console.log('metadataAccount', metadataAccount)
     const metadataJson = await axios.get(metadataAccount.uri)
 
     let publisher = await Account.findOrCreate(release.authority.toBase58());
@@ -567,6 +573,13 @@ const hubReleaseNotFound = async (ctx) => {
       if (hubContent.publishedThroughHub) {
         await releaseRecord.$query().patch({hubId: hub.id});
       }
+      await hub.format();
+      await releaseRecord.format();
+      ctx.body = {
+        release: releaseRecord,
+        hub,
+      }
+
     }
   } else {
     ctx.status = 404
