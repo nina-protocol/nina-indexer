@@ -538,15 +538,13 @@ const hubReleaseNotFound = async (ctx) => {
     const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
     console.log('release', release)
     const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
-    console.log('metadataAccount', metadataAccount)
-    const metadataJson = await axios.get(metadataAccount.uri)
 
     let publisher = await Account.findOrCreate(release.authority.toBase58());
   
     const releaseRecord = await Release.query().insertGraph({
       publicKey: hubRelease.release.toBase58(),
       mint: release.releaseMint.toBase58(),
-      metadata: metadataJson,
+      metadata: metadataAccount.json,
       datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
       publisherId: publisher.id,
     })
