@@ -566,7 +566,7 @@ const hubReleaseNotFound = async (ctx) => {
       const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
       await Hub.relatedQuery('releases').for(hub.id).relate({
         id: releaseRecord.id,
-        hubReleasePublicKey: hubRelease.publicKey.toBase58(),
+        hubReleasePublicKey: ctx.params.hubReleasePublicKey,
       });
       if (hubContent.publishedThroughHub) {
         await releaseRecord.$query().patch({hubId: hub.id});
