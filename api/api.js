@@ -1,10 +1,12 @@
 const { ref } = require('objection');
 const _ = require('lodash');
+const anchor = require('@project-serum/anchor');
 
 const Account = require('../indexer/db/models/Account');
 const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
+const NinaProcessor = require('../indexer/processor');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -522,10 +524,51 @@ const hubNotFound = (ctx) => {
   }
 }
 
-const hubReleaseNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
+const hubReleaseNotFound = async (ctx) => {
+  const hubRelease = await NinaProcessor.program.account.hubRelease(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey))
+  if (hubRelease) {
+    const release = await NinaProcessor.program.account.release(hubRelease.release)
+    const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint)
+    const metadataJson = await axios.get(metadataAccount.uri)
+
+    let publisher = await Account.findOrCreate(release.authority.toBase58());
+  
+    const releaseRecord = await Release.query().insertGraph({
+      publicKey: hubRelease.release.toBase58(),
+      mint: release.releaseMint.toBase58(),
+      metadata: metadataJson,
+      datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+      publisherId: publisher.id,
+    })
+    await NinaProcessor.processRevenueSharesForRelease(release, releaseRecord);
+
+    let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
+    if (!hub) {
+      hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
+    }
+    if (hub) {      
+      const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+        [
+          Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+          hubRelease.hub.toBuffer(),
+          hubRelease.release.toBuffer(),
+        ],
+        NinaProcessor.program.programId
+      )
+      const hubContent = await NinaProcessor.program.account.hubContent(hubContentPublicKey)
+      await Hub.relatedQuery('releases').for(hub.id).relate({
+        id: releaseRecord.id,
+        hubReleasePublicKey: hubRelease.publicKey.toBase58(),
+      });
+      if (hubContent.publishedThroughHub) {
+        await releaseRecord.$query().patch({hubId: hub.id});
+      }
+    }
+  } else {
+    ctx.status = 404
+    ctx.body = {
+      message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
+    }
   }
 }
 
@@ -563,4 +606,16 @@ const hubForPublicKeyOrHandle = async (ctx) => {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
   }
   return hub
+}
+
+const createRelease = async (publicKey) => {
+
+}
+
+const createHubRelease = async (hubReleasePublicKey) => {
+
+}
+
+const createHubPost = async (hubPostPublicKey) => {
+
 }
