@@ -525,6 +525,7 @@ const hubNotFound = (ctx) => {
 }
 
 const hubReleaseNotFound = async (ctx) => {
+  await NinaProcessor.init()
   const hubRelease = await NinaProcessor.program.account.hubRelease(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey))
   if (hubRelease) {
     const release = await NinaProcessor.program.account.release(hubRelease.release)
