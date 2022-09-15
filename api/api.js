@@ -302,7 +302,6 @@ module.exports = (router) => {
       }
 
       for await (let release of releases) {
-        console.log('release', release)
         await release.format();
       }
 
