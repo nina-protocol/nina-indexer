@@ -1,5 +1,9 @@
 const { Model } = require('objection');
 const { stripHtmlIfNeeded } = require('../../utils');
+const Account = require('./Account');
+const Exchange = require('./Exchange');
+const Hub = require('./Hub');
+const Post = require('./Post');
 
 class Release extends Model {
   static get tableName() {
@@ -86,11 +90,6 @@ class Release extends Model {
   }
 
   static relationMappings() {
-    const Account = require('./Account');
-    const Exchange = require('./Exchange');
-    const Hub = require('./Hub');
-    const Post = require('./Post');
-
     return {
       publishedThroughHub: {
         relation: Model.BelongsToOneRelation,

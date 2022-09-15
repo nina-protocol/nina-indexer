@@ -549,10 +549,7 @@ const hubReleaseNotFound = async (ctx) => {
     })
     await Release.processRevenueShares(release, releaseRecord);
 
-    let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
-    if (!hub) {
-      hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
-    }
+    let hub = await hubForPublicKeyOrHandle(ctx)
     if (hub) {      
       const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -593,10 +590,35 @@ const hubPostNotFound = (ctx) => {
   }
 }
 
-const releaseNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `Release not found with publicKey: ${ctx.params.publicKey}`
+const releaseNotFound = async (ctx) => {
+  try {
+    await NinaProcessor.init()
+    const release = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+    if (release) {
+      const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+    
+      let publisher = await Account.findOrCreate(release.authority.toBase58());
+    
+      const releaseRecord = await Release.findOrCreate({
+        publicKey: ctx.params.publicKey,
+        mint: release.releaseMint.toBase58(),
+        metadata: metadataAccount.json,
+        datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+        publisherId: publisher.id,
+      })
+      await Release.processRevenueShares(release, releaseRecord);
+      await releaseRecord.format();
+      ctx.body = {
+        release: releaseRecord,
+      }
+    } else {
+      throw("Release not found")
+    }
+  } catch (error) {
+    ctx.status = 404
+    ctx.body = {
+      message: `Release not found with publicKey: ${ctx.params.publicKey}`
+    }
   }
 }
 
@@ -620,16 +642,4 @@ const hubForPublicKeyOrHandle = async (ctx) => {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
   }
   return hub
-}
-
-const createRelease = async (publicKey) => {
-
-}
-
-const createHubRelease = async (hubReleasePublicKey) => {
-
-}
-
-const createHubPost = async (hubPostPublicKey) => {
-
 }
