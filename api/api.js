@@ -526,9 +526,9 @@ const hubNotFound = (ctx) => {
 
 const hubReleaseNotFound = async (ctx) => {
   await NinaProcessor.init()
-  const hubRelease = await NinaProcessor.program.account.hubRelease(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey))
+  const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey))
   if (hubRelease) {
-    const release = await NinaProcessor.program.account.release(hubRelease.release)
+    const release = await NinaProcessor.program.account.release.fetch(hubRelease.release)
     const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint)
     const metadataJson = await axios.get(metadataAccount.uri)
 
@@ -556,7 +556,7 @@ const hubReleaseNotFound = async (ctx) => {
         ],
         NinaProcessor.program.programId
       )
-      const hubContent = await NinaProcessor.program.account.hubContent(hubContentPublicKey)
+      const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey)
       await Hub.relatedQuery('releases').for(hub.id).relate({
         id: releaseRecord.id,
         hubReleasePublicKey: hubRelease.publicKey.toBase58(),
