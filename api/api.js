@@ -381,6 +381,9 @@ module.exports = (router) => {
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
+      if (!release) {
+        throw('Release not found')
+      }
       await hub.format();
       await release.format();
       ctx.body = {
