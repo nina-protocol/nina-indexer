@@ -1,7 +1,7 @@
 const { ref } = require('objection');
 const _ = require('lodash');
 const anchor = require('@project-serum/anchor');
-const axious = require('axios')
+const axios = require('axios')
 
 const Account = require('../indexer/db/models/Account');
 const Hub = require('../indexer/db/models/Hub');
