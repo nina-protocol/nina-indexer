@@ -39,7 +39,7 @@ class Release extends Model {
     };
   }
 
-  static async findOrCreate(publicKey, mint, metadata, datetime, publisherId) {
+  static async findOrCreate({publicKey, mint, metadata, datetime, publisherId}) {
     let release = await Release.query().findOne({ publicKey });
     if (release) {
       return release;
