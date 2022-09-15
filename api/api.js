@@ -536,19 +536,18 @@ const hubReleaseNotFound = async (ctx) => {
   const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
   if (hubRelease) {
     const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
-    console.log('release', release)
     const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
 
     let publisher = await Account.findOrCreate(release.authority.toBase58());
   
-    const releaseRecord = await Release.query().insertGraph({
+    const releaseRecord = await Release.findOrCreate({
       publicKey: hubRelease.release.toBase58(),
       mint: release.releaseMint.toBase58(),
       metadata: metadataAccount.json,
       datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
       publisherId: publisher.id,
     })
-    await NinaProcessor.processRevenueSharesForRelease(release, releaseRecord);
+    await Release.processRevenueShares(release, releaseRecord);
 
     let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
     if (!hub) {

@@ -191,7 +191,7 @@ class NinaProcessor {
           datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
         })
-        await this.processRevenueSharesForRelease(release, releaseRecord);
+        await Release.processRevenueShares(release, releaseRecord);
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
@@ -202,10 +202,10 @@ class NinaProcessor {
       try {
         const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
         if (release) {
-          await this.processRevenueSharesForRelease(release, releaseRecord);
+          await Release.processRevenueShares(release, releaseRecord);
         }
       } catch (error) {
-        console.log('error processRevenueSharesForRelease existingReleases: ', error)
+        console.log('error Release.processRevenueShares existingReleases: ', error)
       }
     }
   }
@@ -356,23 +356,6 @@ class NinaProcessor {
         }      
       } catch (err) {
         console.log(err)
-      }
-    }
-  }
-
-  async processRevenueSharesForRelease (releaseData, releaseRecord) {
-    const royaltyRecipients = releaseData.account?.royaltyRecipients || releaseData.royaltyRecipients
-    for await (let recipient of royaltyRecipients) {
-      try {
-        if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
-          const recipientAccount = await Account.findOrCreate(recipient.recipientAuthority.toBase58());
-          const revenueShares = await recipientAccount.$relatedQuery('revenueShares');
-          if (revenueShares.includes(releaseRecord.id)) {
-            await Account.relatedQuery('revenueShares').for(recipientAccount.id).relate(releaseRecord.id);
-          }
-        }
-      } catch (error) {
-        console.log('error processing royaltyRecipients: ', error)
       }
     }
   }
