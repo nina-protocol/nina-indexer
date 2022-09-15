@@ -537,7 +537,7 @@ const hubReleaseNotFound = async (ctx) => {
   if (hubRelease) {
     const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
     console.log('release', release)
-    const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint).run();
+    const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
     console.log('metadataAccount', metadataAccount)
     const metadataJson = await axios.get(metadataAccount.uri)
 
