@@ -573,6 +573,8 @@ const hubReleaseNotFound = async (ctx) => {
         }
         await hub.format();
         await releaseRecord.format();
+        console.log('hub', hub)
+        console.log('releaseRecord', releaseRecord)
         ctx.body = {
           release: releaseRecord,
           hub,
