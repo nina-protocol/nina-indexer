@@ -385,7 +385,64 @@ module.exports = (router) => {
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
       if (!release) {
-        throw('Release not found')
+        try {
+          console.log('ctx.params', ctx.params)
+          await NinaProcessor.init()
+          const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+          console.log('hubRelease', hubRelease)
+          if (hubRelease) {
+            const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
+            const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+        
+            let publisher = await Account.findOrCreate(release.authority.toBase58());
+          
+            const releaseRecord = await Release.findOrCreate({
+              publicKey: hubRelease.release.toBase58(),
+              mint: release.releaseMint.toBase58(),
+              metadata: metadataAccount.json,
+              datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+              publisherId: publisher.id,
+            })
+            await Release.processRevenueShares(release, releaseRecord);
+        
+            let hub = await hubForPublicKeyOrHandle(ctx)
+            if (hub) {      
+              const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+                [
+                  Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+                  hubRelease.hub.toBuffer(),
+                  hubRelease.release.toBuffer(),
+                ],
+                NinaProcessor.program.programId
+              )
+              const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+              console.log('hubContent', hubContent)
+              await Hub.relatedQuery('releases').for(hub.id).relate({
+                id: releaseRecord.id,
+                hubReleasePublicKey: ctx.params.hubReleasePublicKey,
+              });
+              if (hubContent.publishedThroughHub) {
+                await releaseRecord.$query().patch({hubId: hub.id});
+              }
+              await hub.format();
+              await releaseRecord.format();
+              console.log('hub', hub)
+              console.log('releaseRecord', releaseRecord)
+              ctx.body = {
+                release: releaseRecord,
+                hub,
+              }
+            }
+          } else {
+            throw ('Hub release not found')
+          }
+        } catch (error) {
+          console.warn('error', error)
+          ctx.status = 404
+          ctx.body = {
+            message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
+          }
+        }
       } else {
         await hub.format();
         await release.format();
