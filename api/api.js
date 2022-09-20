@@ -515,6 +515,7 @@ module.exports = (router) => {
         .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
         .first()
       if (!post) {
+        await NinaProcessor.init()
         const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
