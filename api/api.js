@@ -322,7 +322,7 @@ module.exports = (router) => {
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
         await NinaProcessor.init()
-        const hubAccount = await NinaProcessor.program.account.hub.fetch(publicKey, 'confirmed')
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         console.log('hubAccount', hubAccount, publicKey)
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
@@ -330,7 +330,7 @@ module.exports = (router) => {
           const uri = decode(hub.uri)
           const data = await axios.get(uri).data      
           hub = await Hub.query().insertGraph({
-            publicKey: ctx.params.publicKey,
+            publicKey,
             handle: decode(hubAccount.handle),
             data,
             datetime: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
