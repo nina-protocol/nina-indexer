@@ -327,7 +327,7 @@ module.exports = (router) => {
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
-          const uri = decode(hub.uri)
+          const uri = decode(hubAccount.uri)
           const data = await axios.get(uri).data      
           hub = await Hub.query().insertGraph({
             publicKey,
