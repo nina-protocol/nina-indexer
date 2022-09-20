@@ -529,7 +529,7 @@ module.exports = (router) => {
         const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
         const uri = decode(postAccount.uri)
         const data = await axios.get(uri)
-        const publisher = await Account.findOrCreate(post.author.toBase58());
+        const publisher = await Account.findOrCreate(postAccount.author.toBase58());
         post = await Post.query().insertGraph({
           publicKey: hubPostAccount.post.toBase58(),
           data: data.data,
