@@ -375,7 +375,10 @@ module.exports = (router) => {
       };
     } catch (err) {
       console.log(err)
-      hubNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+      }
     }
   })
 
@@ -505,12 +508,51 @@ module.exports = (router) => {
   router.get('/hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
     try {
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const post = await Post
+      let post = await Post
         .query()
         .joinRelated('hubs')
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
         .first()
+      if (!post) {
+        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+            hubPostAccount.hub.toBuffer(),
+            hubPostAccount.post.toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
+        const uri = decode(postAccount.uri)
+        const data = await axios.get(uri)
+        const publisher = await Account.findOrCreate(post.author.toBase58());
+        post = await Post.query().insertGraph({
+          publicKey: hubPostAccount.post.toBase58(),
+          data: data.data,
+          datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+          publisherId: publisher.id,
+        })
+        await Hub.relatedQuery('posts').for(hub.id).relate({
+          id: post.id,
+          hubPostPublicKey: ctx.params.hubPostPublicKey,
+        });
+        if (hubContentAccount.publishedThroughHub) {
+          await post.$query().patch({hubId: hub.id});
+        }
+        if (hubPostAccount.referenceContent) {
+          const release = await Release.query().findOne({publicKey: hubPostAccount.referenceContent.toBase58()});
+          if (release) {
+            const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
+            if (!relatedRelease) {
+              await Post.relatedQuery('releases').for(post.id).relate(release.id);
+              console.log('Related Release to Post:', release.publicKey, post.publicKey);
+            }
+          }
+        }
+      }
       await hub.format();
       await post.format();
       ctx.body = {
@@ -625,14 +667,6 @@ module.exports = (router) => {
     }
   })
 }
-
-const hubNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
-  }
-}
-
 
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
