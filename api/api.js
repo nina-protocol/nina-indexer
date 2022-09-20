@@ -318,18 +318,16 @@ module.exports = (router) => {
 
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
-      const hub = await hubForPublicKeyOrHandle(ctx)
+      let hub = await hubForPublicKeyOrHandle(ctx)
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
         await NinaProcessor.init()
         const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
-        console.log('hubAccount', hubAccount, publicKey)
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
           const uri = decode(hubAccount.uri)
           const data = await axios.get(uri)
-          console.log('data: ', data)      
           hub = await Hub.query().insertGraph({
             publicKey,
             handle: decode(hubAccount.handle),
