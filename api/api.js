@@ -333,7 +333,7 @@ module.exports = (router) => {
           hub = await Hub.query().insertGraph({
             publicKey,
             handle: decode(hubAccount.handle),
-            data,
+            data: data.data,
             datetime: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
             authorityId: authority.id,
           });
