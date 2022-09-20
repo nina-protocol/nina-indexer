@@ -8,7 +8,7 @@ const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
-const { decode } = require('..indexer/utils');
+const { decode } = require('../indexer/utils');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
