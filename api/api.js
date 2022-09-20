@@ -321,7 +321,9 @@ module.exports = (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
+        await NinaProcessor.init()
         const hubAccount = await NinaProcessor.program.account.hub.fetch(publicKey, 'confirmed')
+        console.log('hubAccount', hubAccount, publicKey)
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
