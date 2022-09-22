@@ -37,11 +37,19 @@ properties:
     description: >-
       The datetime the Exchange was last updated
     example: "2020-01-01T00:00:00Z"
+  completedBy:
+    type: ['null', string] 
+    format: 'string'
+    description: >-
+      The publicKey of the Account that completed the Exchange
+    example: "EmQVguncDATg1m9mgZcfJ5aDbvg5u3QXPfvfesyYXAW5"
   release:
     type: string
     description: >-
       The publicKey of the Release associated with the Exchange
+    exchange: "E9KmAF9cXLE3kehLQf9j9XTQsAqCWEP9VL5W3KVNtcqo"
   initializer:
     type: string
     description: >-
-      The publicKey of the Account that initialized the Exchange
+      The publicKey of the Account that initialized the Exchange.
+    example: "HesfTj24Eatwy8vvra5UdhX1xJWLeqRM7QdDwjX1xmmk"

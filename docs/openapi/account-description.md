@@ -1,6 +1,6 @@
 `Accounts` describe the data that defines **Profiles** on Nina.
 
-An account's `publicKey` is the same as the address of the Solana wallet that owns the account.
+An account's `publicKey` is the same as the address of the Solana wallet that owns the `account`.
 
 Accounts are created when an wallet ineracts with the Nina program in any way. 
 

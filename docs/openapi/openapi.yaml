@@ -4,7 +4,7 @@ info:
   title: Nina Protocol SdK
   termsOfService: 'https://ninaprotocol.com/terms/'
   contact:
-    email: contact@ninaprotocol..com
+    email: contact@ninaprotocol.com
   license:
     name: Apache 2.0
     url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
@@ -16,6 +16,9 @@ tags:
   - name: Accounts
     description: 
           $ref: ./account-description.md
+  - name: Exchanges
+    description: 
+          $ref: ./exchange-description.md
   - name: Hubs
     description: 
           $ref: ./hub-description.md
@@ -46,6 +49,10 @@ paths:
     $ref: paths/accounts_{publicKey}/posts.yaml
   /accounts/{publicKey}/published:
     $ref: paths/accounts_{publicKey}/published.yaml
+  /exchanges:
+    $ref: 'paths/exchanges.yaml'
+  /exchanges/{publicKey}:
+    $ref: 'paths/exchanges_{publicKey}.yaml'
   /hubs:
     $ref: 'paths/hubs.yaml'
   /hubs/{publicKeyOrHandle}:

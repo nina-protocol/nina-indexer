@@ -9,6 +9,7 @@ lint:
     no-unused-components: error
 features.openapi:
   showConsole: true
+  hideDownloadButton: true
   htmlTemplate: ./index.html
   theme:
     colors:

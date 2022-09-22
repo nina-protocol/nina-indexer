@@ -6,9 +6,9 @@ properties:
     type: string
     example: Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF
   handle:
-    description: the-testing-place
+    description: the Hub's handle (must be unique)
     type: string
-    example: Nina's Picks
+    example: ninas-picks
   data:
     description: Hub Data
     type: object

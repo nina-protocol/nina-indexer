@@ -1,0 +1,22 @@
+get:
+  tags:
+    - Exchanges
+  summary: Get Exchange by publicKey
+  operationId: getExchangeByPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Exchange to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Exchange.yaml
+    '404':
+      description: Exchange not found
+      $ref: ../components/responses/Problem.yaml
