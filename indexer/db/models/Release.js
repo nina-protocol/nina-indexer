@@ -1,5 +1,9 @@
 const { Model } = require('objection');
 const { stripHtmlIfNeeded } = require('../../utils');
+const Account = require('./Account');
+const Exchange = require('./Exchange');
+const Hub = require('./Hub');
+const Post = require('./Post');
 
 class Release extends Model {
   static get tableName() {
@@ -38,15 +42,45 @@ class Release extends Model {
       },
     };
   }
-  
+
+  static async findOrCreate({publicKey, mint, metadata, datetime, publisherId}) {
+    let release = await Release.query().findOne({ publicKey });
+    if (release) {
+      return release;
+    }
+    release = await Release.query().insert({
+      publicKey,
+      mint,
+      metadata,
+      datetime,
+      publisherId,
+    });
+    console.log('Inserted Release: ', publicKey)
+    return release;
+  }
+
+  static async processRevenueShares (releaseData, releaseRecord) {
+    const royaltyRecipients = releaseData.account?.royaltyRecipients || releaseData.royaltyRecipients
+    for await (let recipient of royaltyRecipients) {
+      try {
+        if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
+          const recipientAccount = await Account.findOrCreate(recipient.recipientAuthority.toBase58());
+          const revenueShares = await recipientAccount.$relatedQuery('revenueShares');
+          if (revenueShares.includes(releaseRecord.id)) {
+            await Account.relatedQuery('revenueShares').for(recipientAccount.id).relate(releaseRecord.id);
+          }
+        }
+      } catch (error) {
+        console.log('error processing royaltyRecipients: ', error)
+      }
+    }
+  }
   async format() {
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
-    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub').select('publicKey');
-
+    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
     }
-
     this.publisher = publisher.publicKey;
     delete this.publisherId
     delete this.hubId
@@ -56,11 +90,6 @@ class Release extends Model {
   }
 
   static relationMappings() {
-    const Account = require('./Account');
-    const Exchange = require('./Exchange');
-    const Hub = require('./Hub');
-    const Post = require('./Post');
-
     return {
       publishedThroughHub: {
         relation: Model.BelongsToOneRelation,

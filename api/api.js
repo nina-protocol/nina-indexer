@@ -1,10 +1,15 @@
 const { ref } = require('objection');
 const _ = require('lodash');
+const anchor = require('@project-serum/anchor');
+const axios = require('axios')
 
 const Account = require('../indexer/db/models/Account');
+const Exchange = require('../indexer/db/models/Exchange');
 const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
+const NinaProcessor = require('../indexer/processor');
+const { decode } = require('../indexer/utils');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -190,13 +195,37 @@ module.exports = (router) => {
 
   router.get('/releases/:publicKey', async (ctx) => {
     try {
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        await NinaProcessor.init()
+        const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+        if (releaseAccount) {
+          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
+        
+          let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
+        
+          release = await Release.findOrCreate({
+            publicKey: ctx.params.publicKey,
+            mint: releaseAccount.releaseMint.toBase58(),
+            metadata: metadataAccount.json,
+            datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+            publisherId: publisher.id,
+          })
+          await Release.processRevenueShares(releaseAccount, release);
+        } else {
+          throw("Release not found")
+        }
+      }  
       await release.format();
-      
-      ctx.body = { release };
-    } catch (err) {
+      ctx.body = {
+        release,
+      }
+  } catch (err) {
       console.log(err)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   });
 
@@ -236,7 +265,7 @@ module.exports = (router) => {
 
   router.get('/releases/:publicKey/hubs', async (ctx) => {
     try {
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+    const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const hubs = await release.$relatedQuery('hubs')
       for await (let hub of hubs) {
         await hub.format();
@@ -287,7 +316,37 @@ module.exports = (router) => {
 
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
-      const hub = await hubForPublicKeyOrHandle(ctx)
+      let hub = await hubForPublicKeyOrHandle(ctx)
+      if (!hub) {
+        const publicKey = ctx.params.publicKeyOrHandle
+        await NinaProcessor.init()
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+        if (hubAccount) {
+          const authorityPublicKey = hubAccount.authority.toBase58()
+          const authority = await Account.findOrCreate(authorityPublicKey);
+          const uri = decode(hubAccount.uri)
+          const data = await axios.get(uri)
+          hub = await Hub.query().insertGraph({
+            publicKey,
+            handle: decode(hubAccount.handle),
+            data: data.data,
+            datetime: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
+            authorityId: authority.id,
+          });
+          const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
+            [
+              Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
+              (new anchor.web3.PublicKey(publicKey)).toBuffer(),
+              (new anchor.web3.PublicKey(authorityPublicKey)).toBuffer(),
+            ],
+            new anchor.web3.PublicKey(NinaProcessor.program.programId)
+          )
+          await Hub.relatedQuery('collaborators').for(hub.id).relate({
+            id: authority.id,
+            hubCollaboratorPublicKey: hubCollaborator.toBase58(),
+          })
+        }
+      }
       const collaborators = await hub.$relatedQuery('collaborators')
       const releases = await hub.$relatedQuery('releases')
       const posts = await hub.$relatedQuery('posts')
@@ -299,7 +358,6 @@ module.exports = (router) => {
       }
 
       for await (let release of releases) {
-        console.log('release', release)
         await release.format();
       }
 
@@ -315,7 +373,10 @@ module.exports = (router) => {
       };
     } catch (err) {
       console.log(err)
-      hubNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+      }
     }
   })
 
@@ -379,27 +440,118 @@ module.exports = (router) => {
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
-      await hub.format();
-      await release.format();
-      ctx.body = {
-        release,
-        hub,
+      if (!release) {
+        await NinaProcessor.init()
+        const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+        if (hubRelease) {
+          const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
+          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+      
+          let publisher = await Account.findOrCreate(release.authority.toBase58());
+        
+          const releaseRecord = await Release.findOrCreate({
+            publicKey: hubRelease.release.toBase58(),
+            mint: release.releaseMint.toBase58(),
+            metadata: metadataAccount.json,
+            datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+            publisherId: publisher.id,
+          })
+          await Release.processRevenueShares(release, releaseRecord);
+      
+          let hub = await hubForPublicKeyOrHandle(ctx)
+          if (hub) {      
+            const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+              [
+                Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+                hubRelease.hub.toBuffer(),
+                hubRelease.release.toBuffer(),
+              ],
+              NinaProcessor.program.programId
+            )
+            const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+            await Hub.relatedQuery('releases').for(hub.id).relate({
+              id: releaseRecord.id,
+              hubReleasePublicKey: ctx.params.hubReleasePublicKey,
+            });
+            if (hubContent.publishedThroughHub) {
+              await releaseRecord.$query().patch({hubId: hub.id});
+            }
+            await hub.format();
+            await releaseRecord.format();
+            ctx.body = {
+              release: releaseRecord,
+              hub,
+            }
+          }
+        } else {
+          throw ('Hub release not found')
+        }
+      } else {
+        await hub.format();
+        await release.format();
+        ctx.body = {
+          release,
+          hub,
+        }
       }
     } catch (err) {
       console.log(err)
-      hubReleaseNotFound(ctx)
-    }   
+      ctx.status = 404
+      ctx.body = {
+        message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
+      }
+}   
   })
 
   router.get('/hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
     try {
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const post = await Post
+      let post = await Post
         .query()
         .joinRelated('hubs')
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
         .first()
+      if (!post) {
+        await NinaProcessor.init()
+        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+            hubPostAccount.hub.toBuffer(),
+            hubPostAccount.post.toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
+        const uri = decode(postAccount.uri)
+        const data = await axios.get(uri)
+        const publisher = await Account.findOrCreate(postAccount.author.toBase58());
+        post = await Post.query().insertGraph({
+          publicKey: hubPostAccount.post.toBase58(),
+          data: data.data,
+          datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+          publisherId: publisher.id,
+        })
+        await Hub.relatedQuery('posts').for(hub.id).relate({
+          id: post.id,
+          hubPostPublicKey: ctx.params.hubPostPublicKey,
+        });
+        if (hubContentAccount.publishedThroughHub) {
+          await post.$query().patch({hubId: hub.id});
+        }
+        if (hubPostAccount.referenceContent) {
+          const release = await Release.query().findOne({publicKey: hubPostAccount.referenceContent.toBase58()});
+          if (release) {
+            const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
+            if (!relatedRelease) {
+              await Post.relatedQuery('releases').for(post.id).relate(release.id);
+              console.log('Related Release to Post:', release.publicKey, post.publicKey);
+            }
+          }
+        }
+      }
       await hub.format();
       await post.format();
       ctx.body = {
@@ -455,6 +607,78 @@ module.exports = (router) => {
     }
   })
   
+  router.get('/exchanges', async (ctx) => {
+    try {
+      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const exchanges = await Exchange.query().orderBy('createdAt', sort).range(offset, offset + limit);
+      for await (let exchange of exchanges.results) {
+        await exchange.format();
+      }
+      ctx.body = {
+        exchanges: exchanges.results,
+        total: exchanges.total,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching exchanges'
+      }
+    }
+  })
+
+  router.get('/exchanges/:publicKey', async (ctx) => {
+    try {
+      let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
+      if (!exchange) {
+        await NinaProcessor.init()
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
+        if (exchangeAccount) {      
+          const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
+          const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
+          exchange = await Exchange.query().insertGraph({
+            publicKey: ctx.params.publicKey,
+            expectedAmount: exchangeAccount.expectedAmount.toNumber(),
+            initializerAmount: exchangeAccount.initializerAmount.toNumber(),
+            isSale: exchangeAccount.isSelling,
+            cancelled: false,
+            initializerId: initializer.id,
+            releaseId: release.id,
+            createdAt: new Date(exchangeAccount.createdAt.toNumber() * 1000).toISOString(),
+          })
+        } else {
+          const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.query.transactionId)
+          const length = transaction.transaction.message.instructions.length
+          const accounts = transaction.transaction.message.instructions[length - 1].accounts
+          if (accounts) {
+            if (accounts.length === 6) {
+              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+              exchange = await Exchange.query().findOne({publicKey})
+              await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+            } else if (accounts.length === 16) {
+              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+              const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
+              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+              exchange = await Exchange.query().findOne({publicKey})
+              const completedBy = await Account.findOrCreate(completedByPublicKey)
+              await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+            }
+          }
+        }  
+      }
+      await exchange.format();
+      ctx.body = { exchange}
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Exchange not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
+
+
   router.post('/search', async (ctx) => {
     try { 
       const { query } = ctx.request.body;
@@ -515,31 +739,10 @@ module.exports = (router) => {
   })
 }
 
-const hubNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
-  }
-}
-
-const hubReleaseNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
-  }
-}
-
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
   ctx.body = {
     message: `HubPost not found with hub: ${ctx.params.publicKeyOrHandle} and HubPost publicKey: ${ctx.params.hubPostPublicKey}`
-  }
-}
-
-const releaseNotFound = (ctx) => {
-  ctx.status = 404
-  ctx.body = {
-    message: `Release not found with publicKey: ${ctx.params.publicKey}`
   }
 }
 
