@@ -607,6 +607,26 @@ module.exports = (router) => {
     }
   })
   
+  router.get('/exchanges', async (ctx) => {
+    try {
+      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const exchanges = await Exchange.query().orderBy('createdAt', sort).range(offset, offset + limit);
+      for await (let exchange of exchanges.results) {
+        await exchange.format();
+      }
+      ctx.body = {
+        exchanges: exchanges.results,
+        total: exchanges.total,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching exchanges'
+      }
+    }
+  })
+
   router.get('/exchanges/:publicKey', async (ctx) => {
     try {
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
