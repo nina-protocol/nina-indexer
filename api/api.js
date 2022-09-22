@@ -627,7 +627,24 @@ module.exports = (router) => {
             createdAt: new Date(exchangeAccount.createdAt.toNumber() * 1000).toISOString(),
           })
         } else {
-          throw("Exchange not found")
+          const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.params.transactionId)
+          const length = transaction.transaction.message.instructions.length
+          const accounts = transaction.transaction.message.instructions[length - 1].accounts
+          if (accounts) {
+            if (accounts.length === 6) {
+              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+              exchange = await Exchange.query().findOne({publicKey})
+              await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+            } else if (accounts.length === 16) {
+              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+              const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
+              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+              exchange = await Exchange.query().findOne({publicKey})
+              const completedBy = await Account.findOrCreate(completedByPublicKey)
+              await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+            }
+          }
         }  
       }
       await exchange.format();
