@@ -4,6 +4,7 @@ const anchor = require('@project-serum/anchor');
 const axios = require('axios')
 
 const Account = require('../indexer/db/models/Account');
+const Exchange = require('../indexer/db/models/Exchange');
 const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
@@ -194,35 +195,32 @@ module.exports = (router) => {
 
   router.get('/releases/:publicKey', async (ctx) => {
     try {
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
         await NinaProcessor.init()
-        const release = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
-        if (release) {
-          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+        const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+        if (releaseAccount) {
+          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
         
-          let publisher = await Account.findOrCreate(release.authority.toBase58());
+          let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
         
-          const releaseRecord = await Release.findOrCreate({
+          release = await Release.findOrCreate({
             publicKey: ctx.params.publicKey,
-            mint: release.releaseMint.toBase58(),
+            mint: releaseAccount.releaseMint.toBase58(),
             metadata: metadataAccount.json,
-            datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+            datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
             publisherId: publisher.id,
           })
-          await Release.processRevenueShares(release, releaseRecord);
-          await releaseRecord.format();
-          ctx.body = {
-            release: releaseRecord,
-          }
+          await Release.processRevenueShares(releaseAccount, release);
         } else {
           throw("Release not found")
-        }  
-      } else {
-        await release.format();
-        ctx.body = { release };
+        }
+      }  
+      await release.format();
+      ctx.body = {
+        release,
       }
-    } catch (err) {
+  } catch (err) {
       console.log(err)
       ctx.status = 404
       ctx.body = {
@@ -609,6 +607,41 @@ module.exports = (router) => {
     }
   })
   
+  router.get('/exchanges/:publicKey', async (ctx) => {
+    try {
+      let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
+      if (!exchange) {
+        await NinaProcessor.init()
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
+        if (exchangeAccount) {      
+          const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
+          const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
+          exchange = await Exchange.query().insertGraph({
+            publicKey: ctx.params.publicKey,
+            expectedAmount: exchangeAccount.expectedAmount.toNumber(),
+            initializerAmount: exchangeAccount.initializerAmount.toNumber(),
+            isSale: exchangeAccount.isSelling,
+            cancelled: false,
+            initializerId: initializer.id,
+            releaseId: release.id,
+            createdAt: new Date(exchangeAccount.createdAt.toNumber() * 1000).toISOString(),
+          })
+        } else {
+          throw("Exchange not found")
+        }  
+      }
+      await exchange.format();
+      ctx.body = { exchange}
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Exchange not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
+
+
   router.post('/search', async (ctx) => {
     try { 
       const { query } = ctx.request.body;
