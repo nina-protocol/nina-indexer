@@ -627,7 +627,7 @@ module.exports = (router) => {
             createdAt: new Date(exchangeAccount.createdAt.toNumber() * 1000).toISOString(),
           })
         } else {
-          const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.params.transactionId)
+          const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.query.transactionId)
           const length = transaction.transaction.message.instructions.length
           const accounts = transaction.transaction.message.instructions[length - 1].accounts
           if (accounts) {
