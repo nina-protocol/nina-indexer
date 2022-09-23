@@ -640,15 +640,15 @@ module.exports = (router) => {
   })
 
   router.get('/exchanges/:publicKey', async (ctx) => {
+    console.log('/exchanges/:publicKey', ctx.params.publicKey)
     try {
       await NinaProcessor.init()
-      console.log('/exchanges/:publicKey', ctx.params.publicKey)
+      const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
+      console.log('transaction', transaction)
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
       if (exchange) {
         console.log('exchange found', exchange)
-        const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
-        console.log('transaction', transaction)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
