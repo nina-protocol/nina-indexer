@@ -656,13 +656,13 @@ module.exports = (router) => {
           if (accounts.length === 6) {
             console.log('found a cancel')
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
-            exchange = await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+            await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
           } else if (accounts.length === 16) {
             console.log('found an accept')
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             const completedBy = await Account.findOrCreate(completedByPublicKey)
-            exchange = await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+            await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
           console.log('exchange after: ', exchange)
         } 
@@ -671,7 +671,7 @@ module.exports = (router) => {
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
-        exchange = await Exchange.query().insertGraph({
+        await Exchange.query().insertGraph({
           publicKey: ctx.params.publicKey,
           expectedAmount: exchangeAccount.expectedAmount.toNumber(),
           initializerAmount: exchangeAccount.initializerAmount.toNumber(),
@@ -682,6 +682,7 @@ module.exports = (router) => {
           createdAt: new Date(transaction.blockTime * 1000).toISOString(),
         })
       }
+      exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       if (exchange) {
         await exchange.format();
         ctx.body = { exchange }
