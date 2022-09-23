@@ -633,6 +633,7 @@ module.exports = (router) => {
       if (!exchange) {
         await NinaProcessor.init()
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
+        const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.query.transactionId)
         if (exchangeAccount) {      
           const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
           const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
@@ -644,10 +645,9 @@ module.exports = (router) => {
             cancelled: false,
             initializerId: initializer.id,
             releaseId: release.id,
-            createdAt: new Date(exchangeAccount.createdAt.toNumber() * 1000).toISOString(),
+            createdAt: new Date(transaction.blockTime * 1000).toISOString(),
           })
         } else {
-          const transaction = await NinaProcessor.provider.getParsedTransaction(ctx.query.transactionId)
           const length = transaction.transaction.message.instructions.length
           const accounts = transaction.transaction.message.instructions[length - 1].accounts
           if (accounts) {
@@ -668,7 +668,7 @@ module.exports = (router) => {
         }  
       }
       await exchange.format();
-      ctx.body = { exchange}
+      ctx.body = { exchange }
     } catch (err) {
       console.log(err)
       ctx.status = 404
