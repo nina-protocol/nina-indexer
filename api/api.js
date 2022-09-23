@@ -645,17 +645,22 @@ module.exports = (router) => {
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
       if (exchange) {
+        console.log('exchange found', exchange)
         await NinaProcessor.init()
         const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
+        console.log('transaction', transaction)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
+          console.log('accounts.length', accounts.length)
           if (accounts.length === 6) {
+            console.log('found a cancel')
             const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             exchange = await Exchange.query().findOne({publicKey})
             await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
           } else if (accounts.length === 16) {
+            console.log('found an accept')
             const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
@@ -665,6 +670,7 @@ module.exports = (router) => {
           }
         } 
       } else {     
+        console.log('found an init')
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
