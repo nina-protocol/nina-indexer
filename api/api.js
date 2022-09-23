@@ -664,7 +664,6 @@ module.exports = (router) => {
             const completedBy = await Account.findOrCreate(completedByPublicKey)
             await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
-          console.log('exchange after: ', exchange)
         } 
       } else {     
         console.log('found an init')
@@ -683,6 +682,7 @@ module.exports = (router) => {
         })
       }
       exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
+      console.log('exchange after: ', exchange)
       if (exchange) {
         await exchange.format();
         ctx.body = { exchange }
