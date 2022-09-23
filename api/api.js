@@ -240,7 +240,10 @@ module.exports = (router) => {
       ctx.body = { exchanges };
     } catch (err) {
       console.log(err)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   });
 
@@ -259,7 +262,10 @@ module.exports = (router) => {
       ctx.body = { collectors };
     } catch (err) {
       console.log(err)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   });
 
@@ -273,7 +279,10 @@ module.exports = (router) => {
       ctx.body = { hubs };
     } catch (error) {
       console.log(error)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   })
 
@@ -287,7 +296,10 @@ module.exports = (router) => {
       ctx.body = { revenueShareRecipients };
     } catch (error) {
       console.log(error)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   })
 
@@ -631,13 +643,10 @@ module.exports = (router) => {
     try {
       console.log('/exchanges/:publicKey', ctx.params.publicKey)
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
-      if (!exchange) {
+      
+      if (exchange) {
         await NinaProcessor.init()
-        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
-        console.log('exchangeAccount', exchangeAccount)
-        console.log('ctx.query.transactionId', ctx.query.transactionId)
         const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
-        console.log('transaction', transaction)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
@@ -654,23 +663,26 @@ module.exports = (router) => {
             const completedBy = await Account.findOrCreate(completedByPublicKey)
             await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
-        } else if (exchangeAccount) {      
-          const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
-          const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
-          exchange = await Exchange.query().insertGraph({
-            publicKey: ctx.params.publicKey,
-            expectedAmount: exchangeAccount.expectedAmount.toNumber(),
-            initializerAmount: exchangeAccount.initializerAmount.toNumber(),
-            isSale: exchangeAccount.isSelling,
-            cancelled: false,
-            initializerId: initializer.id,
-            releaseId: release.id,
-            createdAt: new Date(transaction.blockTime * 1000).toISOString(),
-          })
-        }  
+        } 
+      } else {     
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
+        const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
+        const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
+        exchange = await Exchange.query().insertGraph({
+          publicKey: ctx.params.publicKey,
+          expectedAmount: exchangeAccount.expectedAmount.toNumber(),
+          initializerAmount: exchangeAccount.initializerAmount.toNumber(),
+          isSale: exchangeAccount.isSelling,
+          cancelled: false,
+          initializerId: initializer.id,
+          releaseId: release.id,
+          createdAt: new Date(transaction.blockTime * 1000).toISOString(),
+        })
       }
-      await exchange.format();
-      ctx.body = { exchange }
+      if (exchange) {
+        await exchange.format();
+        ctx.body = { exchange }
+      }  
     } catch (err) {
       console.log(err)
       ctx.status = 404
