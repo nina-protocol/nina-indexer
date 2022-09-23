@@ -634,7 +634,7 @@ module.exports = (router) => {
         await NinaProcessor.init()
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
         console.log('ctx.query.transactionId', ctx.query.transactionId)
-        const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId)
+        const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
         console.log('transaction', transaction)
         if (exchangeAccount) {      
           const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
