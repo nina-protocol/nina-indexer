@@ -629,14 +629,32 @@ module.exports = (router) => {
 
   router.get('/exchanges/:publicKey', async (ctx) => {
     try {
+      console.log('/exchanges/:publicKey', ctx.params.publicKey)
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       if (!exchange) {
         await NinaProcessor.init()
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed')
+        console.log('exchangeAccount', exchangeAccount)
         console.log('ctx.query.transactionId', ctx.query.transactionId)
         const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
         console.log('transaction', transaction)
-        if (exchangeAccount) {      
+        const length = transaction.transaction.message.instructions.length
+        const accounts = transaction.transaction.message.instructions[length - 1].accounts
+        if (accounts) {
+          if (accounts.length === 6) {
+            const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+            const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+            exchange = await Exchange.query().findOne({publicKey})
+            await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+          } else if (accounts.length === 16) {
+            const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
+            const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
+            const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+            exchange = await Exchange.query().findOne({publicKey})
+            const completedBy = await Account.findOrCreate(completedByPublicKey)
+            await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+          }
+        } else if (exchangeAccount) {      
           const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
           const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
           exchange = await Exchange.query().insertGraph({
@@ -649,24 +667,6 @@ module.exports = (router) => {
             releaseId: release.id,
             createdAt: new Date(transaction.blockTime * 1000).toISOString(),
           })
-        } else {
-          const length = transaction.transaction.message.instructions.length
-          const accounts = transaction.transaction.message.instructions[length - 1].accounts
-          if (accounts) {
-            if (accounts.length === 6) {
-              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
-              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
-              exchange = await Exchange.query().findOne({publicKey})
-              await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
-            } else if (accounts.length === 16) {
-              const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
-              const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
-              const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
-              exchange = await Exchange.query().findOne({publicKey})
-              const completedBy = await Account.findOrCreate(completedByPublicKey)
-              await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
-            }
-          }
         }  
       }
       await exchange.format();
