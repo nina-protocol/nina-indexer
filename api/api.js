@@ -655,19 +655,16 @@ module.exports = (router) => {
           console.log('accounts.length', accounts.length)
           if (accounts.length === 6) {
             console.log('found a cancel')
-            const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
-            exchange = await Exchange.query().findOne({publicKey})
-            await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+            exchange = await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
           } else if (accounts.length === 16) {
             console.log('found an accept')
-            const publicKey = transaction.transaction.message.instructions[length - 1].accounts[2].toBase58()
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
-            exchange = await Exchange.query().findOne({publicKey})
             const completedBy = await Account.findOrCreate(completedByPublicKey)
-            await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+            exchange = await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
+          console.log('exchange after: ', exchange)
         } 
       } else {     
         console.log('found an init')
