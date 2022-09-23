@@ -672,8 +672,8 @@ module.exports = (router) => {
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
         await Exchange.query().insertGraph({
           publicKey: ctx.params.publicKey,
-          expectedAmount: exchangeAccount.expectedAmount.toNumber(),
-          initializerAmount: exchangeAccount.initializerAmount.toNumber(),
+          expectedAmount: exchangeAccount.isSelling ? exchangeAccount.expectedAmount.toNumber()  / 1000000 : 1,
+          initializerAmount: exchangeAccount.isSelling ? 1 : exchangeAccount.initializerAmount.toNumber() / 1000000,
           isSale: exchangeAccount.isSelling,
           cancelled: false,
           initializerId: initializer.id,
