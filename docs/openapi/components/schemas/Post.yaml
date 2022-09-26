@@ -26,7 +26,7 @@ properties:
         type: string
         example: "B49JXQLs7RKCkX3PvtrXhuxE9EbmnJjfPSoqpQXLa3Kg"
   datetime:
-    description: The Post's `datetime`
+    description: The time the post was published
     type: string
     format: date-time
     example: "2020-01-01T00:00:00Z"

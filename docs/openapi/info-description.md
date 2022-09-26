@@ -1,5 +1,9 @@
 # Introduction
 
-These Docs describe the [Nina Protocol Api](https://github.com/nina-protocol/nina-indexer).
+Repo: [https://github.com/nina-protocol/nina-indexer](https://github.com/nina-protocol/nina-indexer).
 
-There is an interface to explore the Api on our [Dev Site](https://www.dev.ninaprotocol.com) as well as [Documents](https://nina-protocol.github.io/nina-sdk/) for the Nina SDK Javascript Client designed as to interface with this API.
+Public API endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/v1)
+
+API Explorer on [Nina Dev](https://www.dev.ninaprotocol.com)
+
+JS-SDK on [NPM](https://www.npmjs.com/package/@nina-protocol/js-sdk)

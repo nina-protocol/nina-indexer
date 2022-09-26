@@ -1,8 +1,11 @@
-`Hubs` are a Nina primitive that creates a container around [Releases](/#tag/Releases), [Posts](/#tag/Posts), and `Collaborators`.
+`Hubs` are a Nina primitive that allow anyone to create a collection of Releases and Posts.  Some examples of Hubs are:
+- Artist Pages
+- Label Pages
+- Playlists
 
-- `Collaborators` are [Accounts](/#tag/Accounts) that have varying permissions on the `Hub`. 
-- Permissions are as follows:
-  - `canAddHubContent`  (`boolean`)
-  - `canAddHubCollaborators` (`boolean`)
-  - `allowance` (`integer`) -
-    - `allowance` sets the amount of actions a `collaborator` can execute on on a `hub`. A value of `-1` indicates an unlimited allowance.
+Read more about Hubs [here](https://mirror.xyz/ninaprotocol.eth/5NZv9NduBNNrUh195pvFDqToinZALbaWFXguXxrtR4k).
+
+A Hub has:
+- `Collaborators`: [Accounts](/#tag/Accounts) that have varying permissions to publish or repost [Releases](/#tag/Releases) and [Posts](/#tag/Posts) to the `Hub`. 
+- `Releases`: [Releases](/#tag/Releases) that have been published or reposted to the `Hub`.
+- `Posts`: [Posts](/#tag/Posts) that have been published through the `Hub`. (Posts cannot be reposted yet)

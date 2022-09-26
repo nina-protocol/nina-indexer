@@ -12,10 +12,10 @@ get:
         type: string
       examples:
         handle:
-          value: "ninas-picks"
+          value: "tornhawkcity-"
           summary: 'A Hub Handle'
         publicKey:
-          value: "4QECgzp8hjknK3pvPEMoXATywcsNnH4MU49tVvDWLgKg"
+          value: "7Pc1WR8Rxt9UAgphNUA4jd8TXRFWuQhHyAG4jEhzbFkY"
           summary: 'A Hub publicKey'
   responses:
     '200':

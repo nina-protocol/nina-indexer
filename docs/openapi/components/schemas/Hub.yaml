@@ -25,7 +25,7 @@ properties:
         type: string
         format: uri
         description: The Hub's external URL
-        example: https://hubs.ninaprotocol.com/kontravoid"
+        example: https://hubs.ninaprotocol.com/kontravoid
       image:
         description: The Hub's image
         type: string
@@ -35,12 +35,12 @@ properties:
         description: The Hub's description in with HTML (user's Rich Text formatting)
         type: string
         example: "<p>Nina's Picks is a collection of the best music from Nina.</p>"
-  dateTime:
-    description: The Hub's datetime
+  datetime:
+    description: The time the Hub was created
     type: string
     format: date-time
     example: "2020-01-01T00:00:00Z"
   authority:
-    description: The Hub's authority
+    description: The Public Key of the Account that created the Hub
     type: string
     example: 5JcXwSDJwtvDvuaTeChEXWGFDwjZDfUBPvtDKp9fbc25

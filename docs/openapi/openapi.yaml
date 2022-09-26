@@ -32,8 +32,18 @@ tags:
     description: 
       $ref: ./search-description.md
 servers:
-  - url: 'https://api.ninaprotocol.com/v1'
-  - url: 'https://dev.api.ninaprotocol.com/v1'
+  - url: 'https://api.ninaprotocol.com'
+    description: Nina Protocol API
+    variables:
+      protocol:
+        default: https
+        enum:
+          - https
+          - http
+      host:
+        default: api.ninaprotocol.com
+      basePath:
+        default: /v1
 paths:
   /accounts:
     $ref: 'paths/accounts.yaml'

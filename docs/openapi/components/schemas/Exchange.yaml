@@ -9,16 +9,16 @@ properties:
   isSale:
     type: boolean
     description: >-
-      Describes whether the exchange is a sale or not (i.e. True = Sale, False = Bid)
+      Describes whether the exchange is a sale (if `false` the Exchange is a Buy Offer)
   expectedAmount:
     type: 'string'
     description: >-
-      If `isSale` is True, this is the amount of USDC expected to be received by the seller. If isSale is False, this is the amount of Releases expected to be received by the buyer (1)
+      If `isSale` is `true`, this is the amount of USDC expected to be received by the seller. If `isSale` is `false`, this is the amount of Releases expected to be received by the buyer (always = 1)
     example: "249.00"
   initializerAmount:
     type: 'string'
     description: >-
-      If `isSale` is `true`, this is the amount of Releases to be sold to the buyer (1). If `isSale` is `false`, this is the amount of USDC being bid to purchase the Release
+      If `isSale` is `true`, this is the amount of Releases to be sold to the buyer (always = 1). If `isSale` is `false`, this is the amount of USDC being offered to purchase the Release
     example: "1.00"
   cancelled:
     type: boolean
@@ -35,7 +35,7 @@ properties:
     type: ['null', string] 
     format: date-time
     description: >-
-      The datetime the Exchange was last updated
+      The datetime the Exchange was last updated (Exchanges are updated when they are cancelled or completed)
     example: "2020-01-01T00:00:00Z"
   completedBy:
     type: ['null', string] 

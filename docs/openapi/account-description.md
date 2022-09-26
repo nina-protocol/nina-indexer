@@ -1,14 +1,11 @@
-`Accounts` describe instances of Users on Nina.
+`Accounts` describe instances of Users on Nina and are created when a wallet interacts with the Nina program in any way. 
 
-An account's `publicKey` is the the address of the Solana wallet that owns the `account`.
+An Account's `publicKey` is the the address of the Solana wallet that owns the `Account`.
 
-Accounts are created when a wallet ineracts with the Nina program in any way. 
-
-This could be:
- - Publishing a [Release](/#tag/Releases)
- - Purchasing a [Release](/#tag/Releases)
- - Creating a [Hub](/#tag/Hubs)
- - Creating an [Exchange](/#tag/Exchanges)
- - Receiving a Revenue Share on a [Release](../#tag/Releases)
- - Posting on a [Hub](../#tag/Hubs)
- - Receiving Collaborator permissions on a [Hub](../#tag/Hubs)
+Relations:
+ - `published`: [Releases](/#tag/Releases) published by an Account
+ - `collected`: [Releases](/#tag/Releases) currently held by an Account
+ - `exchanges`: [Exchanges](/#tag/Exchanges) exchanges opened, cancelled, or completed by an Account
+ - `hubs`: [Hubs](/#tag/Hubs) that an account is a collaborator on
+ - `posts`: [Posts](/#tag/Posts) that an account has published
+ - `revenueShares`: [Releases](/#tag/Releases) that an Account has a revenue share on

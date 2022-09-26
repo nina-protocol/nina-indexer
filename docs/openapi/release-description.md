@@ -1,8 +1,7 @@
-`Releases` are a Nina primitive that assembles token logic and metadata to create a purchasble edition of music.
+`Releases` are a Nina primitive that connects metadata and audio files hosted on Arweave to an account on Solana which handles provenance, purchases, and revenue shares.
 
-`Releases` can be:
-  - Created
-  - Purchased
-  - Offered / Bidded on via [Exhchanges](/#tags/Exchanges)
-  - Added to [Hubs](/#tags/Hubs)
-  - Have [Posts](/@tags/Posts) created about them
+Relations:
+  - `exchanges`: [Exchanges](/#tag/Exchanges) for the `Release` (open, cancelled, or completed)
+  - `collectors`: [Accounts](/#tag/Accounts) that currently hold the `Release`
+  - `hubs`: [Hubs](/#tags/Hubs) that the `Release` has been published or reposted to
+  - `revenueShareRecipients`: [Accounts](/#tag/Accounts) that have a Revenue Share in the `Release` (each `Release` can have a maximum of 10 `revenueShares` with 0-100% share always adding up to 100% across all `revenueShares`)
