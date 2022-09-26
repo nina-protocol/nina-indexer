@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   version: 0.0.1
-  title: Nina Protocol SdK
+  title: Nina Protocol API
   termsOfService: 'https://ninaprotocol.com/terms/'
   contact:
     email: contact@ninaprotocol.com
