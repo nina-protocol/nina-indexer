@@ -5,7 +5,7 @@ An account's `publicKey` is the same as the address of the Solana wallet that ow
 Accounts are created when an wallet ineracts with the Nina program in any way. 
 
 This could be:
- - Publishing a [Release](../#tag/Releases)
+ - Publishing a [Release](/../#tag/Releases)
  - Purchasing a [Release](../#tag/Releases)
  - Creating a [Hub](../#tag/Hubs)
  - Creating an Exchange
