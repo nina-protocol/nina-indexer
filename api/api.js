@@ -643,11 +643,14 @@ module.exports = (router) => {
     console.log('/exchanges/:publicKey', ctx.params.publicKey)
     try {
       await NinaProcessor.init()
-      const transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
-      console.log('transaction', transaction)
+      let transaction
+      if (ctx.query.transactionId) {
+        transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
+        console.log('transaction', transaction)
+      }
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
-      if (exchange) {
+      if (exchange && transaction) {
         console.log('exchange found', exchange)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
@@ -665,7 +668,7 @@ module.exports = (router) => {
             await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
         } 
-      } else {     
+      } else if (!exchange && transaction) {) {     
         console.log('found an init')
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
@@ -682,7 +685,6 @@ module.exports = (router) => {
         })
       }
       exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
-      console.log('exchange after: ', exchange)
       if (exchange) {
         await exchange.format();
         ctx.body = { exchange }
