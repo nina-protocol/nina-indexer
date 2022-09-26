@@ -2,7 +2,7 @@ description: Nina Post
 type: object
 properties: 
   publicKey:
-    description: The Post's public key
+    description: The Post's `publicKey`
     type: string
     example: 3Afmiq7pXRnxaSY3wH2fQqoHNoWPXBf6eSMPuQnPxRHE
   data:
@@ -26,15 +26,17 @@ properties:
         type: string
         example: "B49JXQLs7RKCkX3PvtrXhuxE9EbmnJjfPSoqpQXLa3Kg"
   datetime:
-    description: The Post's datetime
+    description: The Post's `datetime`
     type: string
     format: date-time
     example: "2020-01-01T00:00:00Z"
   publisher:
-    description: publicKey of the Account that published the Post
+    description: >-
+       `publicKey` of the Account that published the Post
     type: string
     example: 5JcXwSDJwtvDvuaTeChEXWGFDwjZDfUBPvtDKp9fbc25
   publishedThrough:
-    description: publicKey of the Hub the Post was published through
+    description: >- 
+      `publicKey` of the Hub the Post was published through
     type: string
     example: Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF

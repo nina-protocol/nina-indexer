@@ -5,4 +5,4 @@
   - `canAddHubContent`  (`boolean`)
   - `canAddHubCollaborators` (`boolean`)
   - `allowance` (`integer`) -
-    - `allowance` sets the amount of actions a `collaborator` can execute on on a `hub`. A value of `-1` translates to an unlimited allowance.
+    - `allowance` sets the amount of actions a `collaborator` can execute on on a `hub`. A value of `-1` indicates an unlimited allowance.
