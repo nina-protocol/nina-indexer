@@ -4,36 +4,36 @@ properties:
   collected:
     type: 'array'
     description: >-
-      Releases collected by this Account
+      `Releases` collected by this `Account`
     items:
       $ref: './Release.yaml'
   published:
     type: 'array'
     description: >-
-      Releases published by this Account
+      `Releases` published by this `Account`
     items:
       $ref: './Release.yaml'
   hubs:
     type: 'array'
     description: >-
-      Hubs this Account is a collaborator on
+      `Hubs` this `Account` is a Collaborator on
     items:
       $ref: './Hub.yaml'
   posts:
     type: 'array'
     description: >-
-      Posts this Account has made
+      `Posts` this `Account` has made
     items:
       $ref: './Post.yaml'
   exchanges:
     type: 'array'
     description: >-
-      Exchanges this Account has has initialized or completed
+      `Exchanges` this `Account` has has initialized or completed
     items:
       $ref: './Exchange.yaml'
   revenueShares:
     type: 'array'
     description: >-
-      Releases that this Account has a revenueShare on
+      `Releases` that this Account has a revenueShare on
     items:
       $ref: './Release.yaml'

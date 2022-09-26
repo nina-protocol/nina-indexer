@@ -4,7 +4,7 @@ properties:
   publicKey:
     type: string
     description: >-
-      The publicKey of the Exchange 
+      The `publicKey` of the Exchange 
     example: "2w1LbxjmPRHjhFpfMuvhLVhqZrNpTfdLo9nYptvZD2YK"
   isSale:
     type: boolean
@@ -13,12 +13,12 @@ properties:
   expectedAmount:
     type: 'string'
     description: >-
-      If isSale is True, this is the amount of USDC expected to be received by the seller. If isSale is False, this is the amount of Releases expected to be received by the buyer (1)
+      If `isSale` is True, this is the amount of USDC expected to be received by the seller. If isSale is False, this is the amount of Releases expected to be received by the buyer (1)
     example: "249.00"
   initializerAmount:
     type: 'string'
     description: >-
-      If isSale is True, this is the amount of Releases to be sold to the buyer (1). If isSale is False, this is the amount of USDC being bid to purchase the Release
+      If `isSale` is `true`, this is the amount of Releases to be sold to the buyer (1). If `isSale` is `false`, this is the amount of USDC being bid to purchase the Release
     example: "1.00"
   cancelled:
     type: boolean
@@ -41,15 +41,15 @@ properties:
     type: ['null', string] 
     format: 'string'
     description: >-
-      The publicKey of the Account that completed the Exchange
+      The `publicKey` of the Account that completed the Exchange
     example: "EmQVguncDATg1m9mgZcfJ5aDbvg5u3QXPfvfesyYXAW5"
   release:
     type: string
     description: >-
-      The publicKey of the Release associated with the Exchange
+      The `publicKey` of the Release associated with the Exchange
     exchange: "E9KmAF9cXLE3kehLQf9j9XTQsAqCWEP9VL5W3KVNtcqo"
   initializer:
     type: string
     description: >-
-      The publicKey of the Account that initialized the Exchange.
+      The `publicKey` of the Account that initialized the Exchange.
     example: "HesfTj24Eatwy8vvra5UdhX1xJWLeqRM7QdDwjX1xmmk"

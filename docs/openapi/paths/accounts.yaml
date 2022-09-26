@@ -19,7 +19,6 @@ get:
                 type: integer
                 description: The total number of Accounts
                 example: 100
-
     '404':
       description: Accounts not found
       $ref: ../components/responses/Problem.yaml

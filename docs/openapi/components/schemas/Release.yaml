@@ -1,11 +1,11 @@
 type: object
 properties:
   publicKey:
-    description: Release publicKey
+    description: Release `publicKey`
     type: string
     example: B3n45RrLRg9MG4yswBQ8xrku8WXgmt7dX394eDfqzWSo
   mint:
-    description: Release Mint publicKey
+    description: Release Mint `publicKey`
     type: string
     example: DzpAbwW4YpPaPd616v6e9USShMnfvuhQ7NiRvc2KuSE8
   metadata:
@@ -29,7 +29,7 @@ properties:
         example: https://www.arweave.net/L3uxZsbJkQTzzHEJu__D6kljkVddj-UkOwNrSDbjmgU
       animation_url:
         type: string
-        description: Link to Release Image on Arweave
+        description: Link to Audio File on Arweave
         example: https://www.arweave.net/L3uxZsbJkQTzzHEJu__D6kljkVddj-UkOwNrSDbjmgU
       external_url:
         type: string
@@ -97,12 +97,15 @@ properties:
             type: string
             description: File Type
             example: 'Audio'
+      descriptionHtml:
+        type: string
+        description: Release Description (with Markup)
   datetime:
     type: string
     format: date-time
     description: Release Date
     example: 2022-08-15T16:33:37.000Z
-  publishedThrough:
+  publishedThroughHub:
     type: string
     description: publicKey of the Hub the Release was publsihed thrtough
     example: FXfR3cqeTZBWi3eGMwh3vFpR7teJYNqUiqfnnmRFPy1C
