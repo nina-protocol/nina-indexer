@@ -668,7 +668,7 @@ module.exports = (router) => {
             await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
           }
         } 
-      } else if (!exchange && transaction) {) {     
+      } else if (!exchange && transaction) {     
         console.log('found an init')
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
