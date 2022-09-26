@@ -9,7 +9,7 @@ properties:
         name:
           type: string
           description: Artist name
-          example: 'John Smith'
+          example: 'Torn Hawk'
         publicKey:
           type: string
           description: Artist publicKey
@@ -23,18 +23,18 @@ properties:
         artist:
           type: string
           description: Artist name
-          example: 'John Smith'
+          example: 'Torn Hawk'
         title:
           type: string
           description: Release title
         image:
           type: string
           description: Release image
-          example: 'https://i.scdn.co/image/ab67616d0000b273f8f8f8f8f8f8f8f8f8f8f8f8f8'
+          example: '"https://www.arweave.net/9iaOiHKGXNNVXH2_txoFeP4Da4P3VvjAwGS4szE3Uco"'
         publicKey:
           type: string
           description: Release publicKey
-          example: 'B3n45RrLRg9MG4yswBQ8xrku8WXgmt7dX394eDfqzWSo'
+          example: '"7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35"'
   hubs:
     description: Hubs that match the Search Query
     type: array
@@ -44,13 +44,13 @@ properties:
         handle:
           type: string
           description: Hub handle
-          example: 'the-testing-place'
+          example: 'tornhawkcity-'
         publicKey:
           type: string
           description: Hub publicKey
-          example: 'Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF'
+          example: '"7Pc1WR8Rxt9UAgphNUA4jd8TXRFWuQhHyAG4jEhzbFkY"'
         image:
           type: string
           description: Hub image
-          example: 'https://arweave.net/dKgfL3dJnuYZmV_tnYkcM8zTHoNGwUC4LJmffUIViBU'
+          example: 'https://arweave.net/4fltBh56dN7HUnGJdA5xRe0H4X8P6xj1rdOPulPBHhU'
       

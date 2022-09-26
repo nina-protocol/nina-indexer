@@ -8,6 +8,7 @@ get:
     - name: publicKey
       in: path
       description: The publicKey of the Account to be fetched
+      example: 52xYtQzDaxeTGcz3WD37mAJgqVFAzR72EnGYaSHab5DQ
       required: true
       schema:
         type: string

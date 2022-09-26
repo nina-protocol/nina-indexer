@@ -3,11 +3,11 @@ properties:
   publicKey:
     description: Release `publicKey`
     type: string
-    example: B3n45RrLRg9MG4yswBQ8xrku8WXgmt7dX394eDfqzWSo
+    example: "7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35"
   mint:
     description: Release Mint `publicKey`
     type: string
-    example: DzpAbwW4YpPaPd616v6e9USShMnfvuhQ7NiRvc2KuSE8
+    example: H6XNpJSQzGyaEaax8XbM2TMNCmgS8BiFZisffHYPgd4y
   metadata:
     type: object
     properties: 
@@ -22,19 +22,19 @@ properties:
       description:
         type: string
         description: Release Description
-        example: "<p>Beat from Lxrd_Ox Collection. Simplicity is the name of the game on this track, with its booming drums and Luscious keys. Another head nod symphony.</p>"
+        example: "Celebrating the events of July 30, 2022. All proceeds to benefit Cozy Corner chicken finger summits."
       image:
         type: string
         description: Link to Release Image on Arweave
-        example: https://www.arweave.net/L3uxZsbJkQTzzHEJu__D6kljkVddj-UkOwNrSDbjmgU
+        example: "https://www.arweave.net/9iaOiHKGXNNVXH2_txoFeP4Da4P3VvjAwGS4szE3Uco"
       animation_url:
         type: string
         description: Link to Audio File on Arweave
-        example: https://www.arweave.net/L3uxZsbJkQTzzHEJu__D6kljkVddj-UkOwNrSDbjmgU
+        example: "https://www.arweave.net/101-jkVTgE_9ieoBXunUeedCA0c_Gb1EWMdrwZqPaco?ext=mp3"
       external_url:
         type: string
         description: Link to Release on Ninaprotocol.com
-        example: https://ninaprotocol.com/B3n45RrLRg9MG4yswBQ8xrku8WXgmt7dX394eDfqzWSo
+        example: https://www.ninaprotocol.com/7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35
       attributes: 
         type: array
       collection: 
@@ -43,7 +43,7 @@ properties:
           name:
             type: string
             description: Artist - Title
-            example: Lxrd_Ox - Take The Reigns (Nina)
+            example: Torn Hawk - For Nick & Frances (Nina)
           family: 
             type: string
             description: Nina
@@ -54,11 +54,11 @@ properties:
           artist: 
             type: string
             description: Artist Name
-            example: Lxrd_Ox
+            example: Torn Hawk
           title: 
             type: string
             description: Track Name
-            example: Reigns
+            example: For Nick & Frances
           date:
             type: string
             format: date-time
@@ -84,7 +84,7 @@ properties:
                 track_title:
                   type: string
                   description: Track Title
-                  example: Take The Reigns
+                  example: For Nick & Frances
                 duration:
                   type: number
                   description: Track Duration in Seconds

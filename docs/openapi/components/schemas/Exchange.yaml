@@ -23,7 +23,7 @@ properties:
   cancelled:
     type: boolean
     description: >-
-      Describes whether the exchange has been cancelled or not
+      Describes whether the Exchange has been cancelled or not
     example: false
   createdAt:
     type: string
@@ -47,7 +47,7 @@ properties:
     type: string
     description: >-
       The `publicKey` of the Release associated with the Exchange
-    exchange: "E9KmAF9cXLE3kehLQf9j9XTQsAqCWEP9VL5W3KVNtcqo"
+    example: "E9KmAF9cXLE3kehLQf9j9XTQsAqCWEP9VL5W3KVNtcqo"
   initializer:
     type: string
     description: >-

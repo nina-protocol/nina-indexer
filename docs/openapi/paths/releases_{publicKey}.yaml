@@ -7,6 +7,7 @@ get:
     - name: publicKey
       in: path
       description: The publicKey of the Release to be fetched
+      example: 7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35
       required: true
       schema:
         type: string
