@@ -1,0 +1,23 @@
+get:
+  tags:
+    - Releases
+  summary: Get Release by publicKey
+  operationId: getReleaseByPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Release to be fetched
+      example: 7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Release.yaml
+    '404':
+      description: Release not found
+      $ref: ../components/responses/Problem.yaml

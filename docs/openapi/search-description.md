@@ -1,0 +1,1 @@
+Case insensitive `Search` endpoint that will return data that matches the query from `Hubs`, `Releases` and `Artists`

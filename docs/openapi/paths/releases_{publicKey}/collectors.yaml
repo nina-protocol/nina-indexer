@@ -1,0 +1,32 @@
+get:
+  tags:
+    - Releases
+  summary: Get Collectors by publicKey
+  operationId: getCollectorsByReleasePublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Release to be fetch Collectors for
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: 
+              collectors:
+                type: array
+                items:
+                  type: object
+                  properties: 
+                    publicKey:
+                      type: string
+                      description: The publicKey of the Collector's Account
+                      example: "8gmohsY8Agbx9vQuBcaDRxUC5YHt7v76VLBeXgGyGWSn"
+    '404':
+      description: Release not found
+      $ref: ../../components/responses/Problem.yaml

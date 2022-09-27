@@ -1,0 +1,121 @@
+type: object
+properties:
+  publicKey:
+    description: Release `publicKey`
+    type: string
+    example: "7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35"
+  mint:
+    description: Release Mint `publicKey`
+    type: string
+    example: H6XNpJSQzGyaEaax8XbM2TMNCmgS8BiFZisffHYPgd4y
+  metadata:
+    type: object
+    properties: 
+      name:
+        type: string
+        description: Artist - Title
+        example: Lxrd_Ox - Take The Reigns
+      symbol: 
+        type: string
+        description: Token Name
+        example: 8
+      description:
+        type: string
+        description: Release Description
+        example: "Celebrating the events of July 30, 2022. All proceeds to benefit Cozy Corner chicken finger summits."
+      image:
+        type: string
+        description: Link to Release Image on Arweave
+        example: "https://www.arweave.net/9iaOiHKGXNNVXH2_txoFeP4Da4P3VvjAwGS4szE3Uco"
+      animation_url:
+        type: string
+        description: Link to Audio File on Arweave
+        example: "https://www.arweave.net/101-jkVTgE_9ieoBXunUeedCA0c_Gb1EWMdrwZqPaco?ext=mp3"
+      external_url:
+        type: string
+        description: Link to Release on Ninaprotocol.com
+        example: https://www.ninaprotocol.com/7tufjgdTJ2mzgnHLctmUd6Hz3ze68dtR3Ekp1ch5rU35
+      attributes: 
+        type: array
+      collection: 
+        type: object
+        properties: 
+          name:
+            type: string
+            description: Artist - Title
+            example: Torn Hawk - For Nick & Frances (Nina)
+          family: 
+            type: string
+            description: Nina
+            example: Nina
+      properties:
+        type: object
+        properties: 
+          artist: 
+            type: string
+            description: Artist Name
+            example: Torn Hawk
+          title: 
+            type: string
+            description: Track Name
+            example: For Nick & Frances
+          date:
+            type: string
+            format: date-time
+            description: Release Date
+            example: 2022-08-15T16:33:35.439Z
+          md5Digest:
+            type: string
+            description: Hash of Audio File
+            example: 5c28619f254b0cde1c11fa5ac7007ad4
+          files:
+            type: array
+            items: 
+              type: object
+              properties:
+                uri:
+                  type: string
+                  format: uri
+                  description: Link to Audio file on Arweave
+                  example: https://www.arweave.net/Ly8gwnZsHxgsO1D5gbHL53KCS38RPpeLXXdfFZfVFwA
+                track:
+                  type: integer
+                  description: Track Listing
+                track_title:
+                  type: string
+                  description: Track Title
+                  example: For Nick & Frances
+                duration:
+                  type: number
+                  description: Track Duration in Seconds
+                  example: 
+                type: 
+                  type: string
+                  description: File Type
+                  example: audio/mpeg
+          category: 
+            type: string
+            description: File Type
+            example: 'Audio'
+      descriptionHtml:
+        type: string
+        description: Release Description (with Markup)
+  datetime:
+    type: string
+    format: date-time
+    description: Release Date
+    example: 2022-08-15T16:33:37.000Z
+  publishedThroughHub:
+    type: string
+    description: publicKey of the Hub the Release was publsihed thrtough
+    example: FXfR3cqeTZBWi3eGMwh3vFpR7teJYNqUiqfnnmRFPy1C
+  publisher:
+    type: string
+    description: publicKey of Publisher's Account
+    example:  4nnJ47qxEoD54tbnhd9pFjDeit5qvjZDh5oA95QXT5fq
+  
+                
+
+
+
+          

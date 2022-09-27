@@ -1,0 +1,28 @@
+get:
+  tags:
+    - Accounts
+  summary: Get Collected by publicKey
+  operationId: getCollectedByAccountPublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Account to be fetched
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: 
+              collected:
+                type: array
+                items:
+                  properties:
+                  $ref: ../../components/schemas/Release.yaml
+    '404':
+      description: Account not found
+      $ref: ../../components/responses/Problem.yaml
