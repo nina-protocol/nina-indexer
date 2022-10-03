@@ -297,24 +297,14 @@ class NinaProcessor {
 
     console.log('existingSubscriptions :>> ', existingSubscriptions);
     let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
-    // newSubscriptions.forEach(subscription => {
-    //   subscription.account.uri = decode(subscription.account.uri);
-    // })
 
     console.log('newSubscriptions :>> ', newSubscriptions);
-
-    // const newSubscriptionsJson = await axios.all(
-    //   newSubscriptions.map(subscription => axios.get(subscription.account.uri))
-    // ).then(axios.spread((...responses) => responses))
-
-    // console.log('newSubscriptionsJson :>> ', newSubscriptionsJson);
 
     for await (let newSubscription of newSubscriptions) {
       console.log('newSubscription :>> ', newSubscription);
       console.log('newSubscription.publicKey.toBase58() :>> ', newSubscription.publicKey.toBase58());
       try {
-        // const data = newSubscriptionsJson.find(x => x.publicKey === newSubscription.publicKey).data
-        // console.log('data :>> ', data);
+
         await Subscription.query().insert({
           publicKey: newSubscription.publicKey.toBase58(),
           datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),

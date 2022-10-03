@@ -783,7 +783,46 @@ module.exports = (router) => {
       }
     }
   })
+
+  router.get('/subscriptions/:publicKey', async (ctx) => {
+    try {
+      let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
+      if (!subscription) {
+        console.log('MAKING SUBSCRIPTION');
+        await NinaProcessor.init()
+        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+        if (subscriptionAccount) {
+        
+          await Account.findOrCreate(subscriptionAccount.from.toBase58());
+        
+          subscription = await Subscription.findOrCreate({
+            publicKey: ctx.params.publicKey,
+            from: subscriptionAccount.from.toBase58(),
+            to: subscriptionAccount.to.toBase58(),
+            datetime: new Date(subscriptionAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+            subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+
+          })
+        } else {
+          throw("Subscription not found")
+        }
+      }  
+      console.log('subscription :>> ', subscription)
+      await subscription.format();
+      ctx.body = {
+        subscription,
+      }
+  } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
+
 }
+
 
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
