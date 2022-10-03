@@ -33,11 +33,15 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    // await this.processReleases();
-    // await this.processExchanges();
-    // await this.processPosts();
-    // await this.processHubs();
-    await this.processSubscriptions();
+    try {
+      await this.processReleases();
+      await this.processExchanges();
+      await this.processPosts();
+      await this.processHubs();
+      await this.processSubscriptions();
+    } catch (error) {
+      console.warn(error)
+    }
   }
 
   async processExchanges() {
@@ -287,33 +291,38 @@ class NinaProcessor {
 
   async processSubscriptions() {
     console.log('Processing Subscriptions');
-    const subscriptions = await this.program.account.subscriptions.all();
+    const subscriptions = await this.program.account.subscription.all();
+    console.log('subscriptions :>> ', subscriptions);
     const existingSubscriptions = await Subscription.query();
 
     console.log('existingSubscriptions :>> ', existingSubscriptions);
-    let newSubsciptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
-    newSubscriptions.forEach(subscription => {
-      subscription.account.uri = decode(subscription.account.uri);
-    })
+    let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+    // newSubscriptions.forEach(subscription => {
+    //   subscription.account.uri = decode(subscription.account.uri);
+    // })
 
-    const newSubscriptionsJson = await axios.all(
-      newSubscriptions.map(subscription => axios.get(subscription.account.uri))
-    ).then(axios.spread((...responses) => responses))
+    console.log('newSubscriptions :>> ', newSubscriptions);
 
-    console.log('newSubscriptionsJson :>> ', newSubscriptionsJson);
+    // const newSubscriptionsJson = await axios.all(
+    //   newSubscriptions.map(subscription => axios.get(subscription.account.uri))
+    // ).then(axios.spread((...responses) => responses))
+
+    // console.log('newSubscriptionsJson :>> ', newSubscriptionsJson);
 
     for await (let newSubscription of newSubscriptions) {
+      console.log('newSubscription :>> ', newSubscription);
+      console.log('newSubscription.publicKey.toBase58() :>> ', newSubscription.publicKey.toBase58());
       try {
-        const data = newSubscriptionsJson.find(x => x.publicKey === newSubscription.publicKey).data
-        const subscription = await Subscription.query().insertGraph({
+        // const data = newSubscriptionsJson.find(x => x.publicKey === newSubscription.publicKey).data
+        // console.log('data :>> ', data);
+        await Subscription.query().insert({
           publicKey: newSubscription.publicKey.toBase58(),
-          handle: decode(newSubscription.account.handle),
-          data,
           datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
-          authorityId: authority.id,
+          from: newSubscription.account.from.toBase58(),
+          to: newSubscription.account.to.toBase58(),
+          subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
         });
         console.log('Inserted Sub:', newSubscription.publicKey.toBase58());
-        // await Hub.updateHub(hub, hubContent, hubReleases, hubCollaborators, hubPosts);
       } catch (err) {
         console.log(err);
       }
@@ -398,32 +407,37 @@ class NinaProcessor {
   }
 
   async getSignatures (connection, tx=undefined, isBefore=true, existingSignatures=[]) {
-    const options = {}
-    if (tx && isBefore) {
-      options.before = tx.signature
-    } else if (!isBefore && tx) {
-      options.until = tx.signature
-    }
-    const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
-    newSignatures.forEach(x => {
-      if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
-        this.latestSignature = x
-        console.log('New Latest Signature:', this.latestSignature.blockTime)
+    try {
+      const options = {}
+      if (tx && isBefore) {
+        options.before = tx.signature
+      } else if (!isBefore && tx) {
+        options.until = tx.signature
       }
-    })
-    let signature
-    if (isBefore) {
-      signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
-    } else {
-      signature = tx.signature  
+      const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
+      newSignatures.forEach(x => {
+        if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
+          this.latestSignature = x
+          console.log('New Latest Signature:', this.latestSignature.blockTime)
+        }
+      })
+      let signature
+      if (isBefore) {
+        signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+      } else if (tx) {
+        signature = tx.signature  
+      }
+      if (newSignatures.length > 0) {
+        existingSignatures.push(...newSignatures)
+      }
+      if (existingSignatures.length % 1000 === 0 && newSignatures > 0) {
+        return await this.getSignatures(connection, signature, isBefore, existingSignatures)
+      }
+      return existingSignatures
+    } catch (error) {
+      console.warn (error)
     }
-    existingSignatures.push(...newSignatures)
-    if (existingSignatures.length % 1000 === 0) {
-      return await this.getSignatures(connection, signature, isBefore, existingSignatures)
-    }
-    return existingSignatures
   }
-  
 }
 
 module.exports = new NinaProcessor();

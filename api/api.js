@@ -10,6 +10,7 @@ const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
+const Subscription = require('../indexer/db/models/Subscription');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -575,6 +576,31 @@ module.exports = (router) => {
       hubPostNotFound(ctx)
     }   
   })
+
+    router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+
+      const subscriptionsTo = await Subscription.query()
+        .where('subscriptions.to', hub.publicKey)
+        .where('subscriptions.subscriptionType', 'hub')
+
+      for await (let subscription of subscriptionsTo) {
+        await subscription.format();
+      }
+      ctx.body = { 
+        subscriptions: {
+          // from: subcriptionsFrom,
+          to: subscriptionsTo,
+        },
+        publicKey: hub.publicKey,
+      };
+    } catch (err) {
+      console.log(err)
+      // hubNotFound(ctx)
+    }
+  })
+
 
   router.get('/posts', async (ctx) => {
     try {
