@@ -198,7 +198,7 @@ module.exports = (router) => {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
         await NinaProcessor.init()
-        const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+        const releaseAccount = await NinaProcessor.program.account.release.fetch(new anchor.web3.PublicKey(ctx.params.publicKey), 'confirmed')
         if (releaseAccount) {
           const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
         
@@ -593,29 +593,6 @@ module.exports = (router) => {
       ctx.body = {
         message: 'Error fetching posts'
       }
-    }
-  })
-
-  router.get('/posts/:publicKey', async (ctx) => {
-    try {
-      const post = await Post.query().findOne({publicKey: ctx.params.publicKey})
-
-      const publisher = await post.$relatedQuery('publisher')
-      await publisher.format();
-      
-      const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
-      await publishedThroughHub.format();
-
-      await post.format();
-
-      ctx.body = {
-        post,
-        publisher,
-        publishedThroughHub
-    };
-    } catch (err) {
-      console.log(err)
-      postNotFound(ctx)
     }
   })
 
