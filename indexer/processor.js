@@ -7,6 +7,7 @@ const Hub = require('./db/models/Hub');
 const Post = require('./db/models/Post');
 const Release = require('./db/models/Release');
 const { decode } = require('./utils');
+const Subscription = require('./db/models/Subscription');
 
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
@@ -32,10 +33,11 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    await this.processReleases();
-    await this.processExchanges();
-    await this.processPosts();
-    await this.processHubs();
+    // await this.processReleases();
+    // await this.processExchanges();
+    // await this.processPosts();
+    // await this.processHubs();
+    await this.processSubscriptions();
   }
 
   async processExchanges() {
@@ -277,6 +279,41 @@ class NinaProcessor {
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
         await Hub.updateHub(hub, hubContent, hubReleases, hubCollaborators, hubPosts);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }
+
+  async processSubscriptions() {
+    console.log('Processing Subscriptions');
+    const subscriptions = await this.program.account.subscriptions.all();
+    const existingSubscriptions = await Subscription.query();
+
+    console.log('existingSubscriptions :>> ', existingSubscriptions);
+    let newSubsciptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+    newSubscriptions.forEach(subscription => {
+      subscription.account.uri = decode(subscription.account.uri);
+    })
+
+    const newSubscriptionsJson = await axios.all(
+      newSubscriptions.map(subscription => axios.get(subscription.account.uri))
+    ).then(axios.spread((...responses) => responses))
+
+    console.log('newSubscriptionsJson :>> ', newSubscriptionsJson);
+
+    for await (let newSubscription of newSubscriptions) {
+      try {
+        const data = newSubscriptionsJson.find(x => x.publicKey === newSubscription.publicKey).data
+        const subscription = await Subscription.query().insertGraph({
+          publicKey: newSubscription.publicKey.toBase58(),
+          handle: decode(newSubscription.account.handle),
+          data,
+          datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
+          authorityId: authority.id,
+        });
+        console.log('Inserted Sub:', newSubscription.publicKey.toBase58());
+        // await Hub.updateHub(hub, hubContent, hubReleases, hubCollaborators, hubPosts);
       } catch (err) {
         console.log(err);
       }
