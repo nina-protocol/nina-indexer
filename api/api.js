@@ -4,6 +4,7 @@ const anchor = require('@project-serum/anchor');
 const axios = require('axios')
 
 const Account = require('../indexer/db/models/Account');
+const Exchange = require('../indexer/db/models/Exchange');
 const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
@@ -194,35 +195,32 @@ module.exports = (router) => {
 
   router.get('/releases/:publicKey', async (ctx) => {
     try {
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
         await NinaProcessor.init()
-        const release = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
-        if (release) {
-          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+        const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+        if (releaseAccount) {
+          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
         
-          let publisher = await Account.findOrCreate(release.authority.toBase58());
+          let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
         
-          const releaseRecord = await Release.findOrCreate({
+          release = await Release.findOrCreate({
             publicKey: ctx.params.publicKey,
-            mint: release.releaseMint.toBase58(),
+            mint: releaseAccount.releaseMint.toBase58(),
             metadata: metadataAccount.json,
-            datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
+            datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
             publisherId: publisher.id,
           })
-          await Release.processRevenueShares(release, releaseRecord);
-          await releaseRecord.format();
-          ctx.body = {
-            release: releaseRecord,
-          }
+          await Release.processRevenueShares(releaseAccount, release);
         } else {
           throw("Release not found")
-        }  
-      } else {
-        await release.format();
-        ctx.body = { release };
+        }
+      }  
+      await release.format();
+      ctx.body = {
+        release,
       }
-    } catch (err) {
+  } catch (err) {
       console.log(err)
       ctx.status = 404
       ctx.body = {
@@ -242,7 +240,10 @@ module.exports = (router) => {
       ctx.body = { exchanges };
     } catch (err) {
       console.log(err)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   });
 
@@ -261,7 +262,10 @@ module.exports = (router) => {
       ctx.body = { collectors };
     } catch (err) {
       console.log(err)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   });
 
@@ -275,7 +279,10 @@ module.exports = (router) => {
       ctx.body = { hubs };
     } catch (error) {
       console.log(error)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   })
 
@@ -289,7 +296,10 @@ module.exports = (router) => {
       ctx.body = { revenueShareRecipients };
     } catch (error) {
       console.log(error)
-      releaseNotFound(ctx)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
     }
   })
 
@@ -632,6 +642,86 @@ module.exports = (router) => {
     }
   })
   
+  router.get('/exchanges', async (ctx) => {
+    try {
+      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const exchanges = await Exchange.query().orderBy('createdAt', sort).range(offset, offset + limit);
+      for await (let exchange of exchanges.results) {
+        await exchange.format();
+      }
+      ctx.body = {
+        exchanges: exchanges.results,
+        total: exchanges.total,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching exchanges'
+      }
+    }
+  })
+
+  router.get('/exchanges/:publicKey', async (ctx) => {
+    console.log('/exchanges/:publicKey', ctx.params.publicKey)
+    try {
+      await NinaProcessor.init()
+      let transaction
+      if (ctx.query.transactionId) {
+        transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
+        console.log('transaction', transaction)
+      }
+      let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
+      
+      if (exchange && transaction) {
+        console.log('exchange found', exchange)
+        const length = transaction.transaction.message.instructions.length
+        const accounts = transaction.transaction.message.instructions[length - 1].accounts
+        if (accounts) {
+          console.log('accounts.length', accounts.length)
+          if (accounts.length === 6) {
+            console.log('found a cancel')
+            const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+            await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
+          } else if (accounts.length === 16) {
+            console.log('found an accept')
+            const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
+            const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
+            const completedBy = await Account.findOrCreate(completedByPublicKey)
+            await Exchange.query().patch({completedById: completedBy.id, updatedAt}).findById(exchange.id)
+          }
+        } 
+      } else if (!exchange && transaction) {     
+        console.log('found an init')
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
+        const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
+        const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
+        await Exchange.query().insertGraph({
+          publicKey: ctx.params.publicKey,
+          expectedAmount: exchangeAccount.isSelling ? exchangeAccount.expectedAmount.toNumber()  / 1000000 : 1,
+          initializerAmount: exchangeAccount.isSelling ? 1 : exchangeAccount.initializerAmount.toNumber() / 1000000,
+          isSale: exchangeAccount.isSelling,
+          cancelled: false,
+          initializerId: initializer.id,
+          releaseId: release.id,
+          createdAt: new Date(transaction.blockTime * 1000).toISOString(),
+        })
+      }
+      exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
+      if (exchange) {
+        await exchange.format();
+        ctx.body = { exchange }
+      }  
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Exchange not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
+
+
   router.post('/search', async (ctx) => {
     try { 
       const { query } = ctx.request.body;

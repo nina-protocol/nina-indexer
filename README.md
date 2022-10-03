@@ -2,7 +2,8 @@
 
 The Nina API makes available the Artist, Collector, Release, and Hub data from the [Nina Protocol](https://www.ninaprotocol.com).
 
-[Documentation](https://dev.ninaprotocol.com/api)
+[Documentation](https://api.docs.ninaprotocol.com/)
+
 Public Endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/v1)
 ---
 
@@ -10,7 +11,7 @@ Public Endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/
 
 1. Indexer - `/indexer`
 2. Api - `/api`
-
+3. Docs - `/docs`
 ---
 
 ## 1. Indexer
@@ -39,10 +40,17 @@ The API is a simple Koa app that connects to the Postgres Database used by the i
 
 ###Setup
 
-- You should have done the setup for the Indexer above
+- After setting up the Indexer as described above:
 - `yarn start:api` 
 
 ---
+
+
+## 3. Docs
+
+- The docs are built using [Redocly](https://redocly.com/) and adhere to the [OpenApi Specification](https://spec.openapis.org/oas/v3.1.0)'
+- Docs can be visited at [here](http://api.docs.ninaprotocol.com/)
+- `yarn docs` runs the documenation for local development
 
 ## Contributors welcome! 
 Need help?  Ask a question in our [Discord](https://discord.gg/ePkqJqSBgj) or open an issue.

@@ -1,0 +1,46 @@
+description: Hub
+type: object
+properties:
+  publicKey:
+    description: The Hub `publicKey`
+    type: string
+    example: Gwg6hGU3BaBfcgaidX46HxQ7R513bgAvxqfztUsL31KF
+  handle:
+    description: the Hub's handle (must be unique)
+    type: string
+    example: ninas-picks
+  data:
+    description: Hub Data
+    type: object
+    properties: 
+      displayName:
+        description: The Hub's display name
+        type: string
+        example: Nina's Picks
+      description:
+        description: the Hub's description
+        type: string
+        example: "Nina's Picks is a collection of the best music from Nina."
+      externalUrl: 
+        type: string
+        format: uri
+        description: The Hub's external URL
+        example: https://hubs.ninaprotocol.com/kontravoid
+      image:
+        description: The Hub's image
+        type: string
+        format: uri
+        example: https://arweave.net/dKgfL3dJnuYZmV_tnYkcM8zTHoNGwUC4LJmffUIViBU
+      descriptionHtml:
+        description: The Hub's description in with HTML (user's Rich Text formatting)
+        type: string
+        example: "<p>Nina's Picks is a collection of the best music from Nina.</p>"
+  datetime:
+    description: The time the Hub was created
+    type: string
+    format: date-time
+    example: "2020-01-01T00:00:00Z"
+  authority:
+    description: The Public Key of the Account that created the Hub
+    type: string
+    example: 5JcXwSDJwtvDvuaTeChEXWGFDwjZDfUBPvtDKp9fbc25
