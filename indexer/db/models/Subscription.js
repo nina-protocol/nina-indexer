@@ -24,12 +24,13 @@ class Subscription extends Model {
     };
   }
 
-  static async findOrCreate(publicKey, from, to, datetime, subscriptionType) {
+  static async findOrCreate({publicKey, from, to, datetime, subscriptionType}) {
     let subscription = await Subscription.query().findOne({ publicKey });
     if (subscription) {
       return subscription;
     }
-    subscription = await subscription.query().insert({
+
+    subscription = await Subscription.query().insert({
       publicKey, from, to, datetime, subscriptionType
     });
     console.log('Inserted subscription: ', publicKey)

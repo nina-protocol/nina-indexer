@@ -795,12 +795,14 @@ module.exports = (router) => {
         
           await Account.findOrCreate(subscriptionAccount.from.toBase58());
         
+          console.log('subscriptionAccount :>> ', subscriptionAccount);
+
           subscription = await Subscription.findOrCreate({
             publicKey: ctx.params.publicKey,
             from: subscriptionAccount.from.toBase58(),
             to: subscriptionAccount.to.toBase58(),
-            datetime: new Date(subscriptionAccount.releaseDatetime.toNumber() * 1000).toISOString(),
-            subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+            datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
+            subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
 
           })
         } else {
