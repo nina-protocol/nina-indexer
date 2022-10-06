@@ -841,7 +841,6 @@ module.exports = (router) => {
         if (isUnsubscribe) {
           await Subscription.query().delete().where('publicKey', subscription.publicKey)
         }
- 
       }
       await subscription.format();
       ctx.body = {
