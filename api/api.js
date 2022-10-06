@@ -174,6 +174,29 @@ module.exports = (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
+    try {
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+
+      const subscriptions = await Subscription.query()
+        .where('subscriptionType', 'account')
+        .where('from', account.publicKey)
+        .orWhere('to', account.publicKey)
+      
+      for await (let subscription of subscriptions) {
+        await subscription.format();
+      }
+
+      ctx.body = { subscriptions };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching subscriptions'
+      }
+    }
+  });
+
   router.get('/releases', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
@@ -785,42 +808,43 @@ module.exports = (router) => {
   })
 
   router.get('/subscriptions/:publicKey', async (ctx) => {
-    try {
-      let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
-      if (!subscription) {
-        console.log('MAKING SUBSCRIPTION');
-        await NinaProcessor.init()
-        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
-        if (subscriptionAccount) {
+    console.log('ctx.params :>> ', ctx.params);
+    console.log('ctx.query :>> ', ctx.query);
+  //   try {
+  //     let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
+  //     if (!subscription) {
+  //       console.log('MAKING SUBSCRIPTION');
+  //       await NinaProcessor.init()
+  //       const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+  //       if (subscriptionAccount ) {
+  //         //CREATE
+  //         await Account.findOrCreate(subscriptionAccount.from.toBase58());
         
-          await Account.findOrCreate(subscriptionAccount.from.toBase58());
-        
-          console.log('subscriptionAccount :>> ', subscriptionAccount);
+  //         console.log('subscriptionAccount :>> ', subscriptionAccount);
 
-          subscription = await Subscription.findOrCreate({
-            publicKey: ctx.params.publicKey,
-            from: subscriptionAccount.from.toBase58(),
-            to: subscriptionAccount.to.toBase58(),
-            datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
-            subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
-
-          })
-        } else {
-          throw("Subscription not found")
-        }
-      }  
-      console.log('subscription :>> ', subscription)
-      await subscription.format();
-      ctx.body = {
-        subscription,
-      }
-  } catch (err) {
-      console.log(err)
-      ctx.status = 404
-      ctx.body = {
-        message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
-      }
-    }
+  //         subscription = await Subscription.findOrCreate({
+  //           publicKey: ctx.params.publicKey,
+  //           from: subscriptionAccount.from.toBase58(),
+  //           to: subscriptionAccount.to.toBase58(),
+  //           datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
+  //           subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
+  //         })
+  //       } else {
+  //         throw("Subscription not found")
+  //       }
+  //     }  
+  //     console.log('subscription :>> ', subscription)
+  //     await subscription.format();
+  //     ctx.body = {
+  //       subscription,
+  //     }
+  // } catch (err) {
+  //     console.log(err)
+  //     ctx.status = 404
+  //     ctx.body = {
+  //       message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
+  //     }
+  //   }
   });
 
 }
