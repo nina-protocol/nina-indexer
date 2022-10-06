@@ -179,7 +179,6 @@ module.exports = (router) => {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
 
       const subscriptions = await Subscription.query()
-        .where('subscriptionType', 'account')
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
       
@@ -600,22 +599,19 @@ module.exports = (router) => {
     }   
   })
 
-    router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
+  router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
       const hub = await hubForPublicKeyOrHandle(ctx)
 
-      const subscriptionsTo = await Subscription.query()
+      const subscriptions = await Subscription.query()
         .where('subscriptions.to', hub.publicKey)
         .where('subscriptions.subscriptionType', 'hub')
 
-      for await (let subscription of subscriptionsTo) {
+      for await (let subscription of subscriptions) {
         await subscription.format();
       }
       ctx.body = { 
-        subscriptions: {
-          // from: subcriptionsFrom,
-          to: subscriptionsTo,
-        },
+        subscriptions,
         publicKey: hub.publicKey,
       };
     } catch (err) {
@@ -819,6 +815,8 @@ module.exports = (router) => {
           );
       }
 
+      console.log('ctx.params.publicKey :>> ', ctx.params.publicKey);
+
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
       
       if (!subscription && !transaction) {
@@ -859,9 +857,7 @@ module.exports = (router) => {
       }
     }
   });
-
 }
-
 
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
