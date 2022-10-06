@@ -616,7 +616,7 @@ module.exports = (router) => {
       };
     } catch (err) {
       console.log(err)
-      // hubNotFound(ctx)
+      hubNotFound(ctx)
     }
   })
 
@@ -874,6 +874,13 @@ const postNotFound = (ctx) => {
   ctx.status = 404
   ctx.body = {
     message: `Post not found with publicKey: ${ctx.params.publicKey}`
+  }
+}
+
+const hubNotFound = (ctx) => {
+  ctx.status = 404
+  ctx.body = {
+    message: `Hub not found with publicKey: ${ctx.params.publicKey}`
   }
 }
 
