@@ -1,0 +1,27 @@
+get:
+  tags:
+    - Releases
+  summary: Get Exchanges by publicKey
+  operationId: getExchangesbyReleasePublicKey
+  parameters:
+    - name: publicKey
+      in: path
+      description: The publicKey of the Release to be fetch Hubs for
+      required: true
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties: 
+              exchanges:
+                type: array
+                items:
+                  $ref: ../../components/schemas/Exchange.yaml
+    '404':
+      description: Release not found
+      $ref: ../../components/responses/Problem.yaml
