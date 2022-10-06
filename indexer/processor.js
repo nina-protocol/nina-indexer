@@ -290,21 +290,14 @@ class NinaProcessor {
   }
 
   async processSubscriptions() {
-    console.log('Processing Subscriptions');
     const subscriptions = await this.program.account.subscription.all();
-    console.log('subscriptions :>> ', subscriptions);
     const existingSubscriptions = await Subscription.query();
 
-    console.log('existingSubscriptions :>> ', existingSubscriptions);
     let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
 
-    console.log('newSubscriptions :>> ', newSubscriptions);
 
     for await (let newSubscription of newSubscriptions) {
-      console.log('newSubscription :>> ', newSubscription);
-      console.log('newSubscription.publicKey.toBase58() :>> ', newSubscription.publicKey.toBase58());
       try {
-
         await Subscription.query().insert({
           publicKey: newSubscription.publicKey.toBase58(),
           datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
@@ -312,7 +305,7 @@ class NinaProcessor {
           to: newSubscription.account.to.toBase58(),
           subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
         });
-        console.log('Inserted Sub:', newSubscription.publicKey.toBase58());
+        console.log('Inserted Subcription:', newSubscription.publicKey.toBase58());
       } catch (err) {
         console.log(err);
       }
