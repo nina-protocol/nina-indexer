@@ -7,6 +7,7 @@ const Hub = require('./db/models/Hub');
 const Post = require('./db/models/Post');
 const Release = require('./db/models/Release');
 const { decode } = require('./utils');
+const Subscription = require('./db/models/Subscription');
 
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
@@ -32,10 +33,15 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    await this.processReleases();
-    await this.processExchanges();
-    await this.processPosts();
-    await this.processHubs();
+    try {
+      await this.processReleases();
+      await this.processExchanges();
+      await this.processPosts();
+      await this.processHubs();
+      await this.processSubscriptions();
+    } catch (error) {
+      console.warn(error)
+    }
   }
 
   async processExchanges() {
@@ -283,6 +289,29 @@ class NinaProcessor {
     }
   }
 
+  async processSubscriptions() {
+    const subscriptions = await this.program.account.subscription.all();
+    const existingSubscriptions = await Subscription.query();
+
+    let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+
+
+    for await (let newSubscription of newSubscriptions) {
+      try {
+        await Subscription.query().insert({
+          publicKey: newSubscription.publicKey.toBase58(),
+          datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
+          from: newSubscription.account.from.toBase58(),
+          to: newSubscription.account.to.toBase58(),
+          subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+        });
+        console.log('Inserted Subcription:', newSubscription.publicKey.toBase58());
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }
+
   async processCollectors() {
     const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
     const exchanges = await this.program.account.exchange.all();
@@ -361,32 +390,37 @@ class NinaProcessor {
   }
 
   async getSignatures (connection, tx=undefined, isBefore=true, existingSignatures=[]) {
-    const options = {}
-    if (tx && isBefore) {
-      options.before = tx.signature
-    } else if (!isBefore && tx) {
-      options.until = tx.signature
-    }
-    const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
-    newSignatures.forEach(x => {
-      if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
-        this.latestSignature = x
-        console.log('New Latest Signature:', this.latestSignature.blockTime)
+    try {
+      const options = {}
+      if (tx && isBefore) {
+        options.before = tx.signature
+      } else if (!isBefore && tx) {
+        options.until = tx.signature
       }
-    })
-    let signature
-    if (isBefore) {
-      signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
-    } else {
-      signature = tx.signature  
+      const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
+      newSignatures.forEach(x => {
+        if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
+          this.latestSignature = x
+          console.log('New Latest Signature:', this.latestSignature.blockTime)
+        }
+      })
+      let signature
+      if (isBefore) {
+        signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+      } else if (tx) {
+        signature = tx.signature  
+      }
+      if (newSignatures.length > 0) {
+        existingSignatures.push(...newSignatures)
+      }
+      if (existingSignatures.length % 1000 === 0 && newSignatures > 0) {
+        return await this.getSignatures(connection, signature, isBefore, existingSignatures)
+      }
+      return existingSignatures
+    } catch (error) {
+      console.warn (error)
     }
-    existingSignatures.push(...newSignatures)
-    if (existingSignatures.length % 1000 === 0) {
-      return await this.getSignatures(connection, signature, isBefore, existingSignatures)
-    }
-    return existingSignatures
   }
-  
 }
 
 module.exports = new NinaProcessor();

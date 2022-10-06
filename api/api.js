@@ -10,6 +10,7 @@ const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
+const Subscription = require('../indexer/db/models/Subscription');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -170,6 +171,28 @@ module.exports = (router) => {
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
+    }
+  });
+
+  router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
+    try {
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+        .orWhere('to', account.publicKey)
+      
+      for await (let subscription of subscriptions) {
+        await subscription.format();
+      }
+
+      ctx.body = { subscriptions };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching subscriptions'
+      }
     }
   });
 
@@ -576,6 +599,28 @@ module.exports = (router) => {
     }   
   })
 
+  router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+
+      const subscriptions = await Subscription.query()
+        .where('subscriptions.to', hub.publicKey)
+        .where('subscriptions.subscriptionType', 'hub')
+
+      for await (let subscription of subscriptions) {
+        await subscription.format();
+      }
+      ctx.body = { 
+        subscriptions,
+        publicKey: hub.publicKey,
+      };
+    } catch (err) {
+      console.log(err)
+      hubNotFound(ctx)
+    }
+  })
+
+
   router.get('/posts', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
@@ -757,6 +802,58 @@ module.exports = (router) => {
       }
     }
   })
+
+  router.get('/subscriptions/:publicKey', async (ctx) => {
+    try {
+      await NinaProcessor.init();
+      let transaction
+      if (ctx.query.transactionId) {
+        transaction =
+          await NinaProcessor.provider.connection.getParsedTransaction(
+            ctx.query.transactionId,
+            "confirmed"
+          );
+      }
+
+      let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
+      
+      if (!subscription && !transaction) {
+        await NinaProcessor.init()
+        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+        if (subscriptionAccount) {
+          //CREATE ENTRY
+          await Account.findOrCreate(subscriptionAccount.from.toBase58());
+          subscription = await Subscription.findOrCreate({
+            publicKey: ctx.params.publicKey,
+            from: subscriptionAccount.from.toBase58(),
+            to: subscriptionAccount.to.toBase58(),
+            datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
+            subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
+          })
+        } else {
+          throw("Subscription not found")
+        }
+      } 
+      
+      if (subscription && transaction) {
+        //DELETE ENTRY
+        const isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
+        if (isUnsubscribe) {
+          await Subscription.query().delete().where('publicKey', subscription.publicKey)
+        }
+      }
+      await subscription.format();
+      ctx.body = {
+        subscription,
+      }
+  } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
 }
 
 const hubPostNotFound = (ctx) => {
@@ -777,6 +874,13 @@ const postNotFound = (ctx) => {
   ctx.status = 404
   ctx.body = {
     message: `Post not found with publicKey: ${ctx.params.publicKey}`
+  }
+}
+
+const hubNotFound = (ctx) => {
+  ctx.status = 404
+  ctx.body = {
+    message: `Hub not found with publicKey: ${ctx.params.publicKey}`
   }
 }
 
