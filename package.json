@@ -1,5 +1,5 @@
 {
-  "name": "@nina-protocol/nina-api",
+  "name": "@nina-protocol/nina-indexer",
   "version": "0.0.1",
   "description": "",
   "main": "api/index.js",
@@ -20,14 +20,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nina-protocol/nina-api.git"
+    "url": "git+https://github.com/nina-protocol/nina-indexer.git"
   },
   "author": "contact@ninaprotocol.com",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/nina-protocol/nina-api/issues"
+    "url": "https://github.com/nina-protocol/nina-indexer/issues"
   },
-  "homepage": "https://github.com/nina-protocol/nina-api#readme",
+  "homepage": "https://github.com/nina-protocol/nina-indexer#readme",
   "dependencies": {
     "@koa/cors": "^3.3.0",
     "@metaplex-foundation/js": "^0.14.0",

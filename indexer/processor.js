@@ -257,7 +257,8 @@ class NinaProcessor {
     const existingHubs = await Hub.query();
 
     for await (let existingHub of existingHubs) {
-      await Hub.updateHub(existingHub, hubContent, hubReleases, hubCollaborators, hubPosts);
+      const hubAccount = hubs.find(x => x.publicKey.toBase58() === existingHub.publicKey);
+      await Hub.updateHub(existingHub, hubAccount, hubContent, hubReleases, hubCollaborators, hubPosts);
     }
     
     let newHubs = hubs.filter(x => !existingHubs.find(y => y.publicKey === x.publicKey.toBase58()));
@@ -278,11 +279,12 @@ class NinaProcessor {
           publicKey: newHub.publicKey.toBase58(),
           handle: decode(newHub.account.handle),
           data,
+          dataUri: newHub.account.uri,
           datetime: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
           authorityId: authority.id,
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
-        await Hub.updateHub(hub, hubContent, hubReleases, hubCollaborators, hubPosts);
+        await Hub.updateHub(hub, newHub, hubContent, hubReleases, hubCollaborators, hubPosts);
       } catch (err) {
         console.log(err);
       }
