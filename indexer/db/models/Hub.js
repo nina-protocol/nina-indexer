@@ -1,5 +1,6 @@
+const { default: axios } = require('axios');
 const { Model } = require('objection');
-const { stripHtmlIfNeeded } = require('../../utils');
+const { stripHtmlIfNeeded, decode } = require('../../utils');
 
 class Hub extends Model {
   static get tableName() {
@@ -11,11 +12,12 @@ class Hub extends Model {
   static get jsonSchema() {
     return {
       type: 'object',
-      required: ['publicKey', 'handle', 'data', 'datetime'],
+      required: ['publicKey', 'handle', 'data', 'dataUri', 'datetime'],
       properties: {
         publicKey: { type: 'string' },
         handle: { type: 'string' },
         data: { type: 'object' },
+        dataUri: { type: 'string' },
         datetime: { type: 'string' },
       },
     };
@@ -30,10 +32,21 @@ class Hub extends Model {
     stripHtmlIfNeeded(this.data, 'description');
   }
 
-  static async updateHub(hub, hubContents, hubReleases, hubCollaborators, hubPosts) {
+  static async updateHub(hub, hubAccount, hubContents, hubReleases, hubCollaborators, hubPosts) {
     const Account = require('./Account');
     const Post = require('./Post');
     const Release = require('./Release');
+    if (typeof hubAccount.account.uri !== 'string') {
+      hubAccount.account.uri = decode(hubAccount.account.uri)
+    }
+    if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
+      console.log('hubAccount.account.uri', hubAccount.account.uri);
+      const data = (await axios.get(hubAccount.account.uri)).data;
+      await hub.$query().patch({
+        data,
+        dataUri: hubAccount.account.uri
+      });
+    }
 
     // Update Hub Releases
     const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
