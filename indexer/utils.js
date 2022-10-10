@@ -9,7 +9,8 @@ const removeQuotesFromStartAndEndOfString = (string) => {
 }
 
 const stripHtmlIfNeeded = (object, value) => {
-  const strippedDescription = striptags(object[value], [], " ");
+  let strippedDescription = striptags(object[value], [], ' ');
+  strippedDescription = strippedDescription.replace('&nbsp;', ' ');
   if (strippedDescription !== object[value]) {
     object[value+"Html"] = object[value];
     object[value] = removeQuotesFromStartAndEndOfString(strippedDescription);
