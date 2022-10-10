@@ -11,6 +11,7 @@ const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
+const Transaction = require('../indexer/db/models/Transaction');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -195,6 +196,50 @@ module.exports = (router) => {
       }
     }
   });
+
+  router.get('/accounts/:publicKey/feed', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+
+      const hubIds = []
+      const accountIds = []
+
+      for await (let subscription of subscriptions) {
+        if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.to })
+          hubIds.push(hub.id)
+        } else if (subscription.subscriptionType === 'account') {
+          const account = await Account.query().findOne({ publicKey: subscription.to })
+          accountIds.push(account.id)
+        }
+      }
+      const transactions = await Transaction.query()
+        .whereIn('hubId', hubIds)
+        .orWhereIn('authorityId', accountIds)
+        .orderBy('blocktime', 'desc')
+        .range(offset, offset + limit)
+
+      const feedItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        feedItems.push(transaction)
+      }
+
+      ctx.body = {
+        feedItems,
+        total: transactions.total
+      };
+    } catch (err) {
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+  
 
   router.get('/releases', async (ctx) => {
     try {
