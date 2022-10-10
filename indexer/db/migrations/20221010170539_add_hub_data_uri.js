@@ -4,7 +4,7 @@
  */
 exports.up = function(knex) {
   return knex.schema.table('hubs' , table => {
-    table.string('dataUri').notNullable();
+    table.string('dataUri');
   });
 };
 
