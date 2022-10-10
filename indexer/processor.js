@@ -273,7 +273,6 @@ class NinaProcessor {
 
     for await (let newHub of newHubs) {
       try {
-        console.log('newHub.account.uri')
         const data = newHubsJson.find(x => x.config.url === newHub.account.uri).data
         let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
         const hub = await Hub.query().insertGraph({

@@ -40,7 +40,6 @@ class Hub extends Model {
       hubAccount.account.uri = decode(hubAccount.account.uri)
     }
     if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
-      console.log('hubAccount.account.uri', hubAccount.account.uri);
       const data = (await axios.get(hubAccount.account.uri)).data;
       await hub.$query().patch({
         data,
