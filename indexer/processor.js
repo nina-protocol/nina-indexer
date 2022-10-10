@@ -7,6 +7,7 @@ const Hub = require('./db/models/Hub');
 const Post = require('./db/models/Post');
 const Release = require('./db/models/Release');
 const { decode } = require('./utils');
+const Subscription = require('./db/models/Subscription');
 
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
@@ -37,6 +38,7 @@ class NinaProcessor {
       await this.processExchanges();
       await this.processPosts();
       await this.processHubs();
+      await this.processSubscriptions();
     } catch (error) {
       console.warn(error)
     }
@@ -284,6 +286,29 @@ class NinaProcessor {
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
         await Hub.updateHub(hub, newHub, hubContent, hubReleases, hubCollaborators, hubPosts);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }
+
+  async processSubscriptions() {
+    const subscriptions = await this.program.account.subscription.all();
+    const existingSubscriptions = await Subscription.query();
+
+    let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+
+
+    for await (let newSubscription of newSubscriptions) {
+      try {
+        await Subscription.query().insert({
+          publicKey: newSubscription.publicKey.toBase58(),
+          datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
+          from: newSubscription.account.from.toBase58(),
+          to: newSubscription.account.to.toBase58(),
+          subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+        });
+        console.log('Inserted Subcription:', newSubscription.publicKey.toBase58());
       } catch (err) {
         console.log(err);
       }
