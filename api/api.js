@@ -803,7 +803,7 @@ module.exports = (router) => {
     }
   })
 
-    router.post('/suggestions', async (ctx) => {
+  router.post('/suggestions', async (ctx) => {
     try { 
 
       const { query } = ctx.request.body;
