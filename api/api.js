@@ -803,6 +803,66 @@ module.exports = (router) => {
     }
   })
 
+    router.post('/suggestions', async (ctx) => {
+    try { 
+
+      const { query } = ctx.request.body;
+
+      const releasesByArtist = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`).limit(8)
+
+      const formattedArtistsResponse = []
+      for await (let release of releasesByArtist) {
+        const account = await release.$relatedQuery('publisher').select('publicKey')
+        formattedArtistsResponse.push({
+          name: release.metadata.properties.artist,
+          publicKey: account.publicKey
+        })
+      }
+
+      const releases = await Release.query()
+        .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`).limit(8)
+
+      const formattedReleasesResponse = []
+      for await (let release of releases) {
+        formattedReleasesResponse.push({
+          artist: release.metadata.properties.artist,
+          title: release.metadata.properties.title,
+          image: release.metadata.image,
+          publicKey: release.publicKey
+        })
+      }
+  
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`).limit(8)
+      
+      const formattedHubsResponse = []
+      for await (let hub of hubs) {
+        formattedHubsResponse.push({
+          displayName: hub.data.displayName,
+          handle: hub.handle,
+          publicKey: hub.publicKey,
+          image: hub.data.image,
+        })
+      }
+
+      ctx.body = {
+        artists: _.uniqBy(formattedArtistsResponse, x => x.publicKey),
+        releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
+        hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
+      }
+    } catch (err) {
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/subscriptions/:publicKey', async (ctx) => {
     try {
       await NinaProcessor.init();
