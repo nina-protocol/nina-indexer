@@ -239,7 +239,6 @@ module.exports = (router) => {
       }
     }
   })
-  
 
   router.get('/releases', async (ctx) => {
     try {

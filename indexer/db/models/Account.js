@@ -38,6 +38,7 @@ class Account extends Model {
     const Hub = require('./Hub');
     const Post = require('./Post');
     const Release = require('./Release');
+    const Verification = require('./Verification');
 
     return {
       published: {  
@@ -108,7 +109,15 @@ class Account extends Model {
           },
           to: 'releases.id',
         },
-      }
+      },
+      verifications: {
+        relation: Model.HasManyRelation,
+        modelClass: Verification,
+        join: {
+          from: 'accounts.id',
+          to: 'verifications.accountId',
+        },
+      },
     };
   }
 }
