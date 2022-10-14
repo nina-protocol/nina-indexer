@@ -921,13 +921,13 @@ module.exports = (router) => {
   router.get('/verifications/:publicKey', async (ctx) => {
     try {
       await NinaProcessor.init();
-      const verificationRecord = await Verification.query().findOne({publicKey: ctx.params.publicKey})
-      if (!verificationRecord) {
-        verificationRecord  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
+      const verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      if (!verification) {
+        verification  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
       }
-      await verificationRecord.format()
+      await verification.format()
       ctx.body = {
-        verification: verificationRecord,
+        verification,
       }
     } catch (error) {
       console.warn(error)
