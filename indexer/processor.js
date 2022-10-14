@@ -95,7 +95,7 @@ class NinaProcessor {
               hubPublicKey = accounts[4].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
               transactionObject.type = 'ReleasePurchase'
-              releasePublicKey = accounts[3].toBase58()
+              releasePublicKey = accounts[2].toBase58()
               accountPublicKey = accounts[0].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
               transactionObject.type = 'ReleasePurchaseViaHub'
