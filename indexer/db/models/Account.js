@@ -32,8 +32,8 @@ class Account extends Model {
   async format () {
     const verifications = await this.$relatedQuery('verifications');
     if (verifications) {
-      console.log(verifications)
-      this.verifications = verifications.map(verification => verification.format());
+      verifications.forEach(verification => verification.format())
+      this.verifications = verifications;
     }
     delete this.id
   }

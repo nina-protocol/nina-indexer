@@ -203,15 +203,15 @@ class NinaProcessor {
               releasePublicKey = accounts[1].toBase58()
               accountPublicKey = accounts[0].toBase58()
               hubPublicKey = accounts[4].toBase58()
-            } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-              transactionObject.type = 'ReleasePurchase'
-              releasePublicKey = accounts[2].toBase58()
-              accountPublicKey = accounts[0].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
               transactionObject.type = 'ReleasePurchaseViaHub'
               releasePublicKey = accounts[2].toBase58()
               accountPublicKey = accounts[0].toBase58()
               hubPublicKey = accounts[8].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+              transactionObject.type = 'ReleasePurchase'
+              releasePublicKey = accounts[2].toBase58()
+              accountPublicKey = accounts[0].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
               transactionObject.type = 'HubAddCollaborator'
               hubPublicKey = accounts[2].toBase58()
@@ -222,15 +222,15 @@ class NinaProcessor {
               releasePublicKey = accounts[5].toBase58()
               accountPublicKey = accounts[0].toBase58()
               hubPublicKey = accounts[1].toBase58()
-            } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
-              transactionObject.type = 'PostInitViaHub'
-              postPublicKey = accounts[2].toBase58()
-              accountPublicKey = accounts[0].toBase58()
-              hubPublicKey = accounts[1].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
               transactionObject.type = 'PostInitViaHubWithReferenceRelease'
               postPublicKey = accounts[2].toBase58()
               releasePublicKey = accounts[7].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[1].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
+              transactionObject.type = 'PostInitViaHub'
+              postPublicKey = accounts[2].toBase58()
               accountPublicKey = accounts[0].toBase58()
               hubPublicKey = accounts[1].toBase58()
             } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
@@ -301,7 +301,7 @@ class NinaProcessor {
                   release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
                   isSale: config.isSelling,
                   initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                  createdAt: ndatetime
+                  createdAt: datetime
                 })
                 console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
               } catch (error) {
@@ -642,7 +642,7 @@ class NinaProcessor {
       if (newSignatures.length > 0) {
         existingSignatures.push(...newSignatures)
       }
-      if (existingSignatures.length % 1000 === 0 && newSignatures > 0) {
+      if (existingSignatures.length % 1000 === 0 && newSignatures.length > 0) {
         return await this.getSignatures(connection, signature, isBefore, existingSignatures)
       }
       return existingSignatures

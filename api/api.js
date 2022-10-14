@@ -259,6 +259,39 @@ module.exports = (router) => {
     }
   })
 
+  router.get('/accounts/:publicKey/activity', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const releases = await account.$relatedQuery('revenueShares')
+      const hubs = await account.$relatedQuery('hubs')
+      const transactions = await Transaction.query()
+        .whereIn('releaseId', releases.map(release => release.id))
+        .orWhereIn('hubId', hubs.map(hub => hub.id))
+        .orWhere('authorityId', account.id)
+        .orWhere('toAccountId', account.id)
+        .orWhereIn('toHubId', hubs.map(hub => hub.id))
+        .orderBy('blocktime', 'desc')
+        .range(offset, offset + limit)
+
+      const activityItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        activityItems.push(transaction)
+      }
+
+      ctx.body = {
+        activityItems,
+        total: transactions.total
+      };
+    } catch (err) {
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/releases', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
