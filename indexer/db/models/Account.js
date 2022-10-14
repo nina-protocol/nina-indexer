@@ -29,7 +29,12 @@ class Account extends Model {
     return account;
   }
 
-  format () {
+  async format () {
+    const verifications = await this.$relatedQuery('verifications');
+    if (verifications) {
+      console.log(verifications)
+      this.verifications = verifications.map(verification => verification.format());
+    }
     delete this.id
   }
 
@@ -39,7 +44,7 @@ class Account extends Model {
     const Post = require('./Post');
     const Release = require('./Release');
     const Verification = require('./Verification');
-
+    
     return {
       published: {  
         relation: Model.HasManyRelation,

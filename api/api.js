@@ -39,6 +39,10 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      if (!account) {
+        accountNotFound(ctx);
+        return;
+      }
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
         await release.format();
@@ -72,7 +76,18 @@ module.exports = (router) => {
         await release.format();
         revenueShares.push(release)
       }
-      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares };
+
+      const subscriptions = await account.$relatedQuery('subscriptions')
+      for await (let subscription of subscriptions) {
+        await subscription.format();
+      }
+
+      const verifications = await account.$relatedQuery('verifications')
+      for await (let verification of verifications) {
+        await verification.format();
+      }
+
+      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)

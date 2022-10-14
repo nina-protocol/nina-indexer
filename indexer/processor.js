@@ -8,8 +8,28 @@ const Post = require('./db/models/Post');
 const Release = require('./db/models/Release');
 const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
+const Verification = require('./db/models/Verification');
 const { decode } = require('./utils');
 
+const {
+  NAME_PROGRAM_ID,
+  NINA_ID,
+  NINA_ID_ETH_TLD,
+  NINA_ID_SC_TLD,
+  NINA_ID_TW_TLD,
+  NINA_ID_IG_TLD,
+  ReverseEthAddressRegistryState,
+  ReverseSoundcloudRegistryState,
+  ReverseTwitterRegistryState,
+  ReverseInstagramRegistryState,
+  getNameAccountKey,
+  getHashedName,
+  NameRegistryState,
+  getEnsForEthAddress,
+  getTwitterProfile,
+  getSoundcloudProfile,
+} = require('./names');
+ 
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -40,8 +60,88 @@ class NinaProcessor {
       await this.processHubs();
       await this.processSubscriptions();
       await this.processExchangesAndTransactions();
+      await this.processVerifications();
     } catch (error) {
       console.warn(error)
+    }
+  }
+
+  async processVerifications() {
+    
+    let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
+      NAME_PROGRAM_ID, {
+        commitment: this.provider.connection.commitment,
+        filters: [{
+          dataSize: 192
+        }, {
+          memcmp: {
+            offset: 64,
+            bytes: NINA_ID.toBase58()
+          }
+        }]
+      }
+    );
+
+    const existingNameRegistries = await Verification.query();
+    const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
+    
+    for await (let nameRegistry of newNameRegistries) {
+      try {
+        const account = await Account.findOrCreate(nameRegistry.pubkey.toBase58());
+        const verification = {
+          publicKey: nameRegistry.pubkey.toBase58(),
+          accountId: account.id,
+        }
+        const { registry } = await NameRegistryState.retrieve(this.provider.connection, nameRegistry.pubkey)
+        if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
+          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
+          const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
+          verification.type = 'ethereum'
+          verification.value = name.ethAddress
+          try {
+            const displayName = await getEnsForEthAddress(name.ethAddress);
+            if (displayName) {
+              verification.displayName = displayName
+            }
+          } catch (error) {
+            console.warn(error)
+          }
+        } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
+          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
+          const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
+          verification.value = name.instagramHandle
+          verification.type = 'instagram'
+        } else if (registry.parentName.toBase58() === NINA_ID_SC_TLD.toBase58()) {
+          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_SC_TLD);
+          const name = await ReverseSoundcloudRegistryState.retrieve(this.provider.connection, nameAccountKey)
+          verification.value = name.soundcloudHandle
+          verification.type = 'soundcloud'
+          const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
+          if (soundcloudProfile) {  
+            verification.displayName = soundcloudProfile.username
+            verification.image = soundcloudProfile.avatar_url
+            if (soundcloudProfile.description) {
+              verification.description = soundcloudProfile.description
+            }
+          }
+        } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
+          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
+          const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
+          verification.value = name.twitterHandle
+          verification.type = 'twitter'
+          const twitterProfile = await getTwitterProfile(name.twitterHandle);
+          if (twitterProfile) {
+            verification.displayName = twitterProfile.name
+            verification.image = twitterProfile.profile_image_url.replace('_normal', '')
+            verification.description = twitterProfile.description
+          }
+        }
+        if (verification.value && verification.type) {
+          await Verification.query().insertGraph(verification);
+        }
+      } catch (e) {
+        console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+      }
     }
   }
 

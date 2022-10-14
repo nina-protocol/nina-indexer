@@ -29,7 +29,11 @@ class Verification extends Model {
       },
     };
   }
-  
+
+  async format () {
+    delete this.id;
+  }
+
   static get relationMappings() {
     const Account = require('./Account');
     return {
