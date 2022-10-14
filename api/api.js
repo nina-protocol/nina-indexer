@@ -925,6 +925,7 @@ module.exports = (router) => {
       if (!verificationRecord) {
         verificationRecord  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
       }
+      await verificationRecord.format()
       ctx.body = {
         verification: verificationRecord,
       }
@@ -933,7 +934,6 @@ module.exports = (router) => {
     }
   })
 }
-
 
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
