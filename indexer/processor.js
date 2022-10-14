@@ -87,61 +87,71 @@ class NinaProcessor {
     
     for await (let nameRegistry of newNameRegistries) {
       try {
-        const account = await Account.findOrCreate(nameRegistry.pubkey.toBase58());
-        const verification = {
-          publicKey: nameRegistry.pubkey.toBase58(),
-          accountId: account.id,
-        }
-        const { registry } = await NameRegistryState.retrieve(this.provider.connection, nameRegistry.pubkey)
-        if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
-          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
-          const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
-          verification.type = 'ethereum'
-          verification.value = name.ethAddress
-          try {
-            const displayName = await getEnsForEthAddress(name.ethAddress);
-            if (displayName) {
-              verification.displayName = displayName
-            }
-          } catch (error) {
-            console.warn(error)
-          }
-        } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
-          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
-          const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
-          verification.value = name.instagramHandle
-          verification.type = 'instagram'
-        } else if (registry.parentName.toBase58() === NINA_ID_SC_TLD.toBase58()) {
-          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_SC_TLD);
-          const name = await ReverseSoundcloudRegistryState.retrieve(this.provider.connection, nameAccountKey)
-          verification.value = name.soundcloudHandle
-          verification.type = 'soundcloud'
-          const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
-          if (soundcloudProfile) {  
-            verification.displayName = soundcloudProfile.username
-            verification.image = soundcloudProfile.avatar_url
-            if (soundcloudProfile.description) {
-              verification.description = soundcloudProfile.description
-            }
-          }
-        } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
-          const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
-          const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
-          verification.value = name.twitterHandle
-          verification.type = 'twitter'
-          const twitterProfile = await getTwitterProfile(name.twitterHandle);
-          if (twitterProfile) {
-            verification.displayName = twitterProfile.name
-            verification.image = twitterProfile.profile_image_url.replace('_normal', '')
-            verification.description = twitterProfile.description
-          }
-        }
-        if (verification.value && verification.type) {
-          await Verification.query().insertGraph(verification);
-        }
+        await this.processVerification(nameRegistry.pubkey);
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
       }
+    }
+  }
+
+  async processVerification (publicKey) {
+    const verification = {
+      publicKey: publicKey.toBase58(),
+    }
+    const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
+    if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
+      const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
+      const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
+      const account = await Account.findOrCreate(registry.owner.toBase58());
+      verification.accountId = account.id;
+      verification.type = 'ethereum'
+      verification.value = name.ethAddress
+      try {
+        const displayName = await getEnsForEthAddress(name.ethAddress);
+        if (displayName) {
+          verification.displayName = displayName
+        }
+      } catch (error) {
+        console.warn(error)
+      }
+    } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
+      const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
+      const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
+      const account = await Account.findOrCreate(registry.owner.toBase58());
+      verification.accountId = account.id;
+      verification.value = name.instagramHandle
+      verification.type = 'instagram'
+    } else if (registry.parentName.toBase58() === NINA_ID_SC_TLD.toBase58()) {
+      const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_SC_TLD);
+      const name = await ReverseSoundcloudRegistryState.retrieve(this.provider.connection, nameAccountKey)
+      const account = await Account.findOrCreate(registry.owner.toBase58());
+      verification.accountId = account.id;
+      verification.value = name.soundcloudHandle
+      verification.type = 'soundcloud'
+      const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
+      if (soundcloudProfile) {  
+        verification.displayName = soundcloudProfile.username
+        verification.image = soundcloudProfile.avatar_url
+        if (soundcloudProfile.description) {
+          verification.description = soundcloudProfile.description
+        }
+      }
+    } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
+      const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
+      const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
+      const account = await Account.findOrCreate(registry.owner.toBase58());
+      verification.accountId = account.id;
+      verification.value = name.twitterHandle
+      verification.type = 'twitter'
+      const twitterProfile = await getTwitterProfile(name.twitterHandle);
+      if (twitterProfile) {
+        verification.displayName = twitterProfile.name
+        verification.image = twitterProfile.profile_image_url.replace('_normal', '')
+        verification.description = twitterProfile.description
+      }
+    }
+    if (verification.value && verification.type) {
+      return (await Verification.query().insertGraph(verification));
     }
   }
 

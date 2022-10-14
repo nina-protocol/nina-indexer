@@ -32,6 +32,11 @@ class Verification extends Model {
 
   async format () {
     delete this.id;
+    const account = await this.$relatedQuery('account');
+    if (account) {
+      this.publicKey = account.publicKey;
+      delete this.accountId;
+    }
   }
 
   static get relationMappings() {

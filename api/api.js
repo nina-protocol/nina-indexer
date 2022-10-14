@@ -2,7 +2,6 @@ const { ref } = require('objection');
 const _ = require('lodash');
 const anchor = require('@project-serum/anchor');
 const axios = require('axios')
-
 const Account = require('../indexer/db/models/Account');
 const Exchange = require('../indexer/db/models/Exchange');
 const Hub = require('../indexer/db/models/Hub');
@@ -12,6 +11,8 @@ const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
+const Verification = require('../indexer/db/models/Verification');
+const { processVerification } = require('../indexer/processor');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -77,7 +78,10 @@ module.exports = (router) => {
         revenueShares.push(release)
       }
 
-      const subscriptions = await account.$relatedQuery('subscriptions')
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+        .orWhere('to', account.publicKey)
+      
       for await (let subscription of subscriptions) {
         await subscription.format();
       }
@@ -905,7 +909,7 @@ module.exports = (router) => {
       ctx.body = {
         subscription,
       }
-  } catch (err) {
+    } catch (err) {
       console.log(err)
       ctx.status = 404
       ctx.body = {
@@ -913,7 +917,23 @@ module.exports = (router) => {
       }
     }
   });
+  
+  router.get('/verifications/:publicKey', async (ctx) => {
+    try {
+      await NinaProcessor.init();
+      const verificationRecord = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      if (!verificationRecord) {
+        verificationRecord  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
+      }
+      ctx.body = {
+        verification: verificationRecord,
+      }
+    } catch (error) {
+      console.warn(error)
+    }
+  })
 }
+
 
 const hubPostNotFound = (ctx) => {
   ctx.status = 404
