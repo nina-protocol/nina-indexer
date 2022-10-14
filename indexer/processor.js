@@ -191,7 +191,7 @@ class NinaProcessor {
                   release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
                   isSale: config.isSelling,
                   initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                  createdAt: ndatetime
+                  createdAt: datetime
                 })
                 console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
               } catch (error) {
