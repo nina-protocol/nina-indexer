@@ -303,14 +303,16 @@ module.exports = (router) => {
     } else {
       await hub.format()
       if (hub.authority !== account.publicKey) {
-        suggestions[hub.publicKey] = {
-          [`${type}Count`]: 1,
+        const suggestion = {
+          collectedHubCount: 0,
           hubReleaseCount: 0,
           publishedCount: 0,
           collectorHubCount: 0,
           hubSubscriptionCount: 0,
           hub,
         }
+        suggestion[`${type}Count`] = 1
+        suggestions[hub.publicKey] = suggestion
       }
     }
   }
