@@ -29,7 +29,12 @@ class Account extends Model {
     return account;
   }
 
-  format () {
+  async format () {
+    const verifications = await this.$relatedQuery('verifications');
+    if (verifications) {
+      verifications.forEach(verification => verification.format())
+      this.verifications = verifications;
+    }
     delete this.id
   }
 
@@ -38,7 +43,8 @@ class Account extends Model {
     const Hub = require('./Hub');
     const Post = require('./Post');
     const Release = require('./Release');
-
+    const Verification = require('./Verification');
+    
     return {
       published: {  
         relation: Model.HasManyRelation,
@@ -108,7 +114,15 @@ class Account extends Model {
           },
           to: 'releases.id',
         },
-      }
+      },
+      verifications: {
+        relation: Model.HasManyRelation,
+        modelClass: Verification,
+        join: {
+          from: 'accounts.id',
+          to: 'verifications.accountId',
+        },
+      },
     };
   }
 }

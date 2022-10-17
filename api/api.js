@@ -2,7 +2,6 @@ const { ref } = require('objection');
 const _ = require('lodash');
 const anchor = require('@project-serum/anchor');
 const axios = require('axios')
-
 const Account = require('../indexer/db/models/Account');
 const Exchange = require('../indexer/db/models/Exchange');
 const Hub = require('../indexer/db/models/Hub');
@@ -12,6 +11,8 @@ const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
+const Verification = require('../indexer/db/models/Verification');
+const { processVerification } = require('../indexer/processor');
 
 module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
@@ -39,6 +40,10 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      if (!account) {
+        accountNotFound(ctx);
+        return;
+      }
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
         await release.format();
@@ -72,7 +77,21 @@ module.exports = (router) => {
         await release.format();
         revenueShares.push(release)
       }
-      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares };
+
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+        .orWhere('to', account.publicKey)
+      
+      for await (let subscription of subscriptions) {
+        await subscription.format();
+      }
+
+      const verifications = await account.$relatedQuery('verifications')
+      for await (let verification of verifications) {
+        await verification.format();
+      }
+
+      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -239,7 +258,39 @@ module.exports = (router) => {
       }
     }
   })
-  
+
+  router.get('/accounts/:publicKey/activity', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const releases = await account.$relatedQuery('revenueShares')
+      const hubs = await account.$relatedQuery('hubs')
+      const transactions = await Transaction.query()
+        .whereIn('releaseId', releases.map(release => release.id))
+        .orWhereIn('hubId', hubs.map(hub => hub.id))
+        .orWhere('authorityId', account.id)
+        .orWhere('toAccountId', account.id)
+        .orWhereIn('toHubId', hubs.map(hub => hub.id))
+        .orderBy('blocktime', 'desc')
+        .range(offset, offset + limit)
+
+      const activityItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        activityItems.push(transaction)
+      }
+
+      ctx.body = {
+        activityItems,
+        total: transactions.total
+      };
+    } catch (err) {
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
 
   router.get('/releases', async (ctx) => {
     try {
@@ -951,7 +1002,7 @@ module.exports = (router) => {
       ctx.body = {
         subscription,
       }
-  } catch (err) {
+    } catch (err) {
       console.log(err)
       ctx.status = 404
       ctx.body = {
@@ -959,6 +1010,22 @@ module.exports = (router) => {
       }
     }
   });
+  
+  router.get('/verifications/:publicKey', async (ctx) => {
+    try {
+      await NinaProcessor.init();
+      const verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      if (!verification) {
+        verification  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
+      }
+      await verification.format()
+      ctx.body = {
+        verification,
+      }
+    } catch (error) {
+      console.warn(error)
+    }
+  })
 }
 
 const hubPostNotFound = (ctx) => {

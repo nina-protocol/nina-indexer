@@ -36,6 +36,8 @@
     "@solana/web3.js": "^1.52.0",
     "axios": "^0.27.2",
     "dotenv": "^16.0.1",
+    "ethereum-ens": "^0.8.0",
+    "form-urlencoded": "^6.1.0",
     "knex": "^2.2.0",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
@@ -45,7 +47,8 @@
     "node-cron": "^3.0.2",
     "objection": "^3.0.1",
     "pg": "^8.7.3",
-    "striptags": "^3.2.0"
+    "striptags": "^3.2.0",
+    "web3": "^1.8.0"
   },
   "resolutions": {
     "@metaplex-foundation/mpl-candy-machine": "4.3.0"
