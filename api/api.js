@@ -371,7 +371,16 @@ module.exports = (router) => {
           }
         }
       } else {
-
+        const ninaRecommendedHubSubscriptions = await Subscription.query()
+          .where('from', process.env.HUB_SUGGESTIONS_PUBLIC_KEY)
+          .andWhere('subscriptionType', 'hub')
+        for await (let ninaRecommendedHubSubscription of ninaRecommendedHubSubscriptions) {
+          const hub = await Hub.query().findOne({ publicKey: ninaRecommendedHubSubscription.to })
+          await hub.format()
+          suggestions[hub.publicKey] = {
+            hub,
+          }
+        }
       }
       const sortedHubs = Object.values(suggestions).sort((a, b) => ((b.hubReleaseCount + b.collectedCount + b.publishedCount + b.collectorHubCount + b.hubSubscriptionCount) - (a.hubReleaseCount + a.collectedCount + a.publishedCount + a.collectorHubCount + a.hubSubscriptionCount)))
       ctx.body = { suggestions: sortedHubs };    
