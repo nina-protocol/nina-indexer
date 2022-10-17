@@ -29,6 +29,7 @@
   },
   "homepage": "https://github.com/nina-protocol/nina-indexer#readme",
   "dependencies": {
+    "@bonfida/spl-name-service": "^0.1.51",
     "@koa/cors": "^3.3.0",
     "@metaplex-foundation/js": "^0.14.0",
     "@project-serum/anchor": "^0.25.0",
