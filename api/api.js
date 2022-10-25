@@ -216,6 +216,20 @@ module.exports = (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/verifications', async (ctx) => {
+    try {
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const verifications = await account.$relatedQuery('verifications')
+      for await (let verification of verifications) {
+        await verification.format();
+      }
+      ctx.body = { verifications };
+    } catch (err) {
+      console.log(err)
+      accountNotFound(ctx)
+    }
+  });
+
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
