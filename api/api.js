@@ -335,8 +335,8 @@ module.exports = (router) => {
     try {
       const suggestions = {}
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-      const mySubscriptions = await Subscription.query().where('from', account.publicKey)
       if (account) {
+        const mySubscriptions = await Subscription.query().where('from', account.publicKey)
         const collected = await account.$relatedQuery('collected')
         for await (let release of collected) {
           const hubs = await release.$relatedQuery('hubs')
