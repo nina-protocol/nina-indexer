@@ -216,6 +216,20 @@ module.exports = (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/verifications', async (ctx) => {
+    try {
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const verifications = await account.$relatedQuery('verifications')
+      for await (let verification of verifications) {
+        await verification.format();
+      }
+      ctx.body = { verifications };
+    } catch (err) {
+      console.log(err)
+      accountNotFound(ctx)
+    }
+  });
+
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
@@ -291,7 +305,119 @@ module.exports = (router) => {
       }
     }
   })
+  const addSuggestionsBatch = async (suggestions, hubs, type, account) => {
+    for await (let hub of hubs) {
+      addSuggestion(suggestions, hub, type, account)
+    }
+  }
 
+  const addSuggestion = async (suggestions, hub, type, account) => {
+    if (suggestions[hub.publicKey]) {
+      suggestions[hub.publicKey][`${type}Count`] = suggestions[hub.publicKey][`${type}Count`] + 1
+    } else {
+      await hub.format()
+      if (hub.authority !== account.publicKey) {
+        const suggestion = {
+          collectedCount: 0,
+          hubReleaseCount: 0,
+          publishedCount: 0,
+          collectorHubCount: 0,
+          hubSubscriptionCount: 0,
+          hub,
+        }
+        suggestion[`${type}Count`] = 1
+        suggestions[hub.publicKey] = suggestion
+      }
+    }
+  }
+
+  router.get('/accounts/:publicKey/hubSuggestions', async (ctx) => {
+    try {
+      const suggestions = {}
+      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      if (account) {
+        const mySubscriptions = await Subscription.query().where('from', account.publicKey)
+        const collected = await account.$relatedQuery('collected')
+        for await (let release of collected) {
+          const hubs = await release.$relatedQuery('hubs')
+            .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+            .andWhereNot('authorityId', account.id)
+          await addSuggestionsBatch(suggestions, hubs, 'collected', account)
+        }
+
+        const published = await account.$relatedQuery('published')
+        for await (let release of published) {
+          const hubs = await release.$relatedQuery('hubs')
+            .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+            .andWhereNot('authorityId', account.id)
+          await addSuggestionsBatch(suggestions, hubs, 'published', account)
+
+          const collectors = await release.$relatedQuery('collectors')
+          for await (let collector of collectors) {
+            const collectorHubs = await collector
+              .$relatedQuery('hubs')
+              .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+              .andWhereNot('authorityId', account.id)
+            await addSuggestionsBatch(suggestions, collectorHubs, 'collectorHub', account)
+          }
+        }
+        const hubs = await account.$relatedQuery('hubs')
+        for await (let hub of hubs) {
+          const releases = await hub.$relatedQuery('releases')
+          for await (let release of releases) {
+            const relatedHubs = await release.$relatedQuery('hubs')
+              .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+              .andWhereNot('authorityId', account.id)
+            await addSuggestionsBatch(suggestions, relatedHubs, 'hubRelease', account)
+          }
+        }
+
+        for await (let mySubscription of mySubscriptions) {
+          if (mySubscription.subscriptionType === 'hub') {
+            const relatedSubscriptions = await Subscription.query().where('to', mySubscription.to)
+            for await (let relatedSubscription of relatedSubscriptions) {
+              const relatedHubSubscriptions = await Subscription.query()
+                .whereNotIn('to', mySubscriptions.map(subscription => subscription.to))
+                .andWhere('from', relatedSubscription.from)
+                .andWhere('subscriptionType', 'hub')
+              for await (let relatedHubSubscription of relatedHubSubscriptions) {
+                const hub = await Hub.query().findOne({ publicKey: relatedHubSubscription.to })
+                await addSuggestion(suggestions, hub, 'hubSubscription', account)
+              }
+            }  
+          } else {
+            const relatedHubSubscriptions = await Subscription.query()
+              .whereNotIn('to', mySubscriptions.map(subscription => subscription.to))
+              .andWhere('from', mySubscription.to)
+              .andWhere('subscriptionType', 'hub')
+            for await (let relatedHubSubscription of relatedHubSubscriptions) {
+              const hub = await Hub.query().findOne({ publicKey: relatedHubSubscription.to })
+              await addSuggestion(suggestions, hub, 'hubSubscription', account)
+            }
+          }
+        }
+      } else {
+        const ninaRecommendedHubSubscriptions = await Subscription.query()
+          .where('from', process.env.HUB_SUGGESTIONS_PUBLIC_KEY)
+          .andWhere('subscriptionType', 'hub')
+        for await (let ninaRecommendedHubSubscription of ninaRecommendedHubSubscriptions) {
+          const hub = await Hub.query().findOne({ publicKey: ninaRecommendedHubSubscription.to })
+          await hub.format()
+          suggestions[hub.publicKey] = {
+            hub,
+          }
+        }
+      }
+      const sortedHubs = Object.values(suggestions).sort((a, b) => ((b.hubReleaseCount + b.collectedCount + b.publishedCount + b.collectorHubCount + b.hubSubscriptionCount) - (a.hubReleaseCount + a.collectedCount + a.publishedCount + a.collectorHubCount + a.hubSubscriptionCount)))
+      ctx.body = { suggestions: sortedHubs };    
+    } catch (err) {
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+  
   router.get('/releases', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;

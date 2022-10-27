@@ -1,4 +1,6 @@
 const { Model } = require('objection');
+const Account = require('./Account');
+const Hub = require('./Hub');
 
 class Subscription extends Model {
   static get tableName() {
@@ -38,6 +40,15 @@ class Subscription extends Model {
   }
 
   async format () {
+    if (this.subscriptionType === 'account') {
+      const account = await Account.query().findOne({ publicKey: this.to });
+      await account.format();
+      this.to = account;
+    } else if (this.subscriptionType === 'hub') {
+      const hub = await Hub.query().findOne({ publicKey: this.to });
+      await hub.format();
+      this.to = hub;
+    }
     delete this.id;
   }
 }
