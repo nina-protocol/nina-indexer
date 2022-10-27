@@ -41,13 +41,21 @@ class Subscription extends Model {
 
   async format () {
     if (this.subscriptionType === 'account') {
-      const account = await Account.query().findOne({ publicKey: this.to });
-      await account.format();
-      this.to = account;
+      const accountTo = await Account.query().findOne({ publicKey: this.to });
+      await accountTo.format();
+      this.to = accountTo;
+
+      const accountFrom = await Account.query().findOne({ publicKey: this.from });
+      await accountFrom.format();
+      this.from = accountFrom;
     } else if (this.subscriptionType === 'hub') {
       const hub = await Hub.query().findOne({ publicKey: this.to });
       await hub.format();
       this.to = hub;
+      
+      const account = await Account.query().findOne({ publicKey: this.from });
+      await account.format();
+      this.from = account;
     }
     delete this.id;
   }
