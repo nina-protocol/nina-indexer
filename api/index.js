@@ -25,6 +25,7 @@ app.use(ratelimit({
     reset: 'Rate-Limit-Reset',
     total: 'Rate-Limit-Total'
   },
+  whitelist: (ctx) => ctx.request.header.host === 'ninaprotocol.com',
   max: 100,
   disableHeader: false,
 }));
