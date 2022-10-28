@@ -256,9 +256,13 @@ module.exports = (router) => {
         .range(offset, offset + limit)
 
       const feedItems = []
+      const releaseIds = new Set()
       for await (let transaction of transactions.results) {
-        await transaction.format()
-        feedItems.push(transaction)
+        if (transaction.releaseId && !releaseIds.has(transaction.releaseId)) {
+          releaseIds.add(transaction.releaseId)
+          await transaction.format()
+          feedItems.push(transaction)
+        }
       }
 
       ctx.body = {
