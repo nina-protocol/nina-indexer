@@ -38,6 +38,7 @@ const blacklist = [
 class NinaProcessor {
   constructor() {
     this.provider = null;
+    this.tokenIndexProvider = null;
     this.program = null;
     this.metaplex = null;
     this.latestSignature = null;
@@ -46,6 +47,8 @@ class NinaProcessor {
   async init() {
     const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
     this.provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+    const tokenIndexConnection = new anchor.web3.Connection(process.env.SOLANA_TOKEN_INDEX_CLUSTER_URL);
+    this.tokenIndexProvider = new anchor.Provider(connection, {commitment: 'processed'});
     this.program = await anchor.Program.at(
       process.env.NINA_PROGRAM_ID,
       this.provider,
@@ -172,163 +175,159 @@ class NinaProcessor {
       let i = 0
       for await (let tx of txs) {
         if (tx) {
-          try {
-            const length = tx.transaction.message.instructions.length
-            const accounts = tx.transaction.message.instructions[length - 1].accounts
-            const blocktime = tx.blockTime
-            const datetime = new Date(blocktime * 1000).toISOString()
-            const txid = txIds[i]
-  
-            let transactionRecord = await Transaction.query().findOne({ txid })
-            if (!transactionRecord) {
-              let transactionObject = {
-                txid,
-                blocktime,
-              }
-              let hubPublicKey
-              let accountPublicKey
-              let releasePublicKey
-              let postPublicKey
-              let toAccountPublicKey
-              let toHubPublicKey
-              if (tx.meta.logMessages.some(log => log.includes('HubInitWithCredit'))) {
-                transactionObject.type = 'HubInitWithCredit'
-                hubPublicKey = accounts[1].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitWithCredit'))) {
-                transactionObject.type = 'ReleaseInitWithCredit'
-                releasePublicKey = accounts[0].toBase58()
-                accountPublicKey = accounts[4].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
-                transactionObject.type = 'ReleaseInitViaHub'
-                releasePublicKey = accounts[1].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                hubPublicKey = accounts[4].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
-                transactionObject.type = 'ReleasePurchaseViaHub'
-                releasePublicKey = accounts[2].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                hubPublicKey = accounts[8].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-                transactionObject.type = 'ReleasePurchase'
-                releasePublicKey = accounts[2].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
-                transactionObject.type = 'HubAddCollaborator'
-                hubPublicKey = accounts[2].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                toAccountPublicKey = accounts[4].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
-                transactionObject.type = 'HubAddRelease'
-                releasePublicKey = accounts[5].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                hubPublicKey = accounts[1].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
-                transactionObject.type = 'PostInitViaHubWithReferenceRelease'
-                postPublicKey = accounts[2].toBase58()
-                releasePublicKey = accounts[7].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                hubPublicKey = accounts[1].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
-                transactionObject.type = 'PostInitViaHub'
-                postPublicKey = accounts[2].toBase58()
-                accountPublicKey = accounts[0].toBase58()
-                hubPublicKey = accounts[1].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
-                transactionObject.type = 'SubscriptionSubscribeAccount'
-                accountPublicKey = accounts[0].toBase58()
-                toAccountPublicKey = accounts[2].toBase58()
-              } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
-                transactionObject.type = 'SubscriptionSubscribeHub'
-                accountPublicKey = accounts[0].toBase58()
-                toHubPublicKey = accounts[2].toBase58()
-              }
-  
-              if (transactionObject.type) {
-                if (accountPublicKey) {
-                  const account = await Account.findOrCreate(accountPublicKey)
-                  if (account) {
-                    transactionObject.authorityId = account.id
-                  }
-                }
-    
-                if (hubPublicKey) {
-                  const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
-                  if (hub) {
-                    transactionObject.hubId = hub.id
-                  }
-                }
-    
-                if (releasePublicKey) {
-                  const release = await Release.query().findOne({ publicKey: releasePublicKey })
-                  if (release) {
-                    transactionObject.releaseId = release.id
-                  }
-                }
-    
-                if (postPublicKey) {
-                  const post = await Post.query().findOne({ publicKey: postPublicKey })
-                  if (post) {
-                    transactionObject.postId = post.id
-                  }
-                }
-    
-                if (toAccountPublicKey) {
-                  const subscribeToAccount = await Account.query().findOne({ publicKey: toAccountPublicKey })
-                  if (subscribeToAccount) {
-                    transactionObject.toAccountId = subscribeToAccount.id
-                  }
-                }
-    
-                if (toHubPublicKey) {
-                  const subscribeToHub = await Hub.query().findOne({ publicKey: toHubPublicKey })
-                  if (subscribeToHub) {
-                    transactionObject.toHubId = subscribeToHub.id
-                  }
-                }
-                await Transaction.query().insertGraph(transactionObject)
-              }
+          const length = tx.transaction.message.instructions.length
+          const accounts = tx.transaction.message.instructions[length - 1].accounts
+          const blocktime = tx.blockTime
+          const datetime = new Date(blocktime * 1000).toISOString()
+          const txid = txIds[i]
+
+          let transactionRecord = await Transaction.query().findOne({ txid })
+          if (!transactionRecord) {
+            let transactionObject = {
+              txid,
+              blocktime,
             }
-            if (accounts) {
-              if (accounts.length === 13) {
-                const mintPublicKey = tx.transaction.message.instructions[length - 1].accounts[1]
-                try {
-                  await this.provider.connection.getTokenSupply(mintPublicKey)
-                  const config = coder.decode(tx.transaction.message.instructions[length - 1].data, 'base58').data.config
-                  exchangeInits.push({
-                    expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
-                    initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
-                    publicKey: tx.transaction.message.instructions[length - 1].accounts[5].toBase58(),
-                    release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
-                    isSale: config.isSelling,
-                    initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                    createdAt: datetime
-                  })
-                  console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
-                } catch (error) {
-                  console.log('not a mint: ', mintPublicKey.toBase58())
-                }
-              } else if (accounts.length === 6) {
-                exchangeCancels.push({
-                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
-                  updatedAt: datetime
-                })
-                console.log('found an exchange cancel', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
-              } else if (accounts.length === 16) {
-                completedExchanges.push({
-                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
-                  legacyExchangePublicKey: tx.transaction.message.instructions[length - 1].accounts[7].toBase58(),
-                  completedBy: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                  updatedAt: datetime
-                })
-                console.log('found an exchange completed', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
-              }
+            let hubPublicKey
+            let accountPublicKey
+            let releasePublicKey
+            let postPublicKey
+            let toAccountPublicKey
+            let toHubPublicKey
+            if (tx.meta.logMessages.some(log => log.includes('HubInitWithCredit'))) {
+              transactionObject.type = 'HubInitWithCredit'
+              hubPublicKey = accounts[1].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitWithCredit'))) {
+              transactionObject.type = 'ReleaseInitWithCredit'
+              releasePublicKey = accounts[0].toBase58()
+              accountPublicKey = accounts[4].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
+              transactionObject.type = 'ReleaseInitViaHub'
+              releasePublicKey = accounts[1].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[4].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
+              transactionObject.type = 'ReleasePurchaseViaHub'
+              releasePublicKey = accounts[2].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[8].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+              transactionObject.type = 'ReleasePurchase'
+              releasePublicKey = accounts[2].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
+              transactionObject.type = 'HubAddCollaborator'
+              hubPublicKey = accounts[2].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              toAccountPublicKey = accounts[4].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
+              transactionObject.type = 'HubAddRelease'
+              releasePublicKey = accounts[5].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[1].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
+              transactionObject.type = 'PostInitViaHubWithReferenceRelease'
+              postPublicKey = accounts[2].toBase58()
+              releasePublicKey = accounts[7].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[1].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
+              transactionObject.type = 'PostInitViaHub'
+              postPublicKey = accounts[2].toBase58()
+              accountPublicKey = accounts[0].toBase58()
+              hubPublicKey = accounts[1].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
+              transactionObject.type = 'SubscriptionSubscribeAccount'
+              accountPublicKey = accounts[0].toBase58()
+              toAccountPublicKey = accounts[2].toBase58()
+            } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
+              transactionObject.type = 'SubscriptionSubscribeHub'
+              accountPublicKey = accounts[0].toBase58()
+              toHubPublicKey = accounts[2].toBase58()
             }
-          i++
-          } catch (error) {
-            console.warn('error parsing tx', error)
+
+            if (transactionObject.type) {
+              if (accountPublicKey) {
+                const account = await Account.findOrCreate(accountPublicKey)
+                if (account) {
+                  transactionObject.authorityId = account.id
+                }
+              }
+  
+              if (hubPublicKey) {
+                const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+                if (hub) {
+                  transactionObject.hubId = hub.id
+                }
+              }
+  
+              if (releasePublicKey) {
+                const release = await Release.query().findOne({ publicKey: releasePublicKey })
+                if (release) {
+                  transactionObject.releaseId = release.id
+                }
+              }
+  
+              if (postPublicKey) {
+                const post = await Post.query().findOne({ publicKey: postPublicKey })
+                if (post) {
+                  transactionObject.postId = post.id
+                }
+              }
+  
+              if (toAccountPublicKey) {
+                const subscribeToAccount = await Account.query().findOne({ publicKey: toAccountPublicKey })
+                if (subscribeToAccount) {
+                  transactionObject.toAccountId = subscribeToAccount.id
+                }
+              }
+  
+              if (toHubPublicKey) {
+                const subscribeToHub = await Hub.query().findOne({ publicKey: toHubPublicKey })
+                if (subscribeToHub) {
+                  transactionObject.toHubId = subscribeToHub.id
+                }
+              }
+              await Transaction.query().insertGraph(transactionObject)
+            }
+          }
+          if (accounts) {
+            if (accounts.length === 13) {
+              const mintPublicKey = tx.transaction.message.instructions[length - 1].accounts[1]
+              try {
+                await this.provider.connection.getTokenSupply(mintPublicKey)
+                const config = coder.decode(tx.transaction.message.instructions[length - 1].data, 'base58').data.config
+                exchangeInits.push({
+                  expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
+                  initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
+                  publicKey: tx.transaction.message.instructions[length - 1].accounts[5].toBase58(),
+                  release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
+                  isSale: config.isSelling,
+                  initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                  createdAt: datetime
+                })
+                console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
+              } catch (error) {
+                console.log('not a mint: ', mintPublicKey.toBase58())
+              }
+            } else if (accounts.length === 6) {
+              exchangeCancels.push({
+                publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
+                updatedAt: datetime
+              })
+              console.log('found an exchange cancel', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+            } else if (accounts.length === 16) {
+              completedExchanges.push({
+                publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
+                legacyExchangePublicKey: tx.transaction.message.instructions[length - 1].accounts[7].toBase58(),
+                completedBy: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                updatedAt: datetime
+              })
+              console.log('found an exchange completed', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+            }
           }
         }
+        i++
       }
     }
 
@@ -567,7 +566,7 @@ class NinaProcessor {
           .$relatedQuery('collectors')
           .select('accountId', 'publicKey')
         
-          let tokenAccountsForRelease = await this.provider.connection.getParsedProgramAccounts(
+          let tokenAccountsForRelease = await this.tokenIndexProvider.connection.getParsedProgramAccounts(
           new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
           commitment: this.provider.connection.commitment,
           filters: [{
@@ -584,7 +583,7 @@ class NinaProcessor {
         const existingCollectorsOnChain = []
         for await(let tokenAccount of tokenAccountsForRelease) {
           try {
-            let response = await this.provider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
+            let response = await this.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
             if (response.value.uiAmount > 0) {
               let collectorPubkey = tokenAccount.account.data.parsed.info.owner
               const isCollectorExchange = exchanges.filter(x => x.account.exchangeSigner.toBase58() === collectorPubkey)[0];
