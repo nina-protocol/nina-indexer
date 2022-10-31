@@ -163,7 +163,8 @@ class NinaProcessor {
       const release = await Release.query().findOne({ publicKey: releasePublicKey })
       if (release) {
         const account = await Account.findOrCreate(accountPublicKey)
-        await releaseInDb.$relatedQuery('collectors').relate(account.id);
+        await release.$relatedQuery('collectors').relate(account.id);
+        console.log('added collector to release')
       }
     } catch (error) {
       console.log('addCollectorForRelease: ', error)
@@ -230,12 +231,12 @@ class NinaProcessor {
                 releasePublicKey = accounts[2].toBase58()
                 accountPublicKey = accounts[0].toBase58()
                 hubPublicKey = accounts[8].toBase58()
-                // await addCollectorForRelease(releasePublicKey, accountPublicKey)
+                await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
               } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
                 transactionObject.type = 'ReleasePurchase'
                 releasePublicKey = accounts[2].toBase58()
                 accountPublicKey = accounts[0].toBase58()
-                // await addCollectorForRelease(releasePublicKey, accountPublicKey)
+                await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
               } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
                 transactionObject.type = 'HubAddCollaborator'
                 hubPublicKey = accounts[2].toBase58()
