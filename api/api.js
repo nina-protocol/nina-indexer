@@ -338,6 +338,7 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/hubSuggestions', async (ctx) => {
     try {
       const suggestions = {}
+      let shouldAddRecommendations = false
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
       if (account) {
         const mySubscriptions = await Subscription.query().where('from', account.publicKey)
@@ -401,17 +402,24 @@ module.exports = (router) => {
           }
         }
       } else {
+        shouldAddRecommendations = true
+      }
+
+      if (Object.values(suggestions).length < 15 || shouldAddRecommendations) {
         const ninaRecommendedHubSubscriptions = await Subscription.query()
           .where('from', process.env.HUB_SUGGESTIONS_PUBLIC_KEY)
           .andWhere('subscriptionType', 'hub')
         for await (let ninaRecommendedHubSubscription of ninaRecommendedHubSubscriptions) {
-          const hub = await Hub.query().findOne({ publicKey: ninaRecommendedHubSubscription.to })
-          await hub.format()
-          suggestions[hub.publicKey] = {
-            hub,
+          if (Object.values(suggestions).filter(suggestion => suggestion.hub.publicKey === ninaRecommendedHubSubscription.to).length === 0) {
+            const hub = await Hub.query().findOne({ publicKey: ninaRecommendedHubSubscription.to })
+            await hub.format()
+            suggestions[hub.publicKey] = {
+              hub,
+            }
           }
         }
       }
+      
       const sortedHubs = Object.values(suggestions).sort((a, b) => ((b.hubReleaseCount + b.collectedCount + b.publishedCount + b.collectorHubCount + b.hubSubscriptionCount) - (a.hubReleaseCount + a.collectedCount + a.publishedCount + a.collectorHubCount + a.hubSubscriptionCount)))
       ctx.body = { suggestions: sortedHubs };    
     } catch (err) {
