@@ -18,13 +18,14 @@ module.exports = (router) => {
   router.get('/accounts', async(ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const accounts = await Account.query().orderBy('publicKey', sort).range(offset, offset + limit);
-      for await (let account of accounts.results) {
+      const total = await Account.query().count();
+      const accounts = await Account.query().orderBy('publicKey', sort).limit(limit).offset(offset);
+      for await (let account of accounts) {
         await account.format();
       }
       ctx.body = {
-        accounts: accounts.results,
-        total: accounts.total,
+        accounts,
+        total: total.count,
       };
 
     } catch (err) {
@@ -432,14 +433,15 @@ module.exports = (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const releases = await Release.query().orderBy('datetime', sort).range(offset, offset + limit);
-      for await (let release of releases.results) {
+      const { offset=0, limit=20, sort='desc' } = ctx.query;
+      const total = await Release.query().count();
+      const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
+      for await (let release of releases) {
         await release.format();
       }
       ctx.body = {
-        releases: releases.results,
-        total: releases.total,
+        releases,
+        total: total.count,
       };
     } catch(err) {
       console.log(err)
@@ -563,17 +565,19 @@ module.exports = (router) => {
   router.get('/hubs', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const total = await Hub.query().count();
       const hubs = await Hub.query()
         .whereExists(Hub.relatedQuery('releases'))
         .orWhereExists(Hub.relatedQuery('posts'))
         .orderBy('datetime', sort)
-        .range(offset, offset + limit)
-      for await (let hub of hubs.results) {
+        .limit(limit)
+        .offset(offset);
+      for await (let hub of hubs) {
         await hub.format();
       }
       ctx.body = {
-        hubs: hubs.results,
-        total: hubs.total
+        hubs,
+        total: total.count
       };
     } catch (err) {
       ctx.status = 400
@@ -858,13 +862,14 @@ module.exports = (router) => {
   router.get('/posts', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const posts = await Post.query().orderBy('datetime', sort).range(offset, offset + limit);
-      for await (let post of posts.results) {
+      const total = await Post.query().count();
+      const posts = await Post.query().orderBy('datetime', sort).limit(limit).offset(offset);
+      for await (let post of posts) {
         await post.format();
       }
       ctx.body = {
-        posts: posts.results,
-        total: posts.total,
+        posts,
+        total: total.count,
       };
     } catch (err) {
       console.log(err)
@@ -901,13 +906,14 @@ module.exports = (router) => {
   router.get('/exchanges', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const exchanges = await Exchange.query().orderBy('createdAt', sort).range(offset, offset + limit);
-      for await (let exchange of exchanges.results) {
+      const total = await Exchange.query().count();
+      const exchanges = await Exchange.query().orderBy('createdAt', sort).limit(limit).offset(offset);
+      for await (let exchange of exchanges) {
         await exchange.format();
       }
       ctx.body = {
-        exchanges: exchanges.results,
-        total: exchanges.total,
+        exchanges,
+        total: total.count,
       };
     } catch (err) {
       console.log(err)
