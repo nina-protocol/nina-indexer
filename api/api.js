@@ -1002,6 +1002,7 @@ module.exports = (router) => {
 
       const releases = await Release.query()
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
 
