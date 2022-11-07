@@ -1054,21 +1054,28 @@ module.exports = (router) => {
       const { query } = ctx.request.body;
 
       const releasesByArtist = await Release.query()
-        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`).limit(8)
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .limit(8)
 
-      const formattedArtistsResponse = []
-      for await (let release of releasesByArtist) {
-        const account = await release.$relatedQuery('publisher').select('publicKey')
-        formattedArtistsResponse.push({
-          name: release.metadata.properties.artist,
-          publicKey: account.publicKey
-        })
-      }
-
+        const formattedArtistsResponse = []
+        for await (let release of releasesByArtist) {
+          const account = await release.$relatedQuery('publisher')
+          const releases = await Release.query().where('publisherId', account.id)
+          const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
+          await account.format()
+          formattedArtistsResponse.push({
+            name: release.metadata.properties.artist,
+            account,
+            publishesAs
+          })
+        }
+    
       const releases = await Release.query()
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`).limit(8)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .limit(8)
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
@@ -1083,7 +1090,8 @@ module.exports = (router) => {
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`).limit(8)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .limit(8)
       
       const formattedHubsResponse = []
       for await (let hub of hubs) {
@@ -1096,7 +1104,7 @@ module.exports = (router) => {
       }
 
       ctx.body = {
-        artists: _.uniqBy(formattedArtistsResponse, x => x.publicKey),
+        artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
