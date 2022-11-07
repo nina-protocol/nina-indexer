@@ -173,12 +173,6 @@ class NinaProcessor {
 
   async processExchangesAndTransactions() {
     try {
-      const latestTransaction =  await Transaction.query().orderBy('blocktime', 'desc').first()
-      if (latestTransaction) {
-        const tx = await this.provider.connection.getParsedConfirmedTransaction(latestTransaction.txid, 'confirmed')
-        this.latestSignature = tx
-        this.latestSignature.signature = latestTransaction.txid
-      }
       const signatures = await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)
       const pages = []
       const size = 150
