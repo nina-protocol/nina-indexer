@@ -993,10 +993,14 @@ module.exports = (router) => {
 
       const formattedArtistsResponse = []
       for await (let release of releasesByArtist) {
-        const account = await release.$relatedQuery('publisher').select('publicKey')
+        const account = await release.$relatedQuery('publisher')
+        const releases = await Release.query().where('publisherId', account.id)
+        const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
+        await account.format()
         formattedArtistsResponse.push({
           name: release.metadata.properties.artist,
-          publicKey: account.publicKey
+          account,
+          publishesAs
         })
       }
 
@@ -1032,7 +1036,7 @@ module.exports = (router) => {
       }
 
       ctx.body = {
-        artists: _.uniqBy(formattedArtistsResponse, x => x.publicKey),
+        artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
