@@ -797,7 +797,7 @@ module.exports = (router) => {
     }      
   })
 
-  router.get('/hubs/:publicKeyOrHandle/hubCollaborators/:hubCollaboratorPublicKey', async (ctx) => {
+  router.get('/hubs/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey', async (ctx) => {
     try {
       const hub = await hubForPublicKeyOrHandle(ctx)
       if (hub) {
