@@ -810,7 +810,12 @@ module.exports = (router) => {
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
         } else {
-          const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
+          const collaborator = await Account
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', hub.id)
+            .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
+            .first()          
           await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
         }
       }
