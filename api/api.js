@@ -590,9 +590,9 @@ module.exports = (router) => {
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
+      await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
-        await NinaProcessor.init()
         const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
