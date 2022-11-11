@@ -802,7 +802,7 @@ module.exports = (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       if (hub) {
         await NinaProcessor.init()
-        const hubCollaborator = await NinaProcessor.program.account.hubCollaborator(new anchor.web3.PublicKey(ctx.params.hubCollaboratorPublicKey), 'confirmed')
+        const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(ctx.params.hubCollaboratorPublicKey), 'confirmed')
         if (hubCollaborator) {
           const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
           await Hub.relatedQuery('collaborators').for(hub.id).relate({
