@@ -107,6 +107,19 @@ class Hub extends Model {
       }
     }
 
+    const removedCollaborators = hubCollaboratorsForHubDb.filter(x => !hubCollaboratorsForHubOnChain.map(x => x.account.collaborator.toBase58()).includes(x));
+    for await (let removedCollaborator of removedCollaborators) {
+      try {
+        const collaboratorRecord = await Account.query().findOne({publicKey: removedCollaborator});
+        if (collaboratorRecord) {
+          await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaboratorRecord.id);
+          console.log('Removed Collaborator from Hub:', collaboratorRecord.publicKey, hub.publicKey);
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
     //Update HubPosts
     const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === hub.publicKey);
     const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(hub)).map(x => x.publicKey);
