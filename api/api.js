@@ -637,6 +637,8 @@ module.exports = (router) => {
             await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
           }
         }
+
+        
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
@@ -792,7 +794,29 @@ module.exports = (router) => {
       ctx.body = {
         message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
       }
-}   
+    }      
+  })
+
+  router.get('/hubs/:publicKeyOrHandle/hubCollaborators/:hubCollaboratorPublicKey', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      if (hub) {
+        await NinaProcessor.init()
+        const hubCollaborator = await NinaProcessor.program.account.hubCollaborator(new anchor.web3.PublicKey(ctx.params.hubCollaboratorPublicKey), 'confirmed')
+        if (hubCollaborator) {
+          const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
+          await Hub.relatedQuery('collaborators').for(hub.id).relate({
+            id: collaborator.id,
+            hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
+          })
+        } else {
+          const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
+          await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
+        }
+      }
+    } catch (error) {
+      console.log(error)
+    }
   })
 
   router.get('/hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
