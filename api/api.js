@@ -818,9 +818,11 @@ module.exports = (router) => {
             .first()          
           await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
         }
+        ctx.body = { success: true}
       }
     } catch (error) {
       console.log('hubCollaborator Error: ', error)
+      ctx.body = { success: false}
     }
   })
 
