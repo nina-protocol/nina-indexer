@@ -809,6 +809,7 @@ module.exports = (router) => {
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
+          console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
         } else {
           const collaborator = await Account
             .query()
@@ -817,12 +818,13 @@ module.exports = (router) => {
             .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
             .first()          
           await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
+          console.log('Removing HubCollaborator', ctx.params.hubCollaboratorPublicKey)
         }
         ctx.body = { success: true}
       }
     } catch (error) {
       console.log('hubCollaborator Error: ', error)
-      ctx.body = { success: false}
+      ctx.body = { success: true }
     }
   })
 
