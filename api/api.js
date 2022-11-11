@@ -626,7 +626,7 @@ module.exports = (router) => {
           const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
             [
               Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
-              (new anchor.web3.PublicKey(publicKey)).toBuffer(),
+              (new anchor.web3.PublicKey(hub.publicKey)).toBuffer(),
               (new anchor.web3.PublicKey(collaborator.publicKey)).toBuffer(),
             ],
             new anchor.web3.PublicKey(NinaProcessor.program.programId)
