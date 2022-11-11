@@ -546,7 +546,6 @@ class NinaProcessor {
 
     let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
 
-
     for await (let newSubscription of newSubscriptions) {
       try {
         await Subscription.query().insert({
@@ -556,7 +555,17 @@ class NinaProcessor {
           to: newSubscription.account.to.toBase58(),
           subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
         });
-        console.log('Inserted Subcription:', newSubscription.publicKey.toBase58());
+        console.log('Inserted Subscription:', newSubscription.publicKey.toBase58());
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    let unsubscribes = existingSubscriptions.filter(x => !subscriptions.find(y => y.publicKey.toBase58() === x.publicKey));
+    for await (let unsubscribe of unsubscribes) {
+      try {
+        await Subscription.query().delete().where('publicKey', unsubscribe.publicKey)
+        console.log('Deleted Subscription:', unsubscribe.publicKey);
       } catch (err) {
         console.log(err);
       }
