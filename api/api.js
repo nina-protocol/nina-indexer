@@ -803,21 +803,16 @@ module.exports = (router) => {
       if (hub) {
         await NinaProcessor.init()
         const hubCollaborator = await lookupCollaborator(ctx.params.hubCollaboratorPublicKey)
+        console.log('hubCollaborator :>> ', hubCollaborator);
         if (hubCollaborator) {
           console.log('hubCollaborator :>> ', hubCollaborator);
           console.log('hub id', hub.id)
           const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
           console.log('collaborator', collaborator)
-          try {
-            await Hub.relatedQuery('collaborators').for(hub.id).relate({
-              id: collaborator.id,
-              hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
-            })
-            
-          } catch (error) {
-            console.log('DIDNT WORK');
-            console.log('error :>> ', error);
-          }
+          await Hub.relatedQuery('collaborators').for(hub.id).relate({
+            id: collaborator.id,
+            hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
+          })
           console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
         } else {
           const collaborator = await Account
@@ -842,7 +837,7 @@ module.exports = (router) => {
       const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'processed')
       return hubCollaborator
     } catch (error) {
-      return null
+      return undefined
     }
   }
 
