@@ -831,7 +831,7 @@ module.exports = (router) => {
 
   const lookupCollaborator = async (hubCollaboratorPublicKey) => {
     try {
-      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed')
+      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'processed')
       return hubCollaborator
     } catch (error) {
       return null
