@@ -805,8 +805,7 @@ module.exports = (router) => {
         const hubCollaborator = await lookupCollaborator(ctx.params.hubCollaboratorPublicKey)
         if (hubCollaborator) {
           console.log('hubCollaborator :>> ', hubCollaborator);
-          console.log('hubCollaborator :>> ', hubCollaborator);
-          const collaborator = await Account.findOrCreate(hubCollaborator.account.collaborator.toBase58())
+          const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
           await Hub.relatedQuery('collaborators').for(hub.id).relate({
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
