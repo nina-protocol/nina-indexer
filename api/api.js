@@ -814,6 +814,13 @@ module.exports = (router) => {
           })
           console.log('result', result)
           console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
+          let account = await Account
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', hub.id)
+            .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
+            .first()
+          console.log('account', account)
         } else {
           const collaborator = await Account
             .query()
