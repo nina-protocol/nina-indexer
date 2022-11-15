@@ -619,26 +619,6 @@ module.exports = (router) => {
             hubCollaboratorPublicKey: hubCollaborator.toBase58(),
           })
         }
-      } else {
-        // Check if any collaborators have been removed
-        // const collaborators = await hub.$relatedQuery('collaborators')
-        // for await (let collaborator of collaborators) {
-        //   const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
-        //     [
-        //       Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
-        //       (new anchor.web3.PublicKey(hub.publicKey)).toBuffer(),
-        //       (new anchor.web3.PublicKey(collaborator.publicKey)).toBuffer(),
-        //     ],
-        //     new anchor.web3.PublicKey(NinaProcessor.program.programId)
-        //   )
-        //   try {
-        //     await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaborator))
-        //   } catch (error) {
-        //     await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
-        //   }
-        // }
-
-        
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
