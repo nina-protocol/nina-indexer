@@ -95,6 +95,7 @@ class Hub extends Model {
     for await (let hubCollaborator of newHubCollaboratorsForHub) {
       try {
         const collaboratorRecord = await Account.findOrCreate(hubCollaborator.account.collaborator.toBase58());
+        console.log('collaboratorRecord :>> ', collaboratorRecord);
         if (collaboratorRecord) {
           await Hub.relatedQuery('collaborators').for(hub.id).relate({
             id: collaboratorRecord.id,
