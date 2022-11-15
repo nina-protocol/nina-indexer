@@ -808,7 +808,7 @@ module.exports = (router) => {
           console.log('hub id', hub.id)
           const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
           console.log('collaborator', collaborator)
-          await Hub.relatedQuery('collaborators').for(hub.id).relate({
+          await hub.$relatedQuery('collaborators').relate({
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
