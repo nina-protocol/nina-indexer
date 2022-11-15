@@ -783,19 +783,13 @@ module.exports = (router) => {
       if (hub) {
         await NinaProcessor.init()
         const hubCollaborator = await lookupCollaborator(ctx.params.hubCollaboratorPublicKey)
-        console.log('hubCollaborator :>> ', hubCollaborator);
         if (hubCollaborator) {
-          console.log('hub id', hub.id)
           const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
-          console.log('collaborator', collaborator)
           const result = await Hub.relatedQuery('collaborators').for(hub.id).relate({
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
-          console.log('result', result)
-          console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
           const account = await Hub.relatedQuery('collaborators').for(hub.id).where('accountId', collaborator.id).first();
-          console.log('account', account)
         } else {
           const collaborator = await Account
             .query()
@@ -804,12 +798,10 @@ module.exports = (router) => {
             .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
             .first()          
           await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
-          console.log('Removing HubCollaborator', ctx.params.hubCollaboratorPublicKey)
         }
         ctx.body = { success: true}
       }
     } catch (error) {
-      console.log('hubCollaborator Error: ', error)
       ctx.body = { success: true }
     }
   })
