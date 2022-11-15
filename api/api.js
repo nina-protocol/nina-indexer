@@ -812,6 +812,11 @@ module.exports = (router) => {
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
+          await Hub.relatedQuery('collaborators').for(hub.id).relate({
+            id: collaborator.id,
+            hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
+          })
+
           console.log('result', result)
           console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
           let account = await Account
