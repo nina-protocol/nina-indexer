@@ -619,24 +619,6 @@ module.exports = (router) => {
             hubCollaboratorPublicKey: hubCollaborator.toBase58(),
           })
         }
-      } else {
-        // Check if any collaborators have been removed
-        const collaborators = await hub.$relatedQuery('collaborators')
-        for await (let collaborator of collaborators) {
-          const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
-            [
-              Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
-              (new anchor.web3.PublicKey(hub.publicKey)).toBuffer(),
-              (new anchor.web3.PublicKey(collaborator.publicKey)).toBuffer(),
-            ],
-            new anchor.web3.PublicKey(NinaProcessor.program.programId)
-          )
-          try {
-            await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaborator))
-          } catch (error) {
-            await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
-          }
-        }
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
@@ -792,8 +774,46 @@ module.exports = (router) => {
       ctx.body = {
         message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
       }
-}   
+    }      
   })
+
+  router.get('/hubs/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey', async (ctx) => {
+    try {
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      if (hub) {
+        await NinaProcessor.init()
+        const hubCollaborator = await lookupCollaborator(ctx.params.hubCollaboratorPublicKey)
+        if (hubCollaborator) {
+          const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
+          const result = await Hub.relatedQuery('collaborators').for(hub.id).relate({
+            id: collaborator.id,
+            hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
+          })
+          const account = await Hub.relatedQuery('collaborators').for(hub.id).where('accountId', collaborator.id).first();
+        } else {
+          const collaborator = await Account
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', hub.id)
+            .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
+            .first()          
+          await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaborator.id)
+        }
+        ctx.body = { success: true}
+      }
+    } catch (error) {
+      ctx.body = { success: true }
+    }
+  })
+
+  const lookupCollaborator = async (hubCollaboratorPublicKey) => {
+    try {
+      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed')
+      return hubCollaborator
+    } catch (error) {
+      return undefined
+    }
+  }
 
   router.get('/hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
     try {
