@@ -812,19 +812,9 @@ module.exports = (router) => {
             id: collaborator.id,
             hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
           })
-          await Hub.relatedQuery('collaborators').for(hub.id).relate({
-            id: collaborator.id,
-            hubCollaboratorPublicKey: ctx.params.hubCollaboratorPublicKey,
-          })
-
           console.log('result', result)
           console.log('Adding HubCollaborator', ctx.params.hubCollaboratorPublicKey)
-          let account = await Account
-            .query()
-            .joinRelated('hubs')
-            .where('hubs_join.hubId', hub.id)
-            .where('hubs_join.hubCollaboratorPublicKey', ctx.params.hubCollaboratorPublicKey)
-            .first()
+          const account = await Hub.relatedQuery('collaborators').for(hub.id).where('accountId', collaborator.id).first();
           console.log('account', account)
         } else {
           const collaborator = await Account
