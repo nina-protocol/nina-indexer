@@ -586,7 +586,7 @@ module.exports = (router) => {
       }
     }
   });
-
+  
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
@@ -603,6 +603,7 @@ module.exports = (router) => {
             publicKey,
             handle: decode(hubAccount.handle),
             data: data.data,
+            dataUri: uri,
             datetime: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
             authorityId: authority.id,
           });
@@ -650,6 +651,30 @@ module.exports = (router) => {
       ctx.status = 404
       ctx.body = {
         message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+      }
+    }
+  })
+
+  router.get('/hubs/:publicKeyOrHandle/tx/:txid', async (ctx) => {
+    try {
+      const publicKey = ctx.params.publicKeyOrHandle
+      let hub = await hubForPublicKeyOrHandle(ctx)
+      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+      if (hub && hubAccount) {
+        const uri = decode(hubAccount.uri)
+        const data = await axios.get(uri)
+        await  Hub.query().patch({
+          data: data.data,
+          dataUri: uri,
+        }).findById(hub.id);
+      }
+      ctx.body = {
+        hub,
+      };
+    } catch (error) {
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching hub'
       }
     }
   })
