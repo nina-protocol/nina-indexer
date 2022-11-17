@@ -25,7 +25,33 @@ app.use(ratelimit({
     reset: 'Rate-Limit-Reset',
     total: 'Rate-Limit-Total'
   },
-  whitelist: (ctx) => ctx.request.header.host === 'ninaprotocol.com',
+  whitelist: (ctx) => {
+    if (ctx.request.header.host === 'ninaprotocol.com') {
+      return true;
+    }
+
+    if (ctx.request.header.host === 'hubs.ninaprotocol.com') {
+      return true;
+    }
+
+    if (ctx.request.header.host === 'dev.ninaprotocol.com') {
+      return true;
+    }
+
+    if (ctx.request.header.host === 'radio.ninaprotocol.com') {
+      return true;
+    }
+
+    if (ctx.request.header.host === 'nights.ninaprotocol.com') {
+      return true;
+    }
+
+    if (ctx.request.query.api_key === process.env.NINA_API_KEY) {
+      return true;
+    }
+
+    return false;
+  },
   max: 100,
   disableHeader: false,
 }));
