@@ -18,7 +18,7 @@ app.use(ratelimit({
   driver: 'memory',
   db: db,
   duration: 60000,
-  errorMessage:`Sometimes You Just Have to Slow Down`,
+  errorMessage:`Casey Jones you better watch your speed`,
   id: (ctx) => ctx.ip,
   headers: {
     remaining: 'Rate-Limit-Remaining',
@@ -26,27 +26,10 @@ app.use(ratelimit({
     total: 'Rate-Limit-Total'
   },
   whitelist: (ctx) => {
-    if (ctx.request.header.host === 'ninaprotocol.com') {
-      return true;
-    }
-
-    if (ctx.request.header.host === 'hubs.ninaprotocol.com') {
-      return true;
-    }
-
-    if (ctx.request.header.host === 'dev.ninaprotocol.com') {
-      return true;
-    }
-
-    if (ctx.request.header.host === 'radio.ninaprotocol.com') {
-      return true;
-    }
-
-    if (ctx.request.header.host === 'nights.ninaprotocol.com') {
-      return true;
-    }
-
-    if (ctx.request.query.api_key === process.env.NINA_API_KEY) {
+    if (
+      ctx.request.header.host.includes('ninaprotocol.com') ||
+      ctx.request.query.api_key === process.env.NINA_API_KEY
+    ) {
       return true;
     }
 
