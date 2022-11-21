@@ -33,9 +33,9 @@ class Verification extends Model {
   async format () {
     delete this.id;
     const account = await this.$relatedQuery('account');
+    delete this.accountId;
     if (account) {
       this.account = account.publicKey;
-      delete this.accountId;
     }
   }
 
