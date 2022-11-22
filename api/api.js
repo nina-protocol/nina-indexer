@@ -105,7 +105,7 @@ module.exports = (router) => {
       const { txId } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
-        const tx = await NinaProcessor.provider.connection.getParsedTransactions(txId)
+        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId)
         if (tx) {
           if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
             transactionObject.type = 'ReleasePurchaseViaHub'
