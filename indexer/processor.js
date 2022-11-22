@@ -103,6 +103,7 @@ class NinaProcessor {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
     }
+    return true
   }
 
   async processVerification (publicKey) {
@@ -110,7 +111,7 @@ class NinaProcessor {
       publicKey: publicKey.toBase58(),
     }
     const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
-    console.log('registry', registry)
+    console.log('registry', registry, publicKey)
     if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
       const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
       const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
