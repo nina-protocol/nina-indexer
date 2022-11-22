@@ -99,6 +99,7 @@ class NinaProcessor {
 
     for await (let nameRegistry of deletedNameRegistries) {
       try {
+        console.log('nameRegistry', nameRegistry)
         await Verification.query().delete().where({ publicKey: nameRegistry.publicKey.toBase58() });
       } catch (e) {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
