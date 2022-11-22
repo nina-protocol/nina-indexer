@@ -110,6 +110,7 @@ class NinaProcessor {
     const verification = {
       publicKey: publicKey.toBase58(),
     }
+    console.log('publicKey.toBase58()', publicKey.toBase58())
     const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
     console.log('registry', registry, publicKey.toBase58())
     if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
