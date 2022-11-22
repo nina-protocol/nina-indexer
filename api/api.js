@@ -1254,13 +1254,31 @@ module.exports = (router) => {
       }
     }
   });
-  
+
+  const sleep = () => new Promise(resolve => setTimeout(resolve, 2000))
+
+
+  const getVerification = async (publicKey) => {
+    try {
+      let i = 0;
+      let verification
+      while (!verification && i < 30) {
+        verification = await NinaProcessor.processVerification(new anchor.web3.PublicKey(publicKey))
+        i++;
+        await sleep()
+      }
+      return verification
+    } catch (err) {
+      console.warn(err)
+    }
+  }
+
   router.get('/verifications/:publicKey', async (ctx) => {
     try {
-      await NinaProcessor.init();
       let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
       if (!verification) {
-        verification  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
+        await NinaProcessor.init();
+        verification  = await getVerification(ctx.params.publicKey)
       }
       await verification.format()
       ctx.body = {
