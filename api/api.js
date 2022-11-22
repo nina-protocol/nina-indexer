@@ -1265,12 +1265,12 @@ module.exports = (router) => {
       return undefined
     }
   }
+
   const getVerification = async (publicKey) => {
     try {
       let i = 0;
       let verification
       while (!verification && i < 30) {
-        console.log('checking for verification: ', i)
         verification = await verficationRequest(publicKey)
         i++;
         await sleep()
