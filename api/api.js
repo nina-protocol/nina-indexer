@@ -1257,14 +1257,21 @@ module.exports = (router) => {
 
   const sleep = () => new Promise(resolve => setTimeout(resolve, 2000))
 
-
+  const verficationRequest = async (publicKey) => {
+    try {
+      let verification = await NinaProcessor.processVerification(new anchor.web3.PublicKey(publicKey))
+      return verification
+    } catch (err) {
+      return undefined
+    }
+  }
   const getVerification = async (publicKey) => {
     try {
       let i = 0;
       let verification
       while (!verification && i < 30) {
         console.log('checking for verification: ', i)
-        verification = await NinaProcessor.processVerification(new anchor.web3.PublicKey(publicKey))
+        verification = await verficationRequest(publicKey)
         i++;
         await sleep()
       }
