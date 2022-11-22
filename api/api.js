@@ -1260,8 +1260,7 @@ module.exports = (router) => {
       await NinaProcessor.init();
       let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
       if (!verification) {
-        await NinaProcessor.processVerifications()
-        verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+        verification  = await NinaProcessor.processVerification(new anchor.web3.PublicKey(ctx.params.publicKey))
       }
       await verification.format()
       ctx.body = {
