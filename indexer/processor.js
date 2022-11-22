@@ -88,7 +88,6 @@ class NinaProcessor {
     const existingNameRegistries = await Verification.query();
     const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
     const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
-    console.log('deletedNameRegistries', deletedNameRegistries)
     for await (let nameRegistry of newNameRegistries) {
       try {
         await this.processVerification(nameRegistry.pubkey);
@@ -99,7 +98,6 @@ class NinaProcessor {
 
     for await (let nameRegistry of deletedNameRegistries) {
       try {
-        console.log('nameRegistry', nameRegistry)
         await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
       } catch (e) {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
@@ -112,6 +110,7 @@ class NinaProcessor {
       publicKey: publicKey.toBase58(),
     }
     const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
+    console.log('registry', registry)
     if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
       const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
       const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
