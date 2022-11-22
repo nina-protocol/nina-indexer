@@ -87,12 +87,21 @@ class NinaProcessor {
 
     const existingNameRegistries = await Verification.query();
     const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
-    
+    const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
+
     for await (let nameRegistry of newNameRegistries) {
       try {
         await this.processVerification(nameRegistry.pubkey);
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+      }
+    }
+
+    for await (let nameRegistry of deletedNameRegistries) {
+      try {
+        await Verification.query().delete().where({ publicKey: nameRegistry.publicKey.toBase58() });
+      } catch (e) {
+        console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
     }
   }
