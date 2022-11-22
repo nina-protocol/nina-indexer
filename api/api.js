@@ -1263,6 +1263,7 @@ module.exports = (router) => {
       let i = 0;
       let verification
       while (!verification && i < 30) {
+        console.log('checking for verification: ', i)
         verification = await NinaProcessor.processVerification(new anchor.web3.PublicKey(publicKey))
         i++;
         await sleep()
