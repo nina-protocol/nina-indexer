@@ -109,13 +109,13 @@ module.exports = (router) => {
 
         if (tx) {
           if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
-            transactionObject.type = 'ReleasePurchaseViaHub'
+            tx.type = 'ReleasePurchaseViaHub'
             releasePublicKey = accounts[2].toBase58()
             accountPublicKey = accounts[0].toBase58()
             hubPublicKey = accounts[8].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
           } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-            transactionObject.type = 'ReleasePurchase'
+            tx.type = 'ReleasePurchase'
             releasePublicKey = accounts[2].toBase58()
             accountPublicKey = accounts[0].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
