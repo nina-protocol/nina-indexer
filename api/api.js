@@ -102,8 +102,15 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const { txId } = ctx.query;
+      if (txId) {
+        const tx = await this.provider.connection.getParsedTransactions(txId)
+        if (tx) {
+          await NinaProcessor.processExchangesAndTransactions();
+        }
+      }
+      
       const collected = await account.$relatedQuery('collected')
-
       for await (let release of collected) {
         await release.format();
       }
@@ -113,6 +120,7 @@ module.exports = (router) => {
       accountNotFound(ctx)
     }
   });
+
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
