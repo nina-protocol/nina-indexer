@@ -106,6 +106,8 @@ module.exports = (router) => {
       if (txId) {
         await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, 'confirmed')
+        const length = tx.transaction.message.instructions.length
+        const accounts = tx.transaction.message.instructions[length - 1].accounts
 
         if (tx) {
           if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
