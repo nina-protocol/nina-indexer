@@ -105,9 +105,20 @@ module.exports = (router) => {
       const { txId } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
-        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId)
+        const tx = await NinaProcessor.provider.connection.getParsedTransactions(txId)
         if (tx) {
-          await NinaProcessor.processExchangesAndTransactions()
+          if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
+            transactionObject.type = 'ReleasePurchaseViaHub'
+            releasePublicKey = accounts[2].toBase58()
+            accountPublicKey = accounts[0].toBase58()
+            hubPublicKey = accounts[8].toBase58()
+            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+            transactionObject.type = 'ReleasePurchase'
+            releasePublicKey = accounts[2].toBase58()
+            accountPublicKey = accounts[0].toBase58()
+            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          }
         }
       }
       
