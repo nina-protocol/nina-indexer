@@ -104,6 +104,7 @@ module.exports = (router) => {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
       const { txId } = ctx.query;
       if (txId) {
+        await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransactions(txId)
         if (tx) {
           await NinaProcessor.processExchangesAndTransactions()
