@@ -15,7 +15,8 @@ const NAME_PROGRAM_ID = new anchor.web3.PublicKey("namesLPneVptA9Z5rqUDD9tMTWEJw
 
 const web3 = new Web3(process.env.ETH_CLUSTER_URL);
 const ens = new ENS(web3)
-
+let soundcloudToken = null
+let soundcloudTokenDate = null
 class ReverseEthAddressRegistryState {
   static schema = new Map([
     [
@@ -382,30 +383,36 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
   try {
     let soundcloudProfile
     if (process.env.SC_CLIENT_ID && process.env.SC_SECRET) {
-      const form = {
-        client_id: process.env.SC_CLIENT_ID,
-        client_secret: process.env.SC_SECRET,
-        grant_type: "client_credentials",
-      }
-      
-      const tokenResponse = await fetch("https://api.soundcloud.com/oauth2/token", {
-        body: formUrlEncoded(form),
-        method: "POST",
-        headers: {
-          "accept": "application/json; charset=utf-8",
-          "Content-Type": "application/x-www-form-urlencoded"
+      if (!soundcloudToken || (Date.now() - soundcloudTokenDate > 60 * 60 * 1000)) {
+        const form = {
+          client_id: process.env.SC_CLIENT_ID,
+          client_secret: process.env.SC_SECRET,
+          grant_type: "client_credentials",
         }
-      })
-      const tokenData = await tokenResponse.json()
-      
+        
+        const tokenResponse = await fetch("https://api.soundcloud.com/oauth2/token", {
+          body: formUrlEncoded(form),
+          method: "POST",
+          headers: {
+            "accept": "application/json; charset=utf-8",
+            "Content-Type": "application/x-www-form-urlencoded"
+          }
+        })
+        const tokenData = await tokenResponse.json()
+        soundcloudToken = tokenData
+        soundcloudTokenDate = new Date()
+        console.log('tokenData', tokenData)
+      }
+
       const userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=1&linked_partitioning=false`, {
         method: "GET",
         headers: {
           "accept": "application/json; charset=utf-8",
-          "Authorization": `OAuth ${tokenData.access_token}`
+          "Authorization": `OAuth ${soundcloudToken.access_token}`
         }
       })
       soundcloudProfile = await userResponse.json()
+      console.log('soundcloudProfile', soundcloudProfile)
       if (soundcloudProfile.collection[0].permalink === soundcloudHandle) {
         soundcloudProfile = soundcloudProfile.collection[0]
       } else {
