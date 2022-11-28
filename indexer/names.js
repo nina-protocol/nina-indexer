@@ -404,7 +404,7 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
         console.log('tokenData', tokenData)
       }
 
-      let userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=1&linked_partitioning=false`, {
+      let userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=50&linked_partitioning=false`, {
         method: "GET",
         headers: {
           "accept": "application/json; charset=utf-8",
