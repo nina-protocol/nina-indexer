@@ -404,20 +404,15 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
         console.log('tokenData', tokenData)
       }
 
-      const userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=1&linked_partitioning=false`, {
+      let userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=1&linked_partitioning=false`, {
         method: "GET",
         headers: {
           "accept": "application/json; charset=utf-8",
           "Authorization": `OAuth ${soundcloudToken.access_token}`
         }
       })
-      soundcloudProfile = await userResponse.json()
-      console.log('userResponse', soundcloudProfile)
-      if (soundcloudProfile.collection[0].permalink === soundcloudHandle) {
-        soundcloudProfile = soundcloudProfile.collection[0]
-      } else {
-        soundcloudProfile = null
-      }
+      userResponse = await userResponse.json()
+      soundcloudProfile = userResponse.collection.find(user => user.permalink === soundcloudHandle)
       return soundcloudProfile
     }
   } catch (error) {
