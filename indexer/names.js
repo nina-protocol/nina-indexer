@@ -411,8 +411,8 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
           "Authorization": `OAuth ${soundcloudToken.access_token}`
         }
       })
-      console.log('userResponse', userResponse)
       soundcloudProfile = await userResponse.json()
+      console.log('userResponse', soundcloudProfile)
       if (soundcloudProfile.collection[0].permalink === soundcloudHandle) {
         soundcloudProfile = soundcloudProfile.collection[0]
       } else {
