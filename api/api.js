@@ -282,6 +282,7 @@ module.exports = (router) => {
         .orWhereIn('toAccountId', accountIds)
         .orderBy('blocktime', 'desc')
         .range(Number(offset), Number(offset) + Number(limit))
+      
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
