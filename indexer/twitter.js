@@ -1,8 +1,8 @@
-import TwitterApi from 'twitter-api-v2';
+const TwitterApi = require('twitter-api-v2');
 
 const sleep = (duration) => new Promise(resolve => setTimeout(resolve, duration))
 
-export const tweetNewRelease = async(metadata) => {
+const tweetNewRelease = async(metadata) => {
   try {
     if (
       process.env.SHOULD_TWEET_NEW_RELEASES === 'true' &&
@@ -26,4 +26,8 @@ export const tweetNewRelease = async(metadata) => {
   } catch (error) {
     console.warn('error sending new release tweet: ', error, metadata)
   }
+}
+
+module.exports = {
+  tweetNewRelease,
 }
