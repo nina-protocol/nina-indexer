@@ -278,7 +278,7 @@ module.exports = (router) => {
         .whereIn('hubId', hubIds)
         .orWhereIn('authorityId', accountIds)
         .orderBy('blocktime', 'desc')
-        .range(offset, offset + limit)
+        .range(Number(offset), Number(offset) + Number(limit))
 
       const feedItems = []
       const releaseIds = new Set()
