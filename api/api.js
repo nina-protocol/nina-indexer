@@ -274,12 +274,14 @@ module.exports = (router) => {
           accountIds.push(account.id)
         }
       }
+
       const transactions = await Transaction.query()
         .whereIn('hubId', hubIds)
+        .orWhereIn('toHubId', hubIds)
         .orWhereIn('authorityId', accountIds)
+        .orWhereIn('toAccountId', accountIds)
         .orderBy('blocktime', 'desc')
-        .range(offset, offset + limit)
-
+        .range(Number(offset), Number(offset) + Number(limit))
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
@@ -287,9 +289,11 @@ module.exports = (router) => {
           releaseIds.add(transaction.releaseId)
           await transaction.format()
           feedItems.push(transaction)
+        } else if (!transaction.releaseId) {
+          await transaction.format()
+          feedItems.push(transaction)
         }
       }
-
       ctx.body = {
         feedItems,
         total: transactions.total
