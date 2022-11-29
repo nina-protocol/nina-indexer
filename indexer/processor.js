@@ -10,7 +10,7 @@ const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
 const Verification = require('./db/models/Verification');
 const { decode } = require('./utils');
-
+const { tweetNewRelease } = require('./twitter');
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -463,6 +463,7 @@ class NinaProcessor {
           publisherId: publisher.id,
         })
         await Release.processRevenueShares(release, releaseRecord);
+        tweetNewRelease(metadataJson)
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
