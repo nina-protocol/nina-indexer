@@ -49,6 +49,7 @@
     "objection": "^3.0.1",
     "pg": "^8.7.3",
     "striptags": "^3.2.0",
+    "twitter-api-v2": "^1.12.9",
     "web3": "^1.8.0"
   },
   "resolutions": {
