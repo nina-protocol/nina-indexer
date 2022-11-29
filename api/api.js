@@ -652,7 +652,7 @@ module.exports = (router) => {
       await hub.format();
 
       for (let collaborator of collaborators) {
-        collaborator.format();
+        await collaborator.format();
       }
 
       for await (let release of releases) {
