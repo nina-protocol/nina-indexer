@@ -56,12 +56,12 @@ class Hub extends Model {
       try {
         if (hubReleasesForHubDb.includes(hubRelease.account.release.toBase58())) {
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
-          if (!hubContent.account.visible) {
-            const release = await Release.query().findOne({publicKey: hubRelease});
-            if (release) {
-              await Hub.relatedQuery('releases').for(hub.id).delete().where('releaseId', release.id);
-            }
-          }  
+          const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
+          if (release) {
+            await Hub.relatedQuery('releases').for(hub.id).patch({
+              visible: hubContent.account.visible,
+            }).where( {id: release.id });
+          }
         }
       } catch (err) {
         console.log(err);
@@ -70,18 +70,17 @@ class Hub extends Model {
     for await (let hubRelease of newHubReleasesForHub) {
       try {
         const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
-        if (hubContent.account.visible) {
-          const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
-          if (release) {
-            await Hub.relatedQuery('releases').for(hub.id).relate({
-              id: release.id,
-              hubReleasePublicKey: hubRelease.publicKey.toBase58(),
-            });
-            if (hubContent.account.publishedThroughHub) {
-              await release.$query().patch({hubId: hub.id});
-            }
-            console.log('Related Release to Hub:', release.publicKey, hub.publicKey);  
+        const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
+        if (release) {
+          await Hub.relatedQuery('releases').for(hub.id).relate({
+            id: release.id,
+            hubReleasePublicKey: hubRelease.publicKey.toBase58(),
+            visible: hubContent.account.visible,
+          });
+          if (hubContent.account.publishedThroughHub) {
+            await release.$query().patch({hubId: hub.id});
           }
+          console.log('Related Release to Hub:', release.publicKey, hub.publicKey);  
         }
       } catch (err) {
         console.log(err);
@@ -229,7 +228,7 @@ class Hub extends Model {
           through: {
             from: 'hubs_releases.hubId',
             to: 'hubs_releases.releaseId',
-            extra: ['hubReleasePublicKey'],
+            extra: ['hubReleasePublicKey', 'visible'],
           },
           to: 'releases.id',
         },

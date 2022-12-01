@@ -50,10 +50,10 @@ module.exports = (router) => {
       for await (let release of collected) {
         await release.format();
       }
-      const published = await account.$relatedQuery('published')
-      for await (let release of published) {
-        await release.format();
-      }
+
+      let published = await account.$relatedQuery('published')
+      published = await getVisibleReleases(published)
+
       const hubs = await account.$relatedQuery('hubs')
       for await (let hub of hubs) {
         await hub.format();
@@ -166,13 +166,40 @@ module.exports = (router) => {
     }
   });
 
+  const getVisibleReleases = async (published) => {
+    const releases = []
+    for await (let release of published) {
+      const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+
+      if (publishedThroughHub) {
+        // Don't show releases that have been archived from their originating Hub
+        // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+        const isVisible = await Release
+          .query()
+          .joinRelated('hubs')
+          .where('hubs_join.hubId', publishedThroughHub.id)
+          .where('hubs_join.releaseId', release.id)
+          .where('hubs_join.visible', true)
+          .first()
+
+        if (isVisible) {
+          await release.format();      
+          releases.push(release)      
+        }
+      } else {
+        await release.format();
+        releases.push(release)
+      }
+    }
+    return releases
+  }
+  
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-      const published = await account.$relatedQuery('published')
-      for await (let release of published) {
-        await release.format();
-      }
+      let published = await account.$relatedQuery('published')
+      published = await getVisibleReleases(published)
+
       ctx.body = { published };
     } catch (err) {
       console.log(err)
@@ -334,6 +361,7 @@ module.exports = (router) => {
       }
     }
   })
+
   const addSuggestionsBatch = async (suggestions, hubs, type, account) => {
     for await (let hub of hubs) {
       addSuggestion(suggestions, hub, type, account)
@@ -648,7 +676,8 @@ module.exports = (router) => {
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
-      const releases = await hub.$relatedQuery('releases')
+      let releases = await hub.$relatedQuery('releases')
+
       const posts = await hub.$relatedQuery('posts')
 
       await hub.format();
@@ -657,9 +686,7 @@ module.exports = (router) => {
         await collaborator.format();
       }
 
-      for await (let release of releases) {
-        await release.format();
-      }
+      releases = await getVisibleReleases(releases)
 
       for await (let post of posts) {
         await post.format();
@@ -724,10 +751,9 @@ module.exports = (router) => {
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const releases = await hub.$relatedQuery('releases')
-      for await (let release of releases) {
-        await release.format();
-      }
+      let releases = await hub.$relatedQuery('releases')
+      releases = await getVisibleReleases(releases)
+
       ctx.body = { 
         releases,
         publicKey: hub.publicKey,
