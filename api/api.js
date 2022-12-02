@@ -1202,14 +1202,29 @@ module.exports = (router) => {
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
-        formattedReleasesResponse.push({
-          artist: release.metadata.properties.artist,
-          title: release.metadata.properties.title,
-          image: release.metadata.image,
-          publicKey: release.publicKey
-        })
-      }
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
   
+          if (isVisible) {  
+            formattedReleasesResponse.push({
+              artist: release.metadata.properties.artist,
+              title: release.metadata.properties.title,
+              image: release.metadata.image,
+              publicKey: release.publicKey
+            })
+          }
+        }
+      }  
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
