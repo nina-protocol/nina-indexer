@@ -75,8 +75,13 @@ class NinaProcessor {
 
 async tweetNewRelease(metadata) {
   try {
+    console.log('should tweet: ',       
+      process.env.TWITTER_API_KEY &&
+      process.env.TWITTER_API_SECRET &&
+      process.env.TWITTER_ACCESS_TOKEN &&
+      process.env.TWITTER_ACCESS_TOKEN_SECRET
+    )
     if (
-      process.env.SHOULD_TWEET_NEW_RELEASES === 'true' &&
       process.env.TWITTER_API_KEY &&
       process.env.TWITTER_API_SECRET &&
       process.env.TWITTER_ACCESS_TOKEN &&
