@@ -228,13 +228,8 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-      const revenueShares = []
-      const releases = await account.$relatedQuery('revenueShares')
-      
-      for await (let release of releases) {
-        await release.format();
-        revenueShares.push(release)
-      }
+      let revenueShares = await account.$relatedQuery('revenueShares')
+      revenueShares = await getVisibleReleases(revenueShares)
 
       ctx.body = { revenueShares };
     } catch (err) {
