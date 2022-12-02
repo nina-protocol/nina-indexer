@@ -9,11 +9,9 @@ const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
-const { tweetNewRelease } = require('../indexer/twitter')
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
 const Verification = require('../indexer/db/models/Verification');
-const { processVerification } = require('../indexer/processor');
 
 const getVisibleReleases = async (published) => {
   const releases = []
@@ -515,7 +513,7 @@ module.exports = (router) => {
             publisherId: publisher.id,
           })
           await Release.processRevenueShares(releaseAccount, release);
-          tweetNewRelease(metadataAccount.json);
+          NinaProcessor.tweetNewRelease(metadataAccount.json);
         } else {
           throw("Release not found")
         }
