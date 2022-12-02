@@ -1140,6 +1140,13 @@ module.exports = (router) => {
               publicKey: release.publicKey
             })
           }
+        } else {
+          formattedReleasesResponse.push({
+            artist: release.metadata.properties.artist,
+            title: release.metadata.properties.title,
+            image: release.metadata.image,
+            publicKey: release.publicKey
+          })
         }
       }
   
@@ -1223,6 +1230,13 @@ module.exports = (router) => {
               publicKey: release.publicKey
             })
           }
+        } else {
+          formattedReleasesResponse.push({
+            artist: release.metadata.properties.artist,
+            title: release.metadata.properties.title,
+            image: release.metadata.image,
+            publicKey: release.publicKey
+          })
         }
       }  
       const hubs = await Hub.query()
