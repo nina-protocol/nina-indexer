@@ -73,12 +73,9 @@ module.exports = (router) => {
         await exchange.format();
         exchanges.push(exchange)
       }
-      const revenueShares = []
-      const releases = await account.$relatedQuery('revenueShares')
-      for await (let release of releases) {
-        await release.format();
-        revenueShares.push(release)
-      }
+
+      let revenueShares = await account.$relatedQuery('revenueShares')
+      revenueShares = await getVisibleReleases(revenueShares)
 
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
