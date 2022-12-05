@@ -24,16 +24,17 @@ class Exchange extends Model {
   }
 
   async format () {
-    const initializer = await this.$relatedQuery('initializer').select('publicKey');
-    const completedBy = await this.$relatedQuery('completedBy').select('publicKey');
+    const initializer = await this.$relatedQuery('initializer');
+    const completedBy = await this.$relatedQuery('completedBy');
     const release = await this.$relatedQuery('release').select('publicKey');
 
     if (completedBy) {
-      this.completedBy = completedBy.publicKey;
+      await completedBy.format();
+      this.completedBy = completedBy;
     }
     this.release = release.publicKey;
-    this.initializer = initializer.publicKey;
-
+    await initializer.format();
+    this.initializer = initializer;
     delete this.id
     delete this.initializerId
     delete this.completedById

@@ -18,14 +18,24 @@ app.use(ratelimit({
   driver: 'memory',
   db: db,
   duration: 60000,
-  errorMessage:`Sometimes You Just Have to Slow Down`,
+  errorMessage:`Casey Jones you better watch your speed`,
   id: (ctx) => ctx.ip,
   headers: {
     remaining: 'Rate-Limit-Remaining',
     reset: 'Rate-Limit-Reset',
     total: 'Rate-Limit-Total'
   },
-  max: 100,
+  whitelist: (ctx) => {
+    if (
+      ctx.request.header.host.includes('ninaprotocol.com') ||
+      ctx.request.query.api_key === process.env.NINA_API_KEY
+    ) {
+      return true;
+    }
+
+    return false;
+  },
+  max: 1000,
   disableHeader: false,
 }));
 

@@ -1,5 +1,6 @@
+const { default: axios } = require('axios');
 const { Model } = require('objection');
-const { stripHtmlIfNeeded } = require('../../utils');
+const { stripHtmlIfNeeded, decode } = require('../../utils');
 
 class Hub extends Model {
   static get tableName() {
@@ -11,11 +12,12 @@ class Hub extends Model {
   static get jsonSchema() {
     return {
       type: 'object',
-      required: ['publicKey', 'handle', 'data', 'datetime'],
+      required: ['publicKey', 'handle', 'data', 'dataUri', 'datetime'],
       properties: {
         publicKey: { type: 'string' },
         handle: { type: 'string' },
         data: { type: 'object' },
+        dataUri: { type: 'string' },
         datetime: { type: 'string' },
       },
     };
@@ -30,10 +32,20 @@ class Hub extends Model {
     stripHtmlIfNeeded(this.data, 'description');
   }
 
-  static async updateHub(hub, hubContents, hubReleases, hubCollaborators, hubPosts) {
+  static async updateHub(hub, hubAccount, hubContents, hubReleases, hubCollaborators, hubPosts) {
     const Account = require('./Account');
     const Post = require('./Post');
     const Release = require('./Release');
+    if (typeof hubAccount.account.uri !== 'string') {
+      hubAccount.account.uri = decode(hubAccount.account.uri)
+    }
+    if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
+      const data = (await axios.get(hubAccount.account.uri)).data;
+      await hub.$query().patch({
+        data,
+        dataUri: hubAccount.account.uri
+      });
+    }
 
     // Update Hub Releases
     const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
@@ -44,12 +56,12 @@ class Hub extends Model {
       try {
         if (hubReleasesForHubDb.includes(hubRelease.account.release.toBase58())) {
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
-          if (!hubContent.account.visible) {
-            const release = await Release.query().findOne({publicKey: hubRelease});
-            if (release) {
-              await Hub.relatedQuery('releases').for(hub.id).delete().where('releaseId', release.id);
-            }
-          }  
+          const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
+          if (release) {
+            await Hub.relatedQuery('releases').for(hub.id).patch({
+              visible: hubContent.account.visible,
+            }).where( {id: release.id });
+          }
         }
       } catch (err) {
         console.log(err);
@@ -58,18 +70,17 @@ class Hub extends Model {
     for await (let hubRelease of newHubReleasesForHub) {
       try {
         const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
-        if (hubContent.account.visible) {
-          const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
-          if (release) {
-            await Hub.relatedQuery('releases').for(hub.id).relate({
-              id: release.id,
-              hubReleasePublicKey: hubRelease.publicKey.toBase58(),
-            });
-            if (hubContent.account.publishedThroughHub) {
-              await release.$query().patch({hubId: hub.id});
-            }
-            console.log('Related Release to Hub:', release.publicKey, hub.publicKey);  
+        const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
+        if (release) {
+          await Hub.relatedQuery('releases').for(hub.id).relate({
+            id: release.id,
+            hubReleasePublicKey: hubRelease.publicKey.toBase58(),
+            visible: hubContent.account.visible,
+          });
+          if (hubContent.account.publishedThroughHub) {
+            await release.$query().patch({hubId: hub.id});
           }
+          console.log('Related Release to Hub:', release.publicKey, hub.publicKey);  
         }
       } catch (err) {
         console.log(err);
@@ -89,6 +100,19 @@ class Hub extends Model {
             hubCollaboratorPublicKey: hubCollaborator.publicKey.toBase58(),
           })
           console.log('Related Collaborator to Hub:', collaboratorRecord.publicKey, hub.publicKey);
+        }
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    const removedCollaborators = hubCollaboratorsForHubDb.filter(x => !hubCollaboratorsForHubOnChain.map(x => x.account.collaborator.toBase58()).includes(x));
+    for await (let removedCollaborator of removedCollaborators) {
+      try {
+        const collaboratorRecord = await Account.query().findOne({publicKey: removedCollaborator});
+        if (collaboratorRecord) {
+          await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaboratorRecord.id);
+          console.log('Removed Collaborator from Hub:', collaboratorRecord.publicKey, hub.publicKey);
         }
       } catch (err) {
         console.log(err);
@@ -204,7 +228,7 @@ class Hub extends Model {
           through: {
             from: 'hubs_releases.hubId',
             to: 'hubs_releases.releaseId',
-            extra: ['hubReleasePublicKey'],
+            extra: ['hubReleasePublicKey', 'visible'],
           },
           to: 'releases.id',
         },

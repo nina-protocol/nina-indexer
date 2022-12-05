@@ -1,13 +1,35 @@
 const anchor = require('@project-serum/anchor');
 const { Metaplex } = require('@metaplex-foundation/js');
 const axios = require('axios');
+const TwitterApi = require('twitter-api-v2');
 const Account = require('./db/models/Account');
 const Exchange = require('./db/models/Exchange');
 const Hub = require('./db/models/Hub');
 const Post = require('./db/models/Post');
 const Release = require('./db/models/Release');
+const Subscription = require('./db/models/Subscription');
+const Transaction = require('./db/models/Transaction');
+const Verification = require('./db/models/Verification');
 const { decode } = require('./utils');
-
+const {
+  NAME_PROGRAM_ID,
+  NINA_ID,
+  NINA_ID_ETH_TLD,
+  NINA_ID_SC_TLD,
+  NINA_ID_TW_TLD,
+  NINA_ID_IG_TLD,
+  ReverseEthAddressRegistryState,
+  ReverseSoundcloudRegistryState,
+  ReverseTwitterRegistryState,
+  ReverseInstagramRegistryState,
+  getNameAccountKey,
+  getHashedName,
+  NameRegistryState,
+  getEnsForEthAddress,
+  getTwitterProfile,
+  getSoundcloudProfile,
+} = require('./names');
+ 
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -16,6 +38,7 @@ const blacklist = [
 class NinaProcessor {
   constructor() {
     this.provider = null;
+    this.tokenIndexProvider = null;
     this.program = null;
     this.metaplex = null;
     this.latestSignature = null;
@@ -24,6 +47,8 @@ class NinaProcessor {
   async init() {
     const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
     this.provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+    const tokenIndexConnection = new anchor.web3.Connection(process.env.SOLANA_TOKEN_INDEX_CLUSTER_URL);
+    this.tokenIndexProvider = new anchor.AnchorProvider(tokenIndexConnection, {commitment: 'processed'});
     this.program = await anchor.Program.at(
       process.env.NINA_PROGRAM_ID,
       this.provider,
@@ -32,123 +57,404 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    await this.processReleases();
-    await this.processExchanges();
-    await this.processPosts();
-    await this.processHubs();
+    try {
+      await this.processReleases();
+      await this.processPosts();
+      await this.processHubs();
+      await this.processSubscriptions();
+      await this.processVerifications();
+      await this.processExchangesAndTransactions();
+    } catch (error) {
+      console.warn(error)
+    }
   }
 
-  async processExchanges() {
-    const signatures = await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)
-    const pages = []
-    const size = 150
-    for (let i = 0; i < signatures.length; i += size) {
-      pages.push(signatures.slice(i, i + size))
+  async sleep (duration) { 
+    new Promise(resolve => setTimeout(resolve, duration)) 
+  }
+
+async tweetNewRelease(metadata) {
+  try {
+    console.log('should tweet: ',       
+      process.env.TWITTER_API_KEY &&
+      process.env.TWITTER_API_SECRET &&
+      process.env.TWITTER_ACCESS_TOKEN &&
+      process.env.TWITTER_ACCESS_TOKEN_SECRET
+    )
+    if (
+      process.env.TWITTER_API_KEY &&
+      process.env.TWITTER_API_SECRET &&
+      process.env.TWITTER_ACCESS_TOKEN &&
+      process.env.TWITTER_ACCESS_TOKEN_SECRET
+    ) {
+      await sleep(60000)
+      const client = new TwitterApi({
+        appKey: process.env.TWITTER_API_KEY,
+        appSecret: process.env.TWITTER_API_SECRET,
+        accessToken: process.env.TWITTER_ACCESS_TOKEN,
+        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      });
+
+      let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
+      text = `${text} ${metadata.external_url}`
+      await client.v2.tweet(text);  
     }
-    const exchangeInits = []
-    const exchangeCancels = []
-    const completedExchanges = []
-    const coder = new anchor.BorshInstructionCoder(this.program.idl)
-    for await (let page of pages) {
-      const txIds = page.map(signature => signature.signature)
-      const txs = await this.provider.connection.getParsedTransactions(txIds)
-      for await (let tx of txs) {
-        if (tx) {
-          const length = tx.transaction.message.instructions.length
-          const accounts = tx.transaction.message.instructions[length - 1].accounts
-          if (accounts) {
-            if (accounts.length === 13) {
-              const mintPublicKey = tx.transaction.message.instructions[length - 1].accounts[1]
-              try {
-                await this.provider.connection.getTokenSupply(mintPublicKey)
-                const config = coder.decode(tx.transaction.message.instructions[length - 1].data, 'base58').data.config
-                exchangeInits.push({
-                  expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
-                  initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
-                  publicKey: tx.transaction.message.instructions[length - 1].accounts[5].toBase58(),
-                  release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
-                  isSale: config.isSelling,
-                  initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                  createdAt: new Date(tx.blockTime * 1000).toISOString()
-                })
-                console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
-              } catch (error) {
-                console.log('not a mint: ', mintPublicKey.toBase58())
-              }
-            } else if (accounts.length === 6) {
-              exchangeCancels.push({
-                publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
-                updatedAt: new Date(tx.blockTime * 1000).toISOString()
-              })
-              console.log('found an exchange cancel', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
-            } else if (accounts.length === 16) {
-              completedExchanges.push({
-                publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
-                legacyExchangePublicKey: tx.transaction.message.instructions[length - 1].accounts[7].toBase58(),
-                completedBy: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
-                updatedAt: new Date(tx.blockTime * 1000).toISOString()
-              })
-              console.log('found an exchange completed', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
-            }
+  } catch (error) {
+    console.warn('error sending new release tweet: ', error, metadata)
+  }
+}
+
+  async processVerifications() {
+    
+    let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
+      NAME_PROGRAM_ID, {
+        commitment: this.provider.connection.commitment,
+        filters: [{
+          dataSize: 192
+        }, {
+          memcmp: {
+            offset: 64,
+            bytes: NINA_ID.toBase58()
+          }
+        }]
+      }
+    );
+
+    const existingNameRegistries = await Verification.query();
+    const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
+    const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
+    for await (let nameRegistry of newNameRegistries) {
+      try {
+        await this.processVerification(nameRegistry.pubkey);
+      } catch (e) {
+        console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+      }
+    }
+
+    for await (let nameRegistry of deletedNameRegistries) {
+      try {
+        await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
+      } catch (e) {
+        console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+      }
+    }
+    return true
+  }
+
+  async processVerification (publicKey) {
+    try {
+      const verification = {
+        publicKey: publicKey.toBase58(),
+      }
+      const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
+      if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
+        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
+        const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
+        const account = await Account.findOrCreate(registry.owner.toBase58());
+        verification.accountId = account.id;
+        verification.type = 'ethereum'
+        verification.value = name.ethAddress
+        try {
+          const displayName = await getEnsForEthAddress(name.ethAddress);
+          if (displayName) {
+            verification.displayName = displayName
+          }
+        } catch (error) {
+          console.warn(error)
+        }
+      } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
+        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
+        const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
+        const account = await Account.findOrCreate(registry.owner.toBase58());
+        verification.accountId = account.id;
+        verification.value = name.instagramHandle
+        verification.type = 'instagram'
+      } else if (registry.parentName.toBase58() === NINA_ID_SC_TLD.toBase58()) {
+        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_SC_TLD);
+        const name = await ReverseSoundcloudRegistryState.retrieve(this.provider.connection, nameAccountKey)
+        const account = await Account.findOrCreate(registry.owner.toBase58());
+        verification.accountId = account.id;
+        verification.value = name.soundcloudHandle
+        verification.type = 'soundcloud'
+        const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
+        console.log('processor soundcloud profile', soundcloudProfile)
+        if (soundcloudProfile) {  
+          verification.displayName = soundcloudProfile.username
+          verification.image = soundcloudProfile.avatar_url
+          if (soundcloudProfile.description) {
+            // verification.description = soundcloudProfile.description
           }
         }
+      } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
+        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
+        const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
+        const account = await Account.findOrCreate(registry.owner.toBase58());
+        verification.accountId = account.id;
+        verification.value = name.twitterHandle
+        verification.type = 'twitter'
+        const twitterProfile = await getTwitterProfile(name.twitterHandle);
+        if (twitterProfile) {
+          verification.displayName = twitterProfile.name
+          verification.image = twitterProfile.profile_image_url.replace('_normal', '')
+          verification.description = twitterProfile.description
+        }
       }
+      if (verification.value && verification.type) {
+        await Verification.query().insertGraph(verification)
+        const v = await Verification.query().findOne({ publicKey: verification.publicKey })
+        return v;
+      }
+    } catch (error) {
+      console.log('error processing verification', error)
     }
+  }
 
-    for await (let exchangeInit of exchangeInits) {
-      try {
-        const release = await Release.query().findOne({publicKey: exchangeInit.release});
-        if (release) {
-          const initializer = await Account.findOrCreate(exchangeInit.initializer);
-          await Exchange.query().insertGraph({
-            publicKey: exchangeInit.publicKey,
-            expectedAmount: exchangeInit.expectedAmount,
-            initializerAmount: exchangeInit.initializerAmount,
-            isSale: exchangeInit.isSale,
-            cancelled: false,
-            initializerId: initializer.id,
-            releaseId: release.id,
-            createdAt: exchangeInit.createdAt,
-          })
-          console.log('Inserted Exchange:', exchangeInit.publicKey);
-        }
-      } catch (error) {
-        console.log('error processing exchangeInits: ', error)
+  async addCollectorForRelease(releasePublicKey, accountPublicKey) {
+    try {
+      const release = await Release.query().findOne({ publicKey: releasePublicKey })
+      if (release) {
+        const account = await Account.findOrCreate(accountPublicKey)
+        await release.$relatedQuery('collectors').relate(account.id);
+        console.log('added collector to release')
       }
+    } catch (error) {
+      console.log('addCollectorForRelease: ', error)
     }
+  }
 
-    for await (let exchangeCancel of exchangeCancels) {
-      try {
-        const exchange = await Exchange.query().findOne({publicKey: exchangeCancel.publicKey});
-        if (exchange) {
-          exchange.cancelled = true;
-          await Exchange.query().patch({
-            cancelled: true,
-            updatedAt: exchangeCancel.updatedAt,
-          }).findById(exchange.id);
-          console.log('Cancelled Exchange:', exchangeCancel.publicKey);
-        }
-      } catch (error) {
-        console.log('error processing exchangeCancels: ', error)
+  async processExchangesAndTransactions() {
+    try {
+      const signatures = await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)
+      const pages = []
+      const size = 150
+      for (let i = 0; i < signatures.length; i += size) {
+        pages.push(signatures.slice(i, i + size))
       }
-    }
+      const exchangeInits = []
+      const exchangeCancels = []
+      const completedExchanges = []
+      const coder = new anchor.BorshInstructionCoder(this.program.idl)
+      for await (let page of pages) {
+        const txIds = page.map(signature => signature.signature)
+        const txs = await this.provider.connection.getParsedTransactions(txIds)
+        let i = 0
+        for await (let tx of txs) {
+          if (tx) {
+            const length = tx.transaction.message.instructions.length
+            const accounts = tx.transaction.message.instructions[length - 1].accounts
+            const blocktime = tx.blockTime
+            const datetime = new Date(blocktime * 1000).toISOString()
+            const txid = txIds[i]
 
-    for await (let completedExchange of completedExchanges) {
-      try {
-        let exchange = await Exchange.query().findOne({publicKey: completedExchange.publicKey});
-        if (!exchange) {
-          exchange = await Exchange.query().findOne({publicKey: completedExchange.legacyExchangePublicKey});
+            let transactionRecord = await Transaction.query().findOne({ txid })
+            if (!transactionRecord) {
+              let transactionObject = {
+                txid,
+                blocktime,
+              }
+              let hubPublicKey
+              let accountPublicKey
+              let releasePublicKey
+              let postPublicKey
+              let toAccountPublicKey
+              let toHubPublicKey
+              if (tx.meta.logMessages.some(log => log.includes('HubInitWithCredit'))) {
+                transactionObject.type = 'HubInitWithCredit'
+                hubPublicKey = accounts[1].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitWithCredit'))) {
+                transactionObject.type = 'ReleaseInitWithCredit'
+                releasePublicKey = accounts[0].toBase58()
+                accountPublicKey = accounts[4].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
+                transactionObject.type = 'ReleaseInitViaHub'
+                releasePublicKey = accounts[1].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                hubPublicKey = accounts[4].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
+                transactionObject.type = 'ReleasePurchaseViaHub'
+                releasePublicKey = accounts[2].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                hubPublicKey = accounts[8].toBase58()
+                await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
+              } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+                transactionObject.type = 'ReleasePurchase'
+                releasePublicKey = accounts[2].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
+              } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
+                transactionObject.type = 'HubAddCollaborator'
+                hubPublicKey = accounts[2].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                toAccountPublicKey = accounts[4].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
+                transactionObject.type = 'HubAddRelease'
+                releasePublicKey = accounts[5].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                hubPublicKey = accounts[1].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
+                transactionObject.type = 'PostInitViaHubWithReferenceRelease'
+                postPublicKey = accounts[2].toBase58()
+                releasePublicKey = accounts[7].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                hubPublicKey = accounts[1].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
+                transactionObject.type = 'PostInitViaHub'
+                postPublicKey = accounts[2].toBase58()
+                accountPublicKey = accounts[0].toBase58()
+                hubPublicKey = accounts[1].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
+                transactionObject.type = 'SubscriptionSubscribeAccount'
+                accountPublicKey = accounts[0].toBase58()
+                toAccountPublicKey = accounts[2].toBase58()
+              } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
+                transactionObject.type = 'SubscriptionSubscribeHub'
+                accountPublicKey = accounts[0].toBase58()
+                toHubPublicKey = accounts[2].toBase58()
+              }
+
+              if (transactionObject.type) {
+                if (accountPublicKey) {
+                  const account = await Account.findOrCreate(accountPublicKey)
+                  if (account) {
+                    transactionObject.authorityId = account.id
+                  }
+                }
+    
+                if (hubPublicKey) {
+                  const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+                  if (hub) {
+                    transactionObject.hubId = hub.id
+                  }
+                }
+    
+                if (releasePublicKey) {
+                  const release = await Release.query().findOne({ publicKey: releasePublicKey })
+                  if (release) {
+                    transactionObject.releaseId = release.id
+                  }
+                }
+    
+                if (postPublicKey) {
+                  const post = await Post.query().findOne({ publicKey: postPublicKey })
+                  if (post) {
+                    transactionObject.postId = post.id
+                  }
+                }
+    
+                if (toAccountPublicKey) {
+                  const subscribeToAccount = await Account.query().findOne({ publicKey: toAccountPublicKey })
+                  if (subscribeToAccount) {
+                    transactionObject.toAccountId = subscribeToAccount.id
+                  }
+                }
+    
+                if (toHubPublicKey) {
+                  const subscribeToHub = await Hub.query().findOne({ publicKey: toHubPublicKey })
+                  if (subscribeToHub) {
+                    transactionObject.toHubId = subscribeToHub.id
+                  }
+                }
+                await Transaction.query().insertGraph(transactionObject)
+              }
+            }
+            if (accounts) {
+              if (accounts.length === 13) {
+                const mintPublicKey = tx.transaction.message.instructions[length - 1].accounts[1]
+                try {
+                  await this.provider.connection.getTokenSupply(mintPublicKey)
+                  const config = coder.decode(tx.transaction.message.instructions[length - 1].data, 'base58').data.config
+                  exchangeInits.push({
+                    expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
+                    initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
+                    publicKey: tx.transaction.message.instructions[length - 1].accounts[5].toBase58(),
+                    release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
+                    isSale: config.isSelling,
+                    initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                    createdAt: datetime
+                  })
+                  console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
+                } catch (error) {
+                  console.log('not a mint: ', mintPublicKey.toBase58())
+                }
+              } else if (accounts.length === 6) {
+                exchangeCancels.push({
+                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
+                  updatedAt: datetime
+                })
+                console.log('found an exchange cancel', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+              } else if (accounts.length === 16) {
+                completedExchanges.push({
+                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
+                  legacyExchangePublicKey: tx.transaction.message.instructions[length - 1].accounts[7].toBase58(),
+                  completedBy: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                  updatedAt: datetime
+                })
+                console.log('found an exchange completed', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+              }
+            }
+          }
+          i++
         }
-        if (exchange) {
-          const completedBy = await Account.findOrCreate(completedExchange.completedBy);
-          await Exchange.query().patch({updatedAt: completedExchange.updatedAt, completedById: completedBy.id}).findById(exchange.id);
-          console.log('Completed Exchange:', completedExchange.publicKey);
-        } else {
-          console.log('could not find exchange: ', completedExchange.publicKey)
-        }
-      } catch (error) {
-        console.log('error processing completedExchanges: ', error)
       }
+
+      for await (let exchangeInit of exchangeInits) {
+        try {
+          const release = await Release.query().findOne({publicKey: exchangeInit.release});
+          if (release) {
+            const initializer = await Account.findOrCreate(exchangeInit.initializer);
+            await Exchange.query().insertGraph({
+              publicKey: exchangeInit.publicKey,
+              expectedAmount: exchangeInit.expectedAmount,
+              initializerAmount: exchangeInit.initializerAmount,
+              isSale: exchangeInit.isSale,
+              cancelled: false,
+              initializerId: initializer.id,
+              releaseId: release.id,
+              createdAt: exchangeInit.createdAt,
+            })
+            console.log('Inserted Exchange:', exchangeInit.publicKey);
+          }
+        } catch (error) {
+          console.log('error processing exchangeInits: ', error)
+        }
+      }
+
+      for await (let exchangeCancel of exchangeCancels) {
+        try {
+          const exchange = await Exchange.query().findOne({publicKey: exchangeCancel.publicKey});
+          if (exchange) {
+            exchange.cancelled = true;
+            await Exchange.query().patch({
+              cancelled: true,
+              updatedAt: exchangeCancel.updatedAt,
+            }).findById(exchange.id);
+            console.log('Cancelled Exchange:', exchangeCancel.publicKey);
+          }
+        } catch (error) {
+          console.log('error processing exchangeCancels: ', error)
+        }
+      }
+
+      for await (let completedExchange of completedExchanges) {
+        try {
+          let exchange = await Exchange.query().findOne({publicKey: completedExchange.publicKey});
+          if (!exchange) {
+            exchange = await Exchange.query().findOne({publicKey: completedExchange.legacyExchangePublicKey});
+          }
+          if (exchange) {
+            const completedBy = await Account.findOrCreate(completedExchange.completedBy);
+            await Exchange.query().patch({updatedAt: completedExchange.updatedAt, completedById: completedBy.id}).findById(exchange.id);
+            console.log('Completed Exchange:', completedExchange.publicKey);
+          } else {
+            console.log('could not find exchange: ', completedExchange.publicKey)
+          }
+        } catch (error) {
+          console.log('error processing completedExchanges: ', error)
+        }
+      }
+    } catch (error) {
+      console.log('error processing transactions: ', error)
     }
   }
 
@@ -192,6 +498,7 @@ class NinaProcessor {
           publisherId: publisher.id,
         })
         await Release.processRevenueShares(release, releaseRecord);
+        this.tweetNewRelease(metadataJson)
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
@@ -251,7 +558,8 @@ class NinaProcessor {
     const existingHubs = await Hub.query();
 
     for await (let existingHub of existingHubs) {
-      await Hub.updateHub(existingHub, hubContent, hubReleases, hubCollaborators, hubPosts);
+      const hubAccount = hubs.find(x => x.publicKey.toBase58() === existingHub.publicKey);
+      await Hub.updateHub(existingHub, hubAccount, hubContent, hubReleases, hubCollaborators, hubPosts);
     }
     
     let newHubs = hubs.filter(x => !existingHubs.find(y => y.publicKey === x.publicKey.toBase58()));
@@ -272,11 +580,44 @@ class NinaProcessor {
           publicKey: newHub.publicKey.toBase58(),
           handle: decode(newHub.account.handle),
           data,
+          dataUri: newHub.account.uri,
           datetime: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
           authorityId: authority.id,
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
-        await Hub.updateHub(hub, hubContent, hubReleases, hubCollaborators, hubPosts);
+        await Hub.updateHub(hub, newHub, hubContent, hubReleases, hubCollaborators, hubPosts);
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }
+
+  async processSubscriptions() {
+    const subscriptions = await this.program.account.subscription.all();
+    const existingSubscriptions = await Subscription.query();
+
+    let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+
+    for await (let newSubscription of newSubscriptions) {
+      try {
+        await Subscription.query().insert({
+          publicKey: newSubscription.publicKey.toBase58(),
+          datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
+          from: newSubscription.account.from.toBase58(),
+          to: newSubscription.account.to.toBase58(),
+          subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+        });
+        console.log('Inserted Subscription:', newSubscription.publicKey.toBase58());
+      } catch (err) {
+        console.log(err);
+      }
+    }
+
+    let unsubscribes = existingSubscriptions.filter(x => !subscriptions.find(y => y.publicKey.toBase58() === x.publicKey));
+    for await (let unsubscribe of unsubscribes) {
+      try {
+        await Subscription.query().delete().where('publicKey', unsubscribe.publicKey)
+        console.log('Deleted Subscription:', unsubscribe.publicKey);
       } catch (err) {
         console.log(err);
       }
@@ -305,7 +646,7 @@ class NinaProcessor {
           .$relatedQuery('collectors')
           .select('accountId', 'publicKey')
         
-          let tokenAccountsForRelease = await this.provider.connection.getParsedProgramAccounts(
+          let tokenAccountsForRelease = await this.tokenIndexProvider.connection.getParsedProgramAccounts(
           new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
           commitment: this.provider.connection.commitment,
           filters: [{
@@ -322,7 +663,7 @@ class NinaProcessor {
         const existingCollectorsOnChain = []
         for await(let tokenAccount of tokenAccountsForRelease) {
           try {
-            let response = await this.provider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
+            let response = await this.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
             if (response.value.uiAmount > 0) {
               let collectorPubkey = tokenAccount.account.data.parsed.info.owner
               const isCollectorExchange = exchanges.filter(x => x.account.exchangeSigner.toBase58() === collectorPubkey)[0];
@@ -361,32 +702,37 @@ class NinaProcessor {
   }
 
   async getSignatures (connection, tx=undefined, isBefore=true, existingSignatures=[]) {
-    const options = {}
-    if (tx && isBefore) {
-      options.before = tx.signature
-    } else if (!isBefore && tx) {
-      options.until = tx.signature
-    }
-    const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
-    newSignatures.forEach(x => {
-      if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
-        this.latestSignature = x
-        console.log('New Latest Signature:', this.latestSignature.blockTime)
+    try {
+      const options = {}
+      if (tx && isBefore) {
+        options.before = tx.signature
+      } else if (!isBefore && tx) {
+        options.until = tx.signature
       }
-    })
-    let signature
-    if (isBefore) {
-      signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
-    } else {
-      signature = tx.signature  
+      const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
+      newSignatures.forEach(x => {
+        if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
+          this.latestSignature = x
+          console.log('New Latest Signature:', this.latestSignature.blockTime)
+        }
+      })
+      let signature
+      if (isBefore) {
+        signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+      } else if (tx) {
+        signature = tx.signature  
+      }
+      if (newSignatures.length > 0) {
+        existingSignatures.push(...newSignatures)
+      }
+      if (existingSignatures.length % 1000 === 0 && newSignatures.length > 0) {
+        return await this.getSignatures(connection, signature, isBefore, existingSignatures)
+      }
+      return existingSignatures
+    } catch (error) {
+      console.warn (error)
     }
-    existingSignatures.push(...newSignatures)
-    if (existingSignatures.length % 1000 === 0) {
-      return await this.getSignatures(connection, signature, isBefore, existingSignatures)
-    }
-    return existingSignatures
   }
-  
 }
 
 module.exports = new NinaProcessor();

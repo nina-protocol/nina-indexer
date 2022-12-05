@@ -10,7 +10,7 @@ const startProcessing = async () => {
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
 
-  if (process.env.RUN_INITAL_SYNC) {
+  if (process.env.RUN_INITIAL_SYNC === 'true') {
     console.log('Initial Sync starting')
     await NinaProcessor.runDbProcesses()
     await NinaProcessor.processCollectors()

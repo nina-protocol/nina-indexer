@@ -1,5 +1,5 @@
 {
-  "name": "@nina-protocol/nina-api",
+  "name": "@nina-protocol/nina-indexer",
   "version": "0.0.1",
   "description": "",
   "main": "api/index.js",
@@ -20,15 +20,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nina-protocol/nina-api.git"
+    "url": "git+https://github.com/nina-protocol/nina-indexer.git"
   },
   "author": "contact@ninaprotocol.com",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/nina-protocol/nina-api/issues"
+    "url": "https://github.com/nina-protocol/nina-indexer/issues"
   },
-  "homepage": "https://github.com/nina-protocol/nina-api#readme",
+  "homepage": "https://github.com/nina-protocol/nina-indexer#readme",
   "dependencies": {
+    "@bonfida/spl-name-service": "^0.1.51",
     "@koa/cors": "^3.3.0",
     "@metaplex-foundation/js": "^0.14.0",
     "@project-serum/anchor": "^0.25.0",
@@ -36,6 +37,8 @@
     "@solana/web3.js": "^1.52.0",
     "axios": "^0.27.2",
     "dotenv": "^16.0.1",
+    "ethereum-ens": "^0.8.0",
+    "form-urlencoded": "^6.1.0",
     "knex": "^2.2.0",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
@@ -45,7 +48,9 @@
     "node-cron": "^3.0.2",
     "objection": "^3.0.1",
     "pg": "^8.7.3",
-    "striptags": "^3.2.0"
+    "striptags": "^3.2.0",
+    "twitter-api-v2": "^1.12.9",
+    "web3": "^1.8.0"
   },
   "resolutions": {
     "@metaplex-foundation/mpl-candy-machine": "4.3.0"
