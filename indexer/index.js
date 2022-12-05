@@ -6,6 +6,7 @@ const NinaProcessor = require('./processor');
 
 const startProcessing = async () => {
   console.log('Indexer Starting Up')
+
   await initDb()
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
