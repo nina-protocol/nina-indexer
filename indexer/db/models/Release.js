@@ -4,6 +4,7 @@ const Account = require('./Account');
 const Exchange = require('./Exchange');
 const Hub = require('./Hub');
 const Post = require('./Post');
+const Gate = require('./Gate');
 
 class Release extends Model {
   static get tableName() {
@@ -162,6 +163,14 @@ class Release extends Model {
             to: 'releases_revenue_share.accountId',
           },
           to: 'accounts.id',
+        },
+      },
+      gates: {
+        relation: Model.HasManyRelation,
+        modelClass: Gate,
+        join: {
+          from: 'releases.id',
+          to: 'gates.releaseId',
         },
       }
     };
