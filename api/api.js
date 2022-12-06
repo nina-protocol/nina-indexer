@@ -537,7 +537,7 @@ module.exports = (router) => {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       let gates = []
       if (release) {
-        gates = await Gate.query().where('releaseId', release.id)
+        gates = await release.$relatedQuery('gates')
       }
       ctx.body = {
         gates,
