@@ -12,6 +12,7 @@ const { decode } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
 const Verification = require('../indexer/db/models/Verification');
+const Gate = require('../indexer/db/models/Gate');
 
 const getVisibleReleases = async (published) => {
   const releases = []
@@ -536,7 +537,7 @@ module.exports = (router) => {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       let gates = []
       if (release) {
-        gates = await release.$relatedQuery('gates')
+        gates = await Gate.query().where('releaseId', release.id)
       }
       ctx.body = {
         gates,
