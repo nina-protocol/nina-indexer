@@ -36,3 +36,5 @@ class Gate extends Model {
     };
   }
 }
+
+module.exports = Gate;
