@@ -12,12 +12,12 @@ class Gate extends Model {
   static get jsonSchema() {
     return {
       type: 'object',
-      required: ['description', 'fileName', 'fileSize', 's3Key'],
+      required: ['fileName', 'fileSize', 'uri'],
       properties: {
         description: { type: 'string' },
         fileName: { type: 'string' },
         fileSize: { type: 'integer' },
-        s3Key: { type: 'string' },
+        uri: { type: 'string' },
       }
     }
   }
