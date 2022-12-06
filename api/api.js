@@ -537,7 +537,6 @@ module.exports = (router) => {
       let gates = []
       if (release) {
         gates = await release.$relatedQuery('gates')
-        
       }
       ctx.body = {
         gates,
@@ -546,7 +545,7 @@ module.exports = (router) => {
       console.log(err)
       ctx.status = 404
       ctx.body = {
-        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+        message: `Gates not found for release with publicKey: ${ctx.params.publicKey}`
       }
     }
   });
