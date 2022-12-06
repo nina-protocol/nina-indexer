@@ -531,6 +531,26 @@ module.exports = (router) => {
     }
   });
 
+  router.get('/releases/:publicKey/gates', async (ctx) => {
+    try {
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let gates = []
+      if (release) {
+        gates = await release.$relatedQuery('gates')
+        
+      }
+      ctx.body = {
+        gates,
+      }
+  } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+      }
+    }
+  });
+
   router.get('/releases/:publicKey/exchanges', async (ctx) => {
     try {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
