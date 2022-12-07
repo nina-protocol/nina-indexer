@@ -478,9 +478,8 @@ module.exports = (router) => {
       const { offset=0, limit=20, sort='desc' } = ctx.query;
       const total = await Release.query().count();
       const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
-      for await (let release of releases) {
-        await release.format();
-      }
+      releases = await getVisibleReleases(published)
+
       ctx.body = {
         releases,
         total: total.count,
@@ -1117,35 +1116,35 @@ module.exports = (router) => {
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
-        // const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
 
-        // if (publishedThroughHub) {
-        //   // Don't show releases that have been archived from their originating Hub
-        //   // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-        //   const isVisible = await Release
-        //     .query()
-        //     .joinRelated('hubs')
-        //     .where('hubs_join.hubId', publishedThroughHub.id)
-        //     .where('hubs_join.releaseId', release.id)
-        //     .where('hubs_join.visible', true)
-        //     .first()
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
   
-        //   if (isVisible) {  
-        //     formattedReleasesResponse.push({
-        //       artist: release.metadata.properties.artist,
-        //       title: release.metadata.properties.title,
-        //       image: release.metadata.image,
-        //       publicKey: release.publicKey
-        //     })
-        //   }
-        // } else {
+          if (isVisible) {  
+            formattedReleasesResponse.push({
+              artist: release.metadata.properties.artist,
+              title: release.metadata.properties.title,
+              image: release.metadata.image,
+              publicKey: release.publicKey
+            })
+          }
+        } else {
           formattedReleasesResponse.push({
             artist: release.metadata.properties.artist,
             title: release.metadata.properties.title,
             image: release.metadata.image,
             publicKey: release.publicKey
           })
-        // }
+        }
       }
   
       const hubs = await Hub.query()
@@ -1207,35 +1206,35 @@ module.exports = (router) => {
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
-        // const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
 
-        // if (publishedThroughHub) {
-        //   // Don't show releases that have been archived from their originating Hub
-        //   // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-        //   const isVisible = await Release
-        //     .query()
-        //     .joinRelated('hubs')
-        //     .where('hubs_join.hubId', publishedThroughHub.id)
-        //     .where('hubs_join.releaseId', release.id)
-        //     .where('hubs_join.visible', true)
-        //     .first()
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
   
-        //   // if (isVisible) {  
-        //     formattedReleasesResponse.push({
-        //       artist: release.metadata.properties.artist,
-        //       title: release.metadata.properties.title,
-        //       image: release.metadata.image,
-        //       publicKey: release.publicKey
-        //     })
-        //   }
-        // } else {
+          if (isVisible) {  
+            formattedReleasesResponse.push({
+              artist: release.metadata.properties.artist,
+              title: release.metadata.properties.title,
+              image: release.metadata.image,
+              publicKey: release.publicKey
+            })
+          }
+        } else {
           formattedReleasesResponse.push({
             artist: release.metadata.properties.artist,
             title: release.metadata.properties.title,
             image: release.metadata.image,
             publicKey: release.publicKey
           })
-        // }
+        }
       }  
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
