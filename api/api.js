@@ -477,7 +477,7 @@ module.exports = (router) => {
     try {
       const { offset=0, limit=20, sort='desc' } = ctx.query;
       const total = await Release.query().count();
-      const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
+      let releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
       releases = await getVisibleReleases(releases)
 
       ctx.body = {
