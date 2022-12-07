@@ -1,7 +1,7 @@
 const anchor = require('@project-serum/anchor');
 const { Metaplex } = require('@metaplex-foundation/js');
 const axios = require('axios');
-const TwitterApi = require('twitter-api-v2');
+const { TwitterApi } = require('twitter-api-v2');
 const Account = require('./db/models/Account');
 const Exchange = require('./db/models/Exchange');
 const Hub = require('./db/models/Hub');
