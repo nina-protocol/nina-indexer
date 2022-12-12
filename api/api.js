@@ -1092,6 +1092,23 @@ module.exports = (router) => {
     try { 
       const { query } = ctx.request.body;
 
+      //TODO: Remove this once frontend is expecting Accounts instead of Artists
+      const releasesByArtist = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+
+      const formattedArtistsResponse = []
+      for await (let release of releasesByArtist) {
+        const account = await release.$relatedQuery('publisher')
+        const releases = await Release.query().where('publisherId', account.id)
+        const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
+        await account.format()
+        formattedArtistsResponse.push({
+          name: release.metadata.properties.artist,
+          account,
+          publishesAs
+        })
+      }
+
       const verifications = await Verification.query()
         .where('displayName', 'ilike', `%${query}%`)
         .orWhere('value', 'ilike', `%${query}%`)
@@ -1156,6 +1173,7 @@ module.exports = (router) => {
 
       ctx.body = {
         accounts: _.uniqBy(verifications, x => x.account),
+        artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
@@ -1171,6 +1189,23 @@ module.exports = (router) => {
     try { 
 
       const { query } = ctx.request.body;
+
+      //TODO: Remove this once frontend is expecting Accounts instead of Artists
+      const releasesByArtist = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+
+      const formattedArtistsResponse = []
+      for await (let release of releasesByArtist) {
+        const account = await release.$relatedQuery('publisher')
+        const releases = await Release.query().where('publisherId', account.id)
+        const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
+        await account.format()
+        formattedArtistsResponse.push({
+          name: release.metadata.properties.artist,
+          account,
+          publishesAs
+        })
+      }
 
       const verifications = await Verification.query()
         .where('displayName', 'ilike', `%${query}%`)
@@ -1237,6 +1272,7 @@ module.exports = (router) => {
 
       ctx.body = {
         accounts: _.uniqBy(verifications, x => x.account),
+        artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
