@@ -1193,7 +1193,8 @@ module.exports = (router) => {
       //TODO: Remove this once frontend is expecting Accounts instead of Artists
       const releasesByArtist = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-
+        .limit(8)
+        
       const formattedArtistsResponse = []
       for await (let release of releasesByArtist) {
         const account = await release.$relatedQuery('publisher')
@@ -1210,7 +1211,8 @@ module.exports = (router) => {
       const verifications = await Verification.query()
         .where('displayName', 'ilike', `%${query}%`)
         .orWhere('value', 'ilike', `%${query}%`)
-      
+        .limit(8)
+
         for await (let verification of verifications) {
         await verification.format()
       }
