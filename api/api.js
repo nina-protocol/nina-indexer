@@ -8,7 +8,7 @@ const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
-const { decode } = require('../indexer/utils');
+const { decode, tweetNewRelease } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
 const Verification = require('../indexer/db/models/Verification');
@@ -17,27 +17,27 @@ const Gate = require('../indexer/db/models/Gate');
 const getVisibleReleases = async (published) => {
   const releases = []
   for await (let release of published) {
-    // const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+    const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
 
-    // if (publishedThroughHub) {
-    //   // Don't show releases that have been archived from their originating Hub
-    //   // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-    //   const isVisible = await Release
-    //     .query()
-    //     .joinRelated('hubs')
-    //     .where('hubs_join.hubId', publishedThroughHub.id)
-    //     .where('hubs_join.releaseId', release.id)
-    //     .where('hubs_join.visible', true)
-    //     .first()
+    if (publishedThroughHub) {
+      // Don't show releases that have been archived from their originating Hub
+      // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+      const isVisible = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', publishedThroughHub.id)
+        .where('hubs_join.releaseId', release.id)
+        .where('hubs_join.visible', true)
+        .first()
 
-    //   if (isVisible) {
-    //     await release.format();      
-    //     releases.push(release)      
-    //   }
-    // } else {
+      if (isVisible) {
+        await release.format();      
+        releases.push(release)      
+      }
+    } else {
       await release.format();
       releases.push(release)
-    // }
+    }
   }
   return releases
 }
@@ -292,12 +292,15 @@ module.exports = (router) => {
           accountIds.push(account.id)
         }
       }
+
       const transactions = await Transaction.query()
         .whereIn('hubId', hubIds)
+        .orWhereIn('toHubId', hubIds)
         .orWhereIn('authorityId', accountIds)
+        .orWhereIn('toAccountId', accountIds)
         .orderBy('blocktime', 'desc')
         .range(Number(offset), Number(offset) + Number(limit))
-
+      
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
@@ -305,9 +308,11 @@ module.exports = (router) => {
           releaseIds.add(transaction.releaseId)
           await transaction.format()
           feedItems.push(transaction)
+        } else if (!transaction.releaseId) {
+          await transaction.format()
+          feedItems.push(transaction)
         }
       }
-
       ctx.body = {
         feedItems,
         total: transactions.total
@@ -478,10 +483,9 @@ module.exports = (router) => {
     try {
       const { offset=0, limit=20, sort='desc' } = ctx.query;
       const total = await Release.query().count();
-      const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
-      for await (let release of releases) {
-        await release.format();
-      }
+      let releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
+      releases = await getVisibleReleases(releases)
+
       ctx.body = {
         releases,
         total: total.count,
@@ -514,7 +518,7 @@ module.exports = (router) => {
             publisherId: publisher.id,
           })
           await Release.processRevenueShares(releaseAccount, release);
-          NinaProcessor.tweetNewRelease(metadataAccount.json);
+          await tweetNewRelease(metadataAccount.json);
         } else {
           throw("Release not found")
         }
@@ -1113,6 +1117,7 @@ module.exports = (router) => {
     try { 
       const { query } = ctx.request.body;
 
+      //TODO: Remove this once frontend is expecting Accounts instead of Artists
       const releasesByArtist = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
 
@@ -1129,6 +1134,14 @@ module.exports = (router) => {
         })
       }
 
+      const verifications = await Verification.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('value', 'ilike', `%${query}%`)
+      
+        for await (let verification of verifications) {
+        await verification.format()
+      }
+
       const releases = await Release.query()
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
@@ -1137,35 +1150,35 @@ module.exports = (router) => {
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
-        // const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
 
-        // if (publishedThroughHub) {
-        //   // Don't show releases that have been archived from their originating Hub
-        //   // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-        //   const isVisible = await Release
-        //     .query()
-        //     .joinRelated('hubs')
-        //     .where('hubs_join.hubId', publishedThroughHub.id)
-        //     .where('hubs_join.releaseId', release.id)
-        //     .where('hubs_join.visible', true)
-        //     .first()
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
   
-        //   if (isVisible) {  
-        //     formattedReleasesResponse.push({
-        //       artist: release.metadata.properties.artist,
-        //       title: release.metadata.properties.title,
-        //       image: release.metadata.image,
-        //       publicKey: release.publicKey
-        //     })
-        //   }
-        // } else {
+          if (isVisible) {  
+            formattedReleasesResponse.push({
+              artist: release.metadata.properties.artist,
+              title: release.metadata.properties.title,
+              image: release.metadata.image,
+              publicKey: release.publicKey
+            })
+          }
+        } else {
           formattedReleasesResponse.push({
             artist: release.metadata.properties.artist,
             title: release.metadata.properties.title,
             image: release.metadata.image,
             publicKey: release.publicKey
           })
-        // }
+        }
       }
   
       const hubs = await Hub.query()
@@ -1184,6 +1197,7 @@ module.exports = (router) => {
       }
 
       ctx.body = {
+        accounts: _.uniqBy(verifications, x => x.account),
         artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
@@ -1201,22 +1215,32 @@ module.exports = (router) => {
 
       const { query } = ctx.request.body;
 
+      //TODO: Remove this once frontend is expecting Accounts instead of Artists
       const releasesByArtist = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .limit(8)
 
-        const formattedArtistsResponse = []
-        for await (let release of releasesByArtist) {
-          const account = await release.$relatedQuery('publisher')
-          const releases = await Release.query().where('publisherId', account.id)
-          const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
-          await account.format()
-          formattedArtistsResponse.push({
-            name: release.metadata.properties.artist,
-            account,
-            publishesAs
-          })
-        }
+      const formattedArtistsResponse = []
+      for await (let release of releasesByArtist) {
+        const account = await release.$relatedQuery('publisher')
+        const releases = await Release.query().where('publisherId', account.id)
+        const publishesAs = releases.map(release => release.metadata.properties.artist).filter((value, index, self) => self.indexOf(value) === index)
+        await account.format()
+        formattedArtistsResponse.push({
+          name: release.metadata.properties.artist,
+          account,
+          publishesAs
+        })
+      }
+
+      const verifications = await Verification.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('value', 'ilike', `%${query}%`)
+        .limit(8)
+
+        for await (let verification of verifications) {
+        await verification.format()
+      }
     
       const releases = await Release.query()
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
@@ -1227,35 +1251,35 @@ module.exports = (router) => {
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
-        // const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
 
-        // if (publishedThroughHub) {
-        //   // Don't show releases that have been archived from their originating Hub
-        //   // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-        //   const isVisible = await Release
-        //     .query()
-        //     .joinRelated('hubs')
-        //     .where('hubs_join.hubId', publishedThroughHub.id)
-        //     .where('hubs_join.releaseId', release.id)
-        //     .where('hubs_join.visible', true)
-        //     .first()
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
   
-        //   // if (isVisible) {  
-        //     formattedReleasesResponse.push({
-        //       artist: release.metadata.properties.artist,
-        //       title: release.metadata.properties.title,
-        //       image: release.metadata.image,
-        //       publicKey: release.publicKey
-        //     })
-        //   }
-        // } else {
+          if (isVisible) {  
+            formattedReleasesResponse.push({
+              artist: release.metadata.properties.artist,
+              title: release.metadata.properties.title,
+              image: release.metadata.image,
+              publicKey: release.publicKey
+            })
+          }
+        } else {
           formattedReleasesResponse.push({
             artist: release.metadata.properties.artist,
             title: release.metadata.properties.title,
             image: release.metadata.image,
             publicKey: release.publicKey
           })
-        // }
+        }
       }  
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
@@ -1274,6 +1298,7 @@ module.exports = (router) => {
       }
 
       ctx.body = {
+        accounts: _.uniqBy(verifications, x => x.account),
         artists: _.uniqBy(formattedArtistsResponse, x => x.account.publicKey),
         releases: _.uniqBy(formattedReleasesResponse, x => x.publicKey),
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
@@ -1337,6 +1362,23 @@ module.exports = (router) => {
       }
     }
   });
+
+  router.get('/hash/:md5', async (ctx) => {
+    try {
+      const { md5 } = ctx.params
+      const release = await Release.query()
+        .where(ref('metadata:properties.md5Digest').castText(), md5)
+        .first()
+      ctx.body = {
+        release: release ? release : null
+      }
+    } catch (error) {
+      console.warn('hash verify error: ', error)
+      ctx.body = {
+        release: null
+      }
+    }
+  })
 
   const sleep = () => new Promise(resolve => setTimeout(resolve, 2000))
 

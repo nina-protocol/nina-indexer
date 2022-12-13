@@ -1,7 +1,6 @@
 const anchor = require('@project-serum/anchor');
 const { Metaplex } = require('@metaplex-foundation/js');
 const axios = require('axios');
-const TwitterApi = require('twitter-api-v2');
 const Account = require('./db/models/Account');
 const Exchange = require('./db/models/Exchange');
 const Hub = require('./db/models/Hub');
@@ -10,7 +9,7 @@ const Release = require('./db/models/Release');
 const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
 const Verification = require('./db/models/Verification');
-const { decode } = require('./utils');
+const { decode, tweetNewRelease } = require('./utils');
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -30,6 +29,9 @@ const {
   getSoundcloudProfile,
 } = require('./names');
  
+const MAX_PARSED_TRANSACTIONS = 150
+const MAX_TRANSACTION_SIGNATURES = 1000
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -66,25 +68,6 @@ class NinaProcessor {
       await this.processExchangesAndTransactions();
     } catch (error) {
       console.warn(error)
-    }
-  }
-
-  async tweetNewRelease(metadata) {
-    try {
-      if (process.env.SHOULD_TWEET_NEW_RELEASES === 'true') {
-        const client = new TwitterApi({
-          appKey: process.env.TWITTER_API_KEY,
-          appSecret: process.env.TWITTER_API_SECRET,
-          accessToken: process.env.TWITTER_ACCESS_TOKEN,
-          accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-        });
-
-        let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
-        text = `${text} ${metadata.external_url}`
-        await client.v2.tweet(text);  
-      }
-    } catch (error) {
-      console.warn('error sending new release tweet: ', error, metadata)
     }
   }
 
@@ -210,9 +193,8 @@ class NinaProcessor {
     try {
       const signatures = await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)
       const pages = []
-      const size = 150
-      for (let i = 0; i < signatures.length; i += size) {
-        pages.push(signatures.slice(i, i + size))
+      for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
+        pages.push(signatures.slice(i, i + MAX_PARSED_TRANSACTIONS))
       }
       const exchangeInits = []
       const exchangeCancels = []
@@ -482,7 +464,7 @@ class NinaProcessor {
           publisherId: publisher.id,
         })
         await Release.processRevenueShares(release, releaseRecord);
-        this.tweetNewRelease(metadataJson)
+        await tweetNewRelease(metadataJson)
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
@@ -709,7 +691,7 @@ class NinaProcessor {
       if (newSignatures.length > 0) {
         existingSignatures.push(...newSignatures)
       }
-      if (existingSignatures.length % 1000 === 0 && newSignatures.length > 0) {
+      if (existingSignatures.length % MAX_TRANSACTION_SIGNATURES === 0 && newSignatures.length > 0) {
         return await this.getSignatures(connection, signature, isBefore, existingSignatures)
       }
       return existingSignatures
