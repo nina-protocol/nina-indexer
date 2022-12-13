@@ -29,6 +29,9 @@ const {
   getSoundcloudProfile,
 } = require('./names');
  
+const MAX_PARSED_TRANSACTIONS = 150
+const MAX_TRANSACTION_SIGNATURES = 1000
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -190,9 +193,8 @@ class NinaProcessor {
     try {
       const signatures = await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)
       const pages = []
-      const size = 150
-      for (let i = 0; i < signatures.length; i += size) {
-        pages.push(signatures.slice(i, i + size))
+      for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
+        pages.push(signatures.slice(i, i + MAX_PARSED_TRANSACTIONS))
       }
       const exchangeInits = []
       const exchangeCancels = []
@@ -689,7 +691,7 @@ class NinaProcessor {
       if (newSignatures.length > 0) {
         existingSignatures.push(...newSignatures)
       }
-      if (existingSignatures.length % 1000 === 0 && newSignatures.length > 0) {
+      if (existingSignatures.length % MAX_TRANSACTION_SIGNATURES === 0 && newSignatures.length > 0) {
         return await this.getSignatures(connection, signature, isBefore, existingSignatures)
       }
       return existingSignatures
