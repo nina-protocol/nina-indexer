@@ -1194,7 +1194,7 @@ module.exports = (router) => {
       const releasesByArtist = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .limit(8)
-        
+
       const formattedArtistsResponse = []
       for await (let release of releasesByArtist) {
         const account = await release.$relatedQuery('publisher')
@@ -1337,6 +1337,23 @@ module.exports = (router) => {
       }
     }
   });
+
+  router.get('/hash/:md5', async (ctx) => {
+    try {
+      const { md5 } = ctx.params
+      const release = await Release.query()
+        .where(ref('metadata:properties.md5Digest').castText(), md5)
+        .first()
+      ctx.body = {
+        release: release ? release : null
+      }
+    } catch (error) {
+      console.warn('hash verify error: ', error)
+      ctx.body = {
+        release: null
+      }
+    }
+  })
 
   const sleep = () => new Promise(resolve => setTimeout(resolve, 2000))
 
