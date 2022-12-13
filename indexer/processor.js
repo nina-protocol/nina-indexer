@@ -1,7 +1,6 @@
 const anchor = require('@project-serum/anchor');
 const { Metaplex } = require('@metaplex-foundation/js');
 const axios = require('axios');
-const { TwitterApi } = require('twitter-api-v2');
 const Account = require('./db/models/Account');
 const Exchange = require('./db/models/Exchange');
 const Hub = require('./db/models/Hub');
@@ -10,7 +9,7 @@ const Release = require('./db/models/Release');
 const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
 const Verification = require('./db/models/Verification');
-const { decode } = require('./utils');
+const { decode, tweetNewRelease } = require('./utils');
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -66,25 +65,6 @@ class NinaProcessor {
       await this.processExchangesAndTransactions();
     } catch (error) {
       console.warn(error)
-    }
-  }
-
-  async tweetNewRelease(metadata) {
-    try {
-      console.log('tweeting new release: ', metadata)
-      console.log('should tweet: ', process.env.SHOULD_TWEET_NEW_RELEASES)
-      const client = new TwitterApi({
-        appKey: process.env.TWITTER_API_KEY,
-        appSecret: process.env.TWITTER_API_SECRET,
-        accessToken: process.env.TWITTER_ACCESS_TOKEN,
-        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-      });
-
-      let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
-      text = `${text} ${metadata.external_url}`
-      await client.v2.tweet(text);  
-    } catch (error) {
-      console.warn('error sending new release tweet: ', error, metadata)
     }
   }
 
@@ -482,7 +462,7 @@ class NinaProcessor {
           publisherId: publisher.id,
         })
         await Release.processRevenueShares(release, releaseRecord);
-        this.tweetNewRelease(metadataJson)
+        await tweetNewRelease(metadataJson)
         console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);

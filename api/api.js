@@ -8,7 +8,7 @@ const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
-const { decode } = require('../indexer/utils');
+const { decode, tweetNewRelease } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
 const Verification = require('../indexer/db/models/Verification');
@@ -512,7 +512,7 @@ module.exports = (router) => {
             publisherId: publisher.id,
           })
           await Release.processRevenueShares(releaseAccount, release);
-          NinaProcessor.tweetNewRelease(metadataAccount.json);
+          await tweetNewRelease(metadataAccount.json);
         } else {
           throw("Release not found")
         }
