@@ -517,7 +517,7 @@ module.exports = (router) => {
             publisherId: publisher.id,
           })
           await Release.processRevenueShares(releaseAccount, release);
-          await tweetNewRelease(metadataAccount.json);
+          tweetNewRelease(metadataAccount.json);
         } else {
           throw("Release not found")
         }
@@ -801,7 +801,8 @@ module.exports = (router) => {
             publisherId: publisher.id,
           })
           await Release.processRevenueShares(release, releaseRecord);
-      
+          tweetNewRelease(metadataAccount.json);
+
           let hub = await hubForPublicKeyOrHandle(ctx)
           if (hub) {      
             const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
