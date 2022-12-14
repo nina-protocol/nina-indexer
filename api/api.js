@@ -303,14 +303,11 @@ module.exports = (router) => {
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
+        await transaction.format()
         if (transaction.releaseId && !releaseIds.has(transaction.releaseId)) {
           releaseIds.add(transaction.releaseId)
-          await transaction.format()
-          feedItems.push(transaction)
-        } else if (!transaction.releaseId) {
-          await transaction.format()
-          feedItems.push(transaction)
         }
+        feedItems.push(transaction)
       }
       ctx.body = {
         feedItems,
