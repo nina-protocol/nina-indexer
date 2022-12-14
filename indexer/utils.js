@@ -2,6 +2,8 @@ const { TwitterApi } = require('twitter-api-v2');
 
 const striptags = require('striptags');
 
+const sleep = (length) => new Promise(resolve => setTimeout(resolve, length))
+
 const decode = (byteArray) => {
   return new TextDecoder().decode(new Uint8Array(byteArray)).replaceAll(/\u0000/g, '');
 }
@@ -21,6 +23,7 @@ const stripHtmlIfNeeded = (object, value) => {
 
 const tweetNewRelease = async (metadata) => {
   try {
+    await sleep(60000)
     console.log('tweeting new release: ', metadata)
     console.log('should tweet: ', process.env.SHOULD_TWEET_NEW_RELEASES)
     const client = new TwitterApi({
