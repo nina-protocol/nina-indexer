@@ -9,7 +9,7 @@ const Release = require('./db/models/Release');
 const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
 const Verification = require('./db/models/Verification');
-const { decode, tweetNewRelease } = require('./utils');
+const { decode } = require('./utils');
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -103,6 +103,27 @@ class NinaProcessor {
         await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
       } catch (e) {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+      }
+    }
+
+    for await (let nameRegistry of existingNameRegistries) {
+      try {
+        let profile
+        if (nameRegistry.type === 'twitter') {
+          profile = await getTwitterProfile(nameRegistry.value);
+        } else if (nameRegistry.type === 'soundcloud') {
+          profile = await getSoundcloudProfile(nameRegistry.value);
+        }
+        
+        if (profile) {
+          await Verification.query().patch({
+            displayName: profile.name,
+            image: profile.profile_image_url.replace('_normal', ''),
+            description: profile.description
+          }).where({ publicKey: nameRegistry.publicKey });
+        }
+      } catch (e) {
+        console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
     }
     return true
