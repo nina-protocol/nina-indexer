@@ -295,7 +295,7 @@ class NinaProcessor {
                 }
     
                 if (releasePublicKey) {
-                  const release = await Release.query().findOne({ publicKey: releasePublicKey })
+                  const release = await Release.findOrCreate(releasePublicKey)
                   if (release) {
                     transactionObject.releaseId = release.id
                   }
@@ -309,7 +309,7 @@ class NinaProcessor {
                 }
     
                 if (toAccountPublicKey) {
-                  const subscribeToAccount = await Account.query().findOne({ publicKey: toAccountPublicKey })
+                  const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
                   if (subscribeToAccount) {
                     transactionObject.toAccountId = subscribeToAccount.id
                   }
@@ -456,16 +456,13 @@ class NinaProcessor {
   
         let publisher = await Account.findOrCreate(release.account.authority.toBase58());
   
-        const releaseRecord = await Release.query().insertGraph({
+        await Release.createRelease({
           publicKey: release.publicKey.toBase58(),
           mint: release.account.releaseMint.toBase58(),
           metadata: metadataJson,
           datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
         })
-        await Release.processRevenueShares(release, releaseRecord);
-        await tweetNewRelease(metadataJson)
-        console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
       }
