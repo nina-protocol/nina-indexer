@@ -78,6 +78,7 @@ class Release extends Model {
     await this.processRevenueShares(releaseAccount, release);
     await tweetNewRelease(metadata);
     console.log('Inserted Release: ', publicKey)
+    return release;
   }
 
   static async processRevenueShares (releaseData, releaseRecord) {
