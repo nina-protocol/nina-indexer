@@ -108,19 +108,39 @@ class NinaProcessor {
 
     for await (let nameRegistry of existingNameRegistries) {
       try {
-        let profile
-        if (nameRegistry.type === 'twitter') {
-          profile = await getTwitterProfile(nameRegistry.value);
-        } else if (nameRegistry.type === 'soundcloud') {
-          profile = await getSoundcloudProfile(nameRegistry.value);
-        }
-        
-        if (profile) {
-          await Verification.query().patch({
-            displayName: profile.name,
-            image: profile.profile_image_url.replace('_normal', ''),
-            description: profile.description
-          }).where({ publicKey: nameRegistry.publicKey });
+        if (nameRegistry.image) {
+          const image = await axios.get(nameRegistry.image)
+          if (image.status !== 200) {
+            let profile
+            let image
+            let displayName
+            let description = ''
+            
+            if (nameRegistry.type === 'twitter') {
+              profile = await getTwitterProfile(nameRegistry.value);
+              if (profile.error) {
+                await Verification.query().patch({
+                  active: false,
+                }).where({ publicKey: nameRegistry.publicKey });  
+              } else {
+                image = profile.profile_image_url.replace('_normal', '');
+                displayName = profile.name;
+                description = profile.description;
+              }
+            } else if (nameRegistry.type === 'soundcloud') {
+              profile = await getSoundcloudProfile(nameRegistry.value);
+              image = profile.avatar_url;
+              displayName = profile.username;
+            }
+
+            if (profile && !profile.error) {
+              await Verification.query().patch({
+                displayName,
+                image,
+                description
+              }).where({ publicKey: nameRegistry.publicKey });
+            }          
+          }    
         }
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)

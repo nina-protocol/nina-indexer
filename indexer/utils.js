@@ -24,8 +24,6 @@ const stripHtmlIfNeeded = (object, value) => {
 const tweetNewRelease = async (metadata) => {
   try {
     await sleep(60000)
-    console.log('tweeting new release: ', metadata)
-    console.log('should tweet: ', process.env.SHOULD_TWEET_NEW_RELEASES)
     const client = new TwitterApi({
       appKey: process.env.TWITTER_API_KEY,
       appSecret: process.env.TWITTER_API_SECRET,

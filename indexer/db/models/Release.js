@@ -4,8 +4,8 @@ const Account = require('./Account');
 const Exchange = require('./Exchange');
 const Hub = require('./Hub');
 const Post = require('./Post');
-const NinaProcessor = require('../processor');
-const { tweetNewRelease } = require('../utils');
+const NinaProcessor = require('../../processor');
+const { tweetNewRelease } = require('../../utils');
 
 class Release extends Model {
   static get tableName() {

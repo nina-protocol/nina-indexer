@@ -370,12 +370,18 @@ const getTwitterProfile = async (twitterHandle) => {
           "Authorization": `Bearer ${process.env.TWITTER_BEARER_TOKEN}`
         }
       })
-      twitterProfile = (await twitterProfile.json()).data[0]
+      twitterProfile = await twitterProfile.json()
+      if (twitterProfile.errors) {
+        throw new Error(twitterProfile.errors[0])
+      } else {
+        console.log('twitterProfile', twitterProfile)
+        twitterProfile = twitterProfile.data[0]
+      }
     }
     return twitterProfile
   } catch (error) {
     console.warn(error)
-    return null
+    return { error }
   }
 }
 
