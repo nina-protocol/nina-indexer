@@ -22,20 +22,22 @@ const stripHtmlIfNeeded = (object, value) => {
 }
 
 const tweetNewRelease = async (metadata) => {
-  try {
-    await sleep(60000)
-    const client = new TwitterApi({
-      appKey: process.env.TWITTER_API_KEY,
-      appSecret: process.env.TWITTER_API_SECRET,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN,
-      accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-    });
-
-    let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
-    text = `${text} ${metadata.external_url}`
-    await client.v2.tweet(text);  
-  } catch (error) {
-    console.warn('error sending new release tweet: ', error, metadata)
+  if (process.env.TWITTER_API_SECRET) {
+    try {
+      await sleep(60000)
+      const client = new TwitterApi({
+        appKey: process.env.TWITTER_API_KEY,
+        appSecret: process.env.TWITTER_API_SECRET,
+        accessToken: process.env.TWITTER_ACCESS_TOKEN,
+        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      });
+  
+      let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
+      text = `${text} ${metadata.external_url}`
+      await client.v2.tweet(text);  
+    } catch (error) {
+      console.warn('error sending new release tweet: ', error, metadata)
+    }
   }
 }
 
