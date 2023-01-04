@@ -52,7 +52,7 @@ class Release extends Model {
     }
 
     await NinaProcessor.init()
-    const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
+    const releaseAccount = await NinaProcessor.program.account.release.fetch(publicKey, 'confirmed')
     const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
     let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
 
@@ -62,6 +62,7 @@ class Release extends Model {
       metadata: metadataAccount.json,
       datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
       publisherId: publisher.id,
+      releaseAccount
     });
     return release;
   }
@@ -95,6 +96,7 @@ class Release extends Model {
       }
     }
   }
+
   async format() {
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
