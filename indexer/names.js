@@ -374,7 +374,6 @@ const getTwitterProfile = async (twitterHandle) => {
       if (twitterProfile.errors) {
         throw new Error(twitterProfile.errors[0])
       } else {
-        console.log('twitterProfile', twitterProfile)
         twitterProfile = twitterProfile.data[0]
       }
     }
@@ -407,7 +406,6 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
         const tokenData = await tokenResponse.json()
         soundcloudToken = tokenData
         soundcloudTokenDate = new Date()
-        console.log('tokenData', tokenData)
       }
 
       let userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=50&linked_partitioning=false`, {

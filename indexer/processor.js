@@ -108,38 +108,22 @@ class NinaProcessor {
 
     for await (let nameRegistry of existingNameRegistries) {
       try {
-        if (nameRegistry.image) {
+        if (nameRegistry.type === 'twitter' && nameRegistry.image) {
           const image = await axios.get(nameRegistry.image)
-          if (image.status !== 200) {
-            let profile
-            let image
-            let displayName
-            let description = ''
+          if (image?.status !== 200) {
+            const profile = await getTwitterProfile(nameRegistry.value);
             
-            if (nameRegistry.type === 'twitter') {
-              profile = await getTwitterProfile(nameRegistry.value);
-              if (profile.error) {
-                await Verification.query().patch({
-                  active: false,
-                }).where({ publicKey: nameRegistry.publicKey });  
-              } else {
-                image = profile.profile_image_url.replace('_normal', '');
-                displayName = profile.name;
-                description = profile.description;
-              }
-            } else if (nameRegistry.type === 'soundcloud') {
-              profile = await getSoundcloudProfile(nameRegistry.value);
-              image = profile.avatar_url;
-              displayName = profile.username;
-            }
-
-            if (profile && !profile.error) {
+            if (profile.error) {
               await Verification.query().patch({
-                displayName,
-                image,
-                description
+                active: false,
+              }).where({ publicKey: nameRegistry.publicKey });  
+            } else {
+              await Verification.query().patch({
+                displayName: profile.name,
+                image: profile.profile_image_url.replace('_normal', ''),
+                description: profile.description
               }).where({ publicKey: nameRegistry.publicKey });
-            }          
+            }
           }    
         }
       } catch (e) {
@@ -185,7 +169,6 @@ class NinaProcessor {
         verification.value = name.soundcloudHandle
         verification.type = 'soundcloud'
         const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
-        console.log('processor soundcloud profile', soundcloudProfile)
         if (soundcloudProfile) {  
           verification.displayName = soundcloudProfile.username
           verification.image = soundcloudProfile.avatar_url
@@ -203,7 +186,7 @@ class NinaProcessor {
         const twitterProfile = await getTwitterProfile(name.twitterHandle);
         if (twitterProfile) {
           verification.displayName = twitterProfile.name
-          verification.image = twitterProfile.profile_image_url.replace('_normal', '')
+          verification.image = twitterProfile.profile_image_url?.replace('_normal', '')
           verification.description = twitterProfile.description
         }
       }
@@ -382,7 +365,6 @@ class NinaProcessor {
                   })
                   console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
                 } catch (error) {
-                  console.log('not a mint: ', mintPublicKey.toBase58())
                 }
               } else if (accounts.length === 6) {
                 exchangeCancels.push({
@@ -503,6 +485,7 @@ class NinaProcessor {
           metadata: metadataJson,
           datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
+          releaseAccount: release
         })
       } catch (err) {
         console.log(err);
