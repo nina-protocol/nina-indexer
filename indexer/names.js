@@ -380,7 +380,7 @@ const getTwitterProfile = async (twitterHandle) => {
     return twitterProfile
   } catch (error) {
     console.warn(error)
-    return { error }
+    return undefined
   }
 }
 

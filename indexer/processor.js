@@ -60,12 +60,12 @@ class NinaProcessor {
 
   async runDbProcesses() {
     try {
-      await this.processReleases();
-      await this.processPosts();
-      await this.processHubs();
-      await this.processSubscriptions();
+      // await this.processReleases();
+      // await this.processPosts();
+      // await this.processHubs();
+      // await this.processSubscriptions();
       await this.processVerifications();
-      await this.processExchangesAndTransactions();
+      // await this.processExchangesAndTransactions();
     } catch (error) {
       console.warn(error)
     }
@@ -105,26 +105,29 @@ class NinaProcessor {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
     }
-
+    
     for await (let nameRegistry of existingNameRegistries) {
       try {
-        if (nameRegistry.type === 'twitter' && nameRegistry.image) {
-          const image = await axios.get(nameRegistry.image)
-          if (image?.status !== 200) {
+        if (nameRegistry.type === 'twitter') {
+          try {
+            await axios.get(nameRegistry.image)
+          } catch (e){
             const profile = await getTwitterProfile(nameRegistry.value);
-            
-            if (profile.error) {
-              await Verification.query().patch({
-                active: false,
-              }).where({ publicKey: nameRegistry.publicKey });  
-            } else {
+            if (profile) {
               await Verification.query().patch({
                 displayName: profile.name,
                 image: profile.profile_image_url.replace('_normal', ''),
-                description: profile.description
+                description: profile.description,
+                active: true,
               }).where({ publicKey: nameRegistry.publicKey });
+            } else {
+              if (nameRegistry.active) {
+                await Verification.query().patch({
+                  active: false,
+                }).where({ publicKey: nameRegistry.publicKey });  
+              }
             }
-          }    
+          }
         }
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)

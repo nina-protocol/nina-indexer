@@ -111,7 +111,7 @@ module.exports = (router) => {
         await subscription.format();
       }
 
-      const verifications = await account.$relatedQuery('verifications')
+      const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
@@ -261,7 +261,7 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-      const verifications = await account.$relatedQuery('verifications')
+      const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
