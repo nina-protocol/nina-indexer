@@ -30,7 +30,7 @@ class Account extends Model {
   }
 
   async format () {
-    const verifications = await this.$relatedQuery('verifications');
+    const verifications = await this.$relatedQuery('verifications').where('active', true);
     if (verifications) {
       for await (let verification of verifications) {
         await verification.format();

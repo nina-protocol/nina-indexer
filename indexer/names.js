@@ -370,12 +370,17 @@ const getTwitterProfile = async (twitterHandle) => {
           "Authorization": `Bearer ${process.env.TWITTER_BEARER_TOKEN}`
         }
       })
-      twitterProfile = (await twitterProfile.json()).data[0]
+      twitterProfile = await twitterProfile.json()
+      if (twitterProfile.errors) {
+        throw new Error(twitterProfile.errors[0])
+      } else {
+        twitterProfile = twitterProfile.data[0]
+      }
     }
     return twitterProfile
   } catch (error) {
     console.warn(error)
-    return null
+    return undefined
   }
 }
 
@@ -401,7 +406,6 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
         const tokenData = await tokenResponse.json()
         soundcloudToken = tokenData
         soundcloudTokenDate = new Date()
-        console.log('tokenData', tokenData)
       }
 
       let userResponse = await fetch(`https://api.soundcloud.com/users?q=${soundcloudHandle}&limit=50&linked_partitioning=false`, {

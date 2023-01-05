@@ -4,6 +4,8 @@ const Account = require('./Account');
 const Exchange = require('./Exchange');
 const Hub = require('./Hub');
 const Post = require('./Post');
+const NinaProcessor = require('../../processor');
+const { tweetNewRelease } = require('../../utils');
 
 class Release extends Model {
   static get tableName() {
@@ -43,18 +45,38 @@ class Release extends Model {
     };
   }
 
-  static async findOrCreate({publicKey, mint, metadata, datetime, publisherId}) {
+  static async findOrCreate(publicKey) {
     let release = await Release.query().findOne({ publicKey });
     if (release) {
       return release;
     }
-    release = await Release.query().insert({
+
+    await NinaProcessor.init()
+    const releaseAccount = await NinaProcessor.program.account.release.fetch(publicKey, 'confirmed')
+    const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
+    let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
+
+    release = await this.createRelease({
+      publicKey,
+      mint: releaseAccount.releaseMint.toBase58(),
+      metadata: metadataAccount.json,
+      datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+      publisherId: publisher.id,
+      releaseAccount
+    });
+    return release;
+  }
+
+  static async createRelease({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) {
+    const release = await Release.query().insertGraph({
       publicKey,
       mint,
       metadata,
       datetime,
       publisherId,
-    });
+    })
+    await this.processRevenueShares(releaseAccount, release);
+    await tweetNewRelease(metadata);
     console.log('Inserted Release: ', publicKey)
     return release;
   }
@@ -75,6 +97,7 @@ class Release extends Model {
       }
     }
   }
+
   async format() {
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');

@@ -8,7 +8,7 @@ const Hub = require('../indexer/db/models/Hub');
 const Post = require('../indexer/db/models/Post');
 const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
-const { decode, tweetNewRelease } = require('../indexer/utils');
+const { decode } = require('../indexer/utils');
 const Subscription = require('../indexer/db/models/Subscription');
 const Transaction = require('../indexer/db/models/Transaction');
 const Verification = require('../indexer/db/models/Verification');
@@ -111,7 +111,7 @@ module.exports = (router) => {
         await subscription.format();
       }
 
-      const verifications = await account.$relatedQuery('verifications')
+      const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
@@ -261,7 +261,7 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
       const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-      const verifications = await account.$relatedQuery('verifications')
+      const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
@@ -499,25 +499,7 @@ module.exports = (router) => {
     try {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
-        await NinaProcessor.init()
-        const releaseAccount = await NinaProcessor.program.account.release.fetch(ctx.params.publicKey, 'confirmed')
-        if (releaseAccount) {
-          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
-        
-          let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
-        
-          release = await Release.findOrCreate({
-            publicKey: ctx.params.publicKey,
-            mint: releaseAccount.releaseMint.toBase58(),
-            metadata: metadataAccount.json,
-            datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
-            publisherId: publisher.id,
-          })
-          await Release.processRevenueShares(releaseAccount, release);
-          tweetNewRelease(metadataAccount.json);
-        } else {
-          throw("Release not found")
-        }
+        release = await Release.findOrCreate(ctx.params.publicKey,)
       }  
       await release.format();
       ctx.body = {
@@ -785,21 +767,8 @@ module.exports = (router) => {
         await NinaProcessor.init()
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
         if (hubRelease) {
-          const release = await NinaProcessor.program.account.release.fetch(hubRelease.release, 'confirmed')
-          const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(release.releaseMint, {commitment: "confirmed"}).run();
+          const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
       
-          let publisher = await Account.findOrCreate(release.authority.toBase58());
-        
-          const releaseRecord = await Release.findOrCreate({
-            publicKey: hubRelease.release.toBase58(),
-            mint: release.releaseMint.toBase58(),
-            metadata: metadataAccount.json,
-            datetime: new Date(release.releaseDatetime.toNumber() * 1000).toISOString(),
-            publisherId: publisher.id,
-          })
-          await Release.processRevenueShares(release, releaseRecord);
-          tweetNewRelease(metadataAccount.json);
-
           let hub = await hubForPublicKeyOrHandle(ctx)
           if (hub) {      
             const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(

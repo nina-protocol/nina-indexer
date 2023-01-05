@@ -9,7 +9,7 @@ const Release = require('./db/models/Release');
 const Subscription = require('./db/models/Subscription');
 const Transaction = require('./db/models/Transaction');
 const Verification = require('./db/models/Verification');
-const { decode, tweetNewRelease } = require('./utils');
+const { decode } = require('./utils');
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -105,6 +105,34 @@ class NinaProcessor {
         console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
     }
+    
+    for await (let nameRegistry of existingNameRegistries) {
+      try {
+        if (nameRegistry.type === 'twitter') {
+          try {
+            await axios.get(nameRegistry.image)
+          } catch (e){
+            const profile = await getTwitterProfile(nameRegistry.value);
+            if (profile) {
+              await Verification.query().patch({
+                displayName: profile.name,
+                image: profile.profile_image_url.replace('_normal', ''),
+                description: profile.description,
+                active: true,
+              }).where({ publicKey: nameRegistry.publicKey });
+            } else {
+              if (nameRegistry.active) {
+                await Verification.query().patch({
+                  active: false,
+                }).where({ publicKey: nameRegistry.publicKey });  
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
+      }
+    }
     return true
   }
 
@@ -144,7 +172,6 @@ class NinaProcessor {
         verification.value = name.soundcloudHandle
         verification.type = 'soundcloud'
         const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
-        console.log('processor soundcloud profile', soundcloudProfile)
         if (soundcloudProfile) {  
           verification.displayName = soundcloudProfile.username
           verification.image = soundcloudProfile.avatar_url
@@ -162,7 +189,7 @@ class NinaProcessor {
         const twitterProfile = await getTwitterProfile(name.twitterHandle);
         if (twitterProfile) {
           verification.displayName = twitterProfile.name
-          verification.image = twitterProfile.profile_image_url.replace('_normal', '')
+          verification.image = twitterProfile.profile_image_url?.replace('_normal', '')
           verification.description = twitterProfile.description
         }
       }
@@ -295,7 +322,7 @@ class NinaProcessor {
                 }
     
                 if (releasePublicKey) {
-                  const release = await Release.query().findOne({ publicKey: releasePublicKey })
+                  const release = await Release.findOrCreate(releasePublicKey)
                   if (release) {
                     transactionObject.releaseId = release.id
                   }
@@ -309,7 +336,7 @@ class NinaProcessor {
                 }
     
                 if (toAccountPublicKey) {
-                  const subscribeToAccount = await Account.query().findOne({ publicKey: toAccountPublicKey })
+                  const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
                   if (subscribeToAccount) {
                     transactionObject.toAccountId = subscribeToAccount.id
                   }
@@ -341,7 +368,6 @@ class NinaProcessor {
                   })
                   console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
                 } catch (error) {
-                  console.log('not a mint: ', mintPublicKey.toBase58())
                 }
               } else if (accounts.length === 6) {
                 exchangeCancels.push({
@@ -456,16 +482,14 @@ class NinaProcessor {
   
         let publisher = await Account.findOrCreate(release.account.authority.toBase58());
   
-        const releaseRecord = await Release.query().insertGraph({
+        await Release.createRelease({
           publicKey: release.publicKey.toBase58(),
           mint: release.account.releaseMint.toBase58(),
           metadata: metadataJson,
           datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
+          releaseAccount: release
         })
-        await Release.processRevenueShares(release, releaseRecord);
-        await tweetNewRelease(metadataJson)
-        console.log('Inserted Release:', release.publicKey.toBase58());
       } catch (err) {
         console.log(err);
       }
