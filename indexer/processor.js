@@ -60,12 +60,12 @@ class NinaProcessor {
 
   async runDbProcesses() {
     try {
-      // await this.processReleases();
-      // await this.processPosts();
-      // await this.processHubs();
-      // await this.processSubscriptions();
+      await this.processReleases();
+      await this.processPosts();
+      await this.processHubs();
+      await this.processSubscriptions();
       await this.processVerifications();
-      // await this.processExchangesAndTransactions();
+      await this.processExchangesAndTransactions();
     } catch (error) {
       console.warn(error)
     }
