@@ -2,17 +2,19 @@ const { ref } = require('objection');
 const _ = require('lodash');
 const anchor = require('@project-serum/anchor');
 const axios = require('axios')
-const Account = require('../indexer/db/models/Account');
-const Exchange = require('../indexer/db/models/Exchange');
-const Hub = require('../indexer/db/models/Hub');
-const Post = require('../indexer/db/models/Post');
-const Release = require('../indexer/db/models/Release');
 const NinaProcessor = require('../indexer/processor');
 const { decode } = require('../indexer/utils');
-const Subscription = require('../indexer/db/models/Subscription');
-const Transaction = require('../indexer/db/models/Transaction');
-const Verification = require('../indexer/db/models/Verification');
-
+const { Models } = require('@nina-protocol/nina-db');
+const {
+  Account,
+  Exchange,
+  Hub,
+  Post,
+  Release,
+  Subscription,
+  Transaction,
+  Verification,
+} = Models;
 const getVisibleReleases = async (published) => {
   const releases = []
   for await (let release of published) {

@@ -1,6 +1,9 @@
-const { default: axios } = require('axios');
-const { Model } = require('objection');
-const { stripHtmlIfNeeded, decode } = require('../../utils');
+import axios from 'axios';
+import { Model } from 'objection';
+import { stripHtmlIfNeeded, decode } from '../utils';
+import Account from './Account';
+import Release from './Release';
+import Post from './Post';
 
 class Hub extends Model {
   static get tableName() {
@@ -33,9 +36,6 @@ class Hub extends Model {
   }
 
   static async updateHub(hub, hubAccount, hubContents, hubReleases, hubCollaborators, hubPosts) {
-    const Account = require('./Account');
-    const Post = require('./Post');
-    const Release = require('./Release');
     if (typeof hubAccount.account.uri !== 'string') {
       hubAccount.account.uri = decode(hubAccount.account.uri)
     }
@@ -181,10 +181,6 @@ class Hub extends Model {
   }
   
   static get relationMappings() {
-    const Account = require('./Account');
-    const Release = require('./Release');
-    const Post = require('./Post');
-
     return {
       authority: {
         relation: Model.HasOneRelation,
@@ -237,4 +233,4 @@ class Hub extends Model {
   }
 }
 
-module.exports = Hub;
+export default Hub;

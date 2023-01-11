@@ -1,6 +1,6 @@
-const { Model } = require('objection');
-const Account = require('./Account');
-const Hub = require('./Hub');
+import { Model } from 'objection';
+import Account from './Account';
+import Hub from './Hub';
 
 class Subscription extends Model {
   static get tableName() {
@@ -61,4 +61,4 @@ class Subscription extends Model {
   }
 }
 
-module.exports = Subscription;
+export default Subscription;

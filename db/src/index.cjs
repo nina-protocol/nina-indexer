@@ -1,6 +1,7 @@
-const Knex = require('knex')
-const knexConfig = require('./knexfile')
-const { Model } = require('objection')
+import Knex from 'knex'
+import { Model } from 'objection'
+import Models from './models'
+import knexConfig from './utils/knexfile'
 
 const initDb = async () => {
   const db = Knex(knexConfig.development)
@@ -23,8 +24,11 @@ const connectDb = async () => {
   Model.knex(db)  
 }
 
-module.exports = {
+const db = {
   initDb,
   connectDb,
   destroyDb,
+  Models,
 }
+
+export default db

@@ -1,4 +1,9 @@
-const { Model } = require('objection');
+import { Model } from 'objection';
+import Exchange from './Exchange';
+import Hub from './Hub';
+import Post from './Post';
+import Release from './Release';
+import Verification from './Verification';
 
 class Account extends Model {
   static get tableName() {
@@ -40,13 +45,7 @@ class Account extends Model {
     delete this.id
   }
 
-  static get relationMappings() {
-    const Exchange = require('./Exchange');
-    const Hub = require('./Hub');
-    const Post = require('./Post');
-    const Release = require('./Release');
-    const Verification = require('./Verification');
-    
+  static get relationMappings() {    
     return {
       published: {  
         relation: Model.HasManyRelation,
@@ -129,4 +128,4 @@ class Account extends Model {
   }
 }
 
-module.exports = Account;
+export default Account;

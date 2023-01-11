@@ -1,4 +1,8 @@
-const { Model } = require('objection');
+import { Model } from 'objection';
+import Account from './Account';
+import Hub from './Hub';
+import Release from './Release';
+import Post from './Post';
 
 class Transaction extends Model {
   static get tableName() {
@@ -82,11 +86,6 @@ class Transaction extends Model {
   }
 
   static get relationMappings() {
-    const Account = require('./Account');
-    const Hub = require('./Hub');
-    const Release = require('./Release');
-    const Post = require('./Post');
-
     return {
       authority: {
         relation: Model.HasOneRelation,
@@ -140,4 +139,4 @@ class Transaction extends Model {
   }
 }
 
-module.exports = Transaction;
+export default Transaction;

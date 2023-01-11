@@ -1,14 +1,7 @@
 const anchor = require('@project-serum/anchor');
 const { Metaplex } = require('@metaplex-foundation/js');
 const axios = require('axios');
-const Account = require('./db/models/Account');
-const Exchange = require('./db/models/Exchange');
-const Hub = require('./db/models/Hub');
-const Post = require('./db/models/Post');
-const Release = require('./db/models/Release');
-const Subscription = require('./db/models/Subscription');
-const Transaction = require('./db/models/Transaction');
-const Verification = require('./db/models/Verification');
+const { Models } = require('@nina-protocol/nina-db');
 const { decode } = require('./utils');
 const {
   NAME_PROGRAM_ID,
@@ -28,7 +21,18 @@ const {
   getTwitterProfile,
   getSoundcloudProfile,
 } = require('./names');
- 
+
+const {
+  Account,
+  Exchange,
+  Hub,
+  Post,
+  Release,
+  Subscription,
+  Transaction,
+  Verification,
+} = Models;
+
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000
 

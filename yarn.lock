@@ -556,6 +556,18 @@
     bn.js "^5.2.0"
     debug "^4.3.3"
 
+"@nina-protocol/nina-db@./db":
+  version "0.0.1"
+  dependencies:
+    "@metaplex-foundation/js" "^0.14.0"
+    "@project-serum/anchor" "^0.25.0"
+    axios "^0.27.2"
+    knex "^2.2.0"
+    objection "^3.0.1"
+    pg "^8.7.3"
+    striptags "^3.2.0"
+    twitter-api-v2 "^1.12.9"
+
 "@noble/ed25519@^1.6.1":
   version "1.6.1"
   resolved "https://registry.npmjs.org/@noble/ed25519/-/ed25519-1.6.1.tgz"

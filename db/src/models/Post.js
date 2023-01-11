@@ -1,5 +1,8 @@
-const { Model } = require('objection');
-const { stripHtmlIfNeeded } = require('../../utils');
+import { Model } from 'objection';
+import { stripHtmlIfNeeded } from '../utils';
+import Account from './Account';
+import Hub from './Hub';
+import Release from './Release';
 
 class Post extends Model {
   static get tableName() {
@@ -36,11 +39,7 @@ class Post extends Model {
     stripHtmlIfNeeded(this.data, 'body');
   }
 
-  static relationMappings() {
-    const Account = require('./Account');
-    const Hub = require('./Hub');
-    const Release = require('./Release');
-    
+  static relationMappings() {    
     return {
       publishedThroughHub: {
         relation: Model.BelongsToOneRelation,
@@ -88,4 +87,4 @@ class Post extends Model {
 }
 
 
-module.exports = Post;
+export default Post;

@@ -1,4 +1,6 @@
-const { Model } = require('objection');
+import { Model } from 'objection';
+import Account from './Account';
+import Release from './Release';
 
 class Exchange extends Model {
   static get tableName() {
@@ -42,9 +44,6 @@ class Exchange extends Model {
   }
 
   static get relationMappings() {
-    const Account = require('./Account');
-    const Release = require('./Release');
-
     return {
       initializer: {
         relation: Model.HasOneRelation,
@@ -75,4 +74,4 @@ class Exchange extends Model {
 }
 
 
-module.exports = Exchange;
+export default Exchange;

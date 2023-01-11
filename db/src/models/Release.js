@@ -1,11 +1,11 @@
-const { Model } = require('objection');
-const { stripHtmlIfNeeded } = require('../../utils');
-const Account = require('./Account');
-const Exchange = require('./Exchange');
-const Hub = require('./Hub');
-const Post = require('./Post');
-const NinaProcessor = require('../../processor');
-const { tweetNewRelease } = require('../../utils');
+import anchor from '@project-serum/anchor';
+import { Metaplex } from '@metaplex-foundation/js';
+import { Model } from 'objection';
+import { stripHtmlIfNeeded, tweetNewRelease }from '../utils';
+import  Account from './Account';
+import Exchange from './Exchange';
+import Hub from './Hub';
+import Post from './Post';
 
 class Release extends Model {
   static get tableName() {
@@ -51,9 +51,16 @@ class Release extends Model {
       return release;
     }
 
-    await NinaProcessor.init()
-    const releaseAccount = await NinaProcessor.program.account.release.fetch(publicKey, 'confirmed')
-    const metadataAccount = await NinaProcessor.metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
+    const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+    const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+    const program = await anchor.Program.at(
+      process.env.NINA_PROGRAM_ID,
+      provider,
+    )
+    const metaplex = new Metaplex(connection);
+
+    const releaseAccount = await program.account.release.fetch(publicKey, 'confirmed')
+    const metadataAccount = await metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
     let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
 
     release = await this.createRelease({
@@ -191,4 +198,4 @@ class Release extends Model {
   }
 }
 
-module.exports = Release;
+export default Release;

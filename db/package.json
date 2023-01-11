@@ -1,0 +1,43 @@
+{
+  "name": "@nina-protocol/nina-db",
+  "version": "0.0.1",
+  "description": "",
+  "source": "src/index.cjs",
+  "main": "dist/index.cjs",
+  "umd:main": "dist/index.umd.js",
+  "module": "dist/index.mjs",
+  "require": "./dist/index.js",
+  "default": "./dist/index.modern.mjs",
+  "type": "module",
+  "scripts": {
+    "build": "microbundle build",
+    "migration:make": "knex migrate:make",
+    "migration:latest": "knex migrate:latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nina-protocol/nina-indexer.git"
+  },
+  "author": "contact@ninaprotocol.com",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/nina-protocol/nina-indexer/issues"
+  },
+  "homepage": "https://github.com/nina-protocol/nina-indexer#readme",
+  "dependencies": {
+    "@metaplex-foundation/js": "^0.14.0",
+    "@project-serum/anchor": "^0.25.0",
+    "axios": "^0.27.2",
+    "knex": "^2.2.0",
+    "objection": "^3.0.1",
+    "pg": "^8.7.3",
+    "striptags": "^3.2.0",
+    "twitter-api-v2": "^1.12.9"
+  },
+  "resolutions": {
+    "@metaplex-foundation/mpl-candy-machine": "4.3.0"
+  },
+  "devDependencies": {
+    "microbundle": "^0.15.1"
+  }
+}

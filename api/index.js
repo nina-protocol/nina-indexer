@@ -4,7 +4,7 @@ const KoaRouter = require('koa-router')
 const ratelimit = require('koa-ratelimit');
 const bodyParser = require('koa-bodyparser')
 const cors = require('@koa/cors');
-const { connectDb } = require('../indexer/db/index');
+const { connectDb } = require('@nina-protocol/nina-db');
 
 const registerApi = require('./api');
 

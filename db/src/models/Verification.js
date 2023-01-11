@@ -1,4 +1,5 @@
-const { Model } = require('objection');
+import { Model } from 'objection';
+import Account from './Account';
 
 class Verification extends Model {
   static get tableName() {
@@ -40,7 +41,6 @@ class Verification extends Model {
   }
 
   static get relationMappings() {
-    const Account = require('./Account');
     return {
       account: {
         relation: Model.BelongsToOneRelation,
@@ -54,4 +54,4 @@ class Verification extends Model {
   }
 }
 
-module.exports = Verification;
+export default Verification;
