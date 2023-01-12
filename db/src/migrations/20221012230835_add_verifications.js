@@ -2,7 +2,7 @@
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }
  */
- exports.up = function(knex) {
+export const up = function(knex) {
   return Promise.all([
     knex.schema.createTable('verifications', table => {
       table.increments('id').primary();
@@ -27,6 +27,6 @@
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }
  */
-exports.down = function(knex) {
+export const down = function(knex) {
   return knex.schema.dropTableIfExists('verificiations');
 };
