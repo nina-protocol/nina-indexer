@@ -1,13 +1,13 @@
-import Account from './Account';
-import Exchange from './Exchange';
-import Hub from './Hub';
-import Post from './Post';
-import Release from './Release';
-import Subscription from './Subscription';
-import Transaction from './Transaction';
-import Verification from './Verification';
+import Account from './Account.js';
+import Exchange from './Exchange.js';
+import Hub from './Hub.js';
+import Post from './Post.js';
+import Release from './Release.js';
+import Subscription from './Subscription.js';
+import Transaction from './Transaction.js';
+import Verification from './Verification.js';
 
-export default {
+const models = {
   Account,
   Exchange,
   Hub,
@@ -17,3 +17,5 @@ export default {
   Transaction,
   Verification,
 };
+
+export default models;

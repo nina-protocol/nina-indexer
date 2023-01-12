@@ -1,11 +1,11 @@
 import axios from 'axios';
 import { Model } from 'objection';
-import { stripHtmlIfNeeded, decode } from '../utils';
-import Account from './Account';
-import Release from './Release';
-import Post from './Post';
+import { stripHtmlIfNeeded, decode } from '../utils/index.js';
+import Account from './Account.js';
+import Release from './Release.js';
+import Post from './Post.js';
 
-class Hub extends Model {
+export default class Hub extends Model {
   static get tableName() {
     return 'hubs';
   }
@@ -180,57 +180,53 @@ class Hub extends Model {
     }
   }
   
-  static get relationMappings() {
-    return {
-      authority: {
-        relation: Model.HasOneRelation,
-        modelClass: Account,
-        join: {
-          from: 'hubs.authorityId',
-          to: 'accounts.id',
-        },
+  static relationMappings = () => ({
+    authority: {
+      relation: Model.HasOneRelation,
+      modelClass: Account,
+      join: {
+        from: 'hubs.authorityId',
+        to: 'accounts.id',
       },
-      collaborators: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Account,
-        join: {
-          from: 'hubs.id',
-          through: {
-            from: 'hubs_collaborators.hubId',
-            to: 'hubs_collaborators.accountId',
-            extra: ['hubCollaboratorPublicKey'],
-          },
-          to: 'accounts.id',
+    },
+    collaborators: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Account,
+      join: {
+        from: 'hubs.id',
+        through: {
+          from: 'hubs_collaborators.hubId',
+          to: 'hubs_collaborators.accountId',
+          extra: ['hubCollaboratorPublicKey'],
         },
+        to: 'accounts.id',
       },
-      posts: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Post,
-        join: {
-          from: 'hubs.id',
-          through: {
-            from: 'hubs_posts.hubId',
-            to: 'hubs_posts.postId',
-            extra: ['hubPostPublicKey'],
-          },
-          to: 'posts.id',
+    },
+    posts: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Post,
+      join: {
+        from: 'hubs.id',
+        through: {
+          from: 'hubs_posts.hubId',
+          to: 'hubs_posts.postId',
+          extra: ['hubPostPublicKey'],
         },
+        to: 'posts.id',
       },
-      releases: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Release,
-        join: {
-          from: 'hubs.id',
-          through: {
-            from: 'hubs_releases.hubId',
-            to: 'hubs_releases.releaseId',
-            extra: ['hubReleasePublicKey', 'visible'],
-          },
-          to: 'releases.id',
+    },
+    releases: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Release,
+      join: {
+        from: 'hubs.id',
+        through: {
+          from: 'hubs_releases.hubId',
+          to: 'hubs_releases.releaseId',
+          extra: ['hubReleasePublicKey', 'visible'],
         },
+        to: 'releases.id',
       },
-    }
-  }
+    },
+  })
 }
-
-export default Hub;

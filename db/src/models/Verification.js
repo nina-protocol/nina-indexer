@@ -1,7 +1,7 @@
 import { Model } from 'objection';
-import Account from './Account';
+import Account from './Account.js';
 
-class Verification extends Model {
+export default class Verification extends Model {
   static get tableName() {
     return 'verifications';
   }
@@ -40,18 +40,14 @@ class Verification extends Model {
     }
   }
 
-  static get relationMappings() {
-    return {
-      account: {
-        relation: Model.BelongsToOneRelation,
-        modelClass: Account,
-        join: {
-          from: 'verifications.accountId',
-          to: 'accounts.id',
-        },
+  static relationMappings = () => ({
+    account: {
+      relation: Model.BelongsToOneRelation,
+      modelClass: Account,
+      join: {
+        from: 'verifications.accountId',
+        to: 'accounts.id',
       },
-    };
-  }
+    },
+  });
 }
-
-export default Verification;

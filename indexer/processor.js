@@ -1,8 +1,21 @@
-const anchor = require('@project-serum/anchor');
-const { Metaplex } = require('@metaplex-foundation/js');
-const axios = require('axios');
-const { Models } = require('@nina-protocol/nina-db');
-const { decode } = require('./utils');
+import anchor from '@project-serum/anchor';
+import { Metaplex } from '@metaplex-foundation/js';
+import axios from 'axios';
+import db from '@nina-protocol/nina-db';
+import utils from './utils.js';
+import names from './names.js';
+
+const {
+  Account,
+  Exchange,
+  Hub,
+  Post,
+  Release,
+  Subscription,
+  Transaction,
+  Verification,
+} = db.Models
+const { decode } = utils;
 const {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -20,18 +33,7 @@ const {
   getEnsForEthAddress,
   getTwitterProfile,
   getSoundcloudProfile,
-} = require('./names');
-
-const {
-  Account,
-  Exchange,
-  Hub,
-  Post,
-  Release,
-  Subscription,
-  Transaction,
-  Verification,
-} = Models;
+} = names
 
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000
@@ -729,4 +731,5 @@ class NinaProcessor {
   }
 }
 
-module.exports = new NinaProcessor();
+const processor = new NinaProcessor();
+export default processor;

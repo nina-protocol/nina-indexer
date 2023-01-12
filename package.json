@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "",
   "source": "api/index.js",
+  "type": "module",
   "scripts": {
     "start:indexer": "yarn && node indexer/index.js",
     "start:indexer:prod": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer",

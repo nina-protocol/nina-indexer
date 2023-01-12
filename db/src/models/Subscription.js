@@ -1,6 +1,6 @@
 import { Model } from 'objection';
-import Account from './Account';
-import Hub from './Hub';
+import Account from './Account.js';
+import Hub from './Hub.js';
 
 class Subscription extends Model {
   static get tableName() {

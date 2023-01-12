@@ -1,7 +1,7 @@
 import Knex from 'knex'
 import { Model } from 'objection'
-import Models from './models'
-import knexConfig from './utils/knexfile'
+import Models from './models/index.js'
+import knexConfig from './utils/knexfile.js'
 
 const initDb = async () => {
   const db = Knex(knexConfig.development)

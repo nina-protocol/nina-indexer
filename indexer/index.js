@@ -1,13 +1,13 @@
-require('dotenv/config');
-const cron = require('node-cron');
+import "dotenv/config.js";
+import cron from 'node-cron';
 
-const { connectDb } = require('@nina-protocol/nina-db');
-const NinaProcessor = require('./processor');
+import db from '@nina-protocol/nina-db';
+import NinaProcessor from './processor.js';
 
 const startProcessing = async () => {
   console.log('Indexer Starting Up')
-
-  await connectDb()
+  console.log('db: ', db)
+  await db.connectDb()
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
 

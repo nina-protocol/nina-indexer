@@ -1,13 +1,13 @@
 import anchor from '@project-serum/anchor';
 import { Metaplex } from '@metaplex-foundation/js';
 import { Model } from 'objection';
-import { stripHtmlIfNeeded, tweetNewRelease }from '../utils';
-import  Account from './Account';
-import Exchange from './Exchange';
-import Hub from './Hub';
-import Post from './Post';
+import { stripHtmlIfNeeded, tweetNewRelease }from '../utils/index.js';
+import  Account from './Account.js';
+import Exchange from './Exchange.js';
+import Hub from './Hub.js';
+import Post from './Post.js';
 
-class Release extends Model {
+export default class Release extends Model {
   static get tableName() {
     return 'releases';
   }
@@ -119,83 +119,79 @@ class Release extends Model {
     stripHtmlIfNeeded(this.metadata, 'description');
   }
 
-  static relationMappings() {
-    return {
-      publishedThroughHub: {
-        relation: Model.BelongsToOneRelation,
-        modelClass: Hub,
-        join: {
-          from: 'releases.hubId',
-          to: 'hubs.id',
-        },
+  static relationMappings = () => ({
+    publishedThroughHub: {
+      relation: Model.BelongsToOneRelation,
+      modelClass: Hub,
+      join: {
+        from: 'releases.hubId',
+        to: 'hubs.id',
       },
-      publisher: {
-        relation: Model.HasOneRelation,
-        modelClass: Account,
-        join: {
-          from: 'releases.publisherId',
-          to: 'accounts.id',
-        },
+    },
+    publisher: {
+      relation: Model.HasOneRelation,
+      modelClass: Account,
+      join: {
+        from: 'releases.publisherId',
+        to: 'accounts.id',
       },
-      collectors: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Account,
-        join: {
-          from: 'releases.id',
-          through: {
-            from: 'releases_collected.releaseId',
-            to: 'releases_collected.accountId',
-          },
-          to: 'accounts.id',
+    },
+    collectors: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Account,
+      join: {
+        from: 'releases.id',
+        through: {
+          from: 'releases_collected.releaseId',
+          to: 'releases_collected.accountId',
         },
+        to: 'accounts.id',
       },
-      exchanges: {
-        relation: Model.HasManyRelation,
-        modelClass: Exchange,
-        join: {
-          from: 'releases.id',
-          to: 'exchanges.releaseId',
-        },
+    },
+    exchanges: {
+      relation: Model.HasManyRelation,
+      modelClass: Exchange,
+      join: {
+        from: 'releases.id',
+        to: 'exchanges.releaseId',
       },
-      hubs: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Hub,
-        join: {
-          from: 'releases.id',
-          through : {
-            from: 'hubs_releases.releaseId',
-            to: 'hubs_releases.hubId',
-            extra: ['hubReleasePublicKey'],
-          },
-          to: 'hubs.id',
+    },
+    hubs: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Hub,
+      join: {
+        from: 'releases.id',
+        through : {
+          from: 'hubs_releases.releaseId',
+          to: 'hubs_releases.hubId',
+          extra: ['hubReleasePublicKey'],
         },
+        to: 'hubs.id',
       },
-      posts: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Post,
-        join: {
-          from: 'releases.id',
-          through : {
-            from: 'posts_releases.releaseId',
-            to: 'posts_releases.postId',
-          },
-          to: 'posts.id',
+    },
+    posts: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Post,
+      join: {
+        from: 'releases.id',
+        through : {
+          from: 'posts_releases.releaseId',
+          to: 'posts_releases.postId',
         },
+        to: 'posts.id',
       },
-      revenueShareRecipients: {
-        relation: Model.ManyToManyRelation,
-        modelClass: Account,
-        join: {
-          from: 'releases.id',
-          through: {
-            from: 'releases_revenue_share.releaseId',
-            to: 'releases_revenue_share.accountId',
-          },
-          to: 'accounts.id',
+    },
+    revenueShareRecipients: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Account,
+      join: {
+        from: 'releases.id',
+        through: {
+          from: 'releases_revenue_share.releaseId',
+          to: 'releases_revenue_share.accountId',
         },
-      }
-    };
-  }
+        to: 'accounts.id',
+      },
+    }
+  })
 }
-
-export default Release;

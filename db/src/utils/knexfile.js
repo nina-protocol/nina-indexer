@@ -3,6 +3,7 @@
 /**
  * @type { Object.<string, import("knex").Knex.Config> }
  */
+
 export default {
 
   development: {
@@ -12,9 +13,6 @@ export default {
       database: process.env.POSTGRES_DATABASE,
       user:     process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
-    },
-    migrations: {
-      directory: __dirname + '/migrations',
     },
   },
 
@@ -26,9 +24,6 @@ export default {
       user:     process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
     },
-    migrations: {
-      directory: __dirname + '/migrations',
-    },
   },
 
   production: {
@@ -38,9 +33,6 @@ export default {
       database: process.env.POSTGRES_DATABASE,
       user:     process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
-    },
-    migrations: {
-      directory: __dirname + '/migrations',
     },
   }
 

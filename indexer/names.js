@@ -1,10 +1,9 @@
-const anchor = require('@project-serum/anchor');
-const { NameRegistryState, getNameAccountKey, getHashedName } = require("@bonfida/spl-name-service");
-const { deserializeUnchecked, serialize } = require('borsh');
-const Web3 = require('web3');
-const axios = require('axios');
-const ENS = require('ethereum-ens');
-const formUrlEncoded = require('form-urlencoded');
+import * as anchor from '@project-serum/anchor';
+import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
+import { deserializeUnchecked, serialize } from 'borsh';
+import Web3 from 'web3';
+import ENS from 'ethereum-ens';
+import formUrlEncoded from 'form-urlencoded';
 
 const NINA_ID = new anchor.web3.PublicKey("idHukURpSwMbvcRER9pN97tBSsH4pdLSUhnHYwHftd5")
 const NINA_ID_ETH_TLD = new anchor.web3.PublicKey("9yQ5NdLpFdALfRjjfBLCQiddvMekwRbCtuSYDCi4mpFc")
@@ -12,7 +11,6 @@ const NINA_ID_IG_TLD = new anchor.web3.PublicKey("7JVHPSJdVBNRgYdY3ibP33YksBzjpu
 const NINA_ID_SC_TLD = new anchor.web3.PublicKey("MguVXe9Z18YDWxm3AZkSdiuRiEJ1UzvEyevFAxycsjw")
 const NINA_ID_TW_TLD = new anchor.web3.PublicKey("6nPJTCeFnp3QiLBDtPPkZqMkW3KccVgr1izLTF1Lq7VL")
 const NAME_PROGRAM_ID = new anchor.web3.PublicKey("namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX")
-
 const web3 = new Web3(process.env.ETH_CLUSTER_URL);
 const ens = new ENS(web3)
 let soundcloudToken = null
@@ -425,8 +423,7 @@ const getSoundcloudProfile = async (soundcloudHandle) => {
   }
 }
 
-
-module.exports = {
+const names = {
   NAME_PROGRAM_ID,
   NINA_ID,
   NINA_ID_ETH_TLD,
@@ -444,3 +441,5 @@ module.exports = {
   getTwitterProfile,
   getSoundcloudProfile
 }
+
+export default names
