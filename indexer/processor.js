@@ -1,11 +1,7 @@
 import anchor from '@project-serum/anchor';
 import { Metaplex } from '@metaplex-foundation/js';
 import axios from 'axios';
-import db from '@nina-protocol/nina-db';
-import utils from './utils.js';
-import names from './names.js';
-
-const {
+import {
   Account,
   Exchange,
   Hub,
@@ -14,9 +10,10 @@ const {
   Subscription,
   Transaction,
   Verification,
-} = db.Models
-const { decode } = utils;
-const {
+} from '@nina-protocol/nina-db';
+import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
+import { decode } from './utils.js';
+import {
   NAME_PROGRAM_ID,
   NINA_ID,
   NINA_ID_ETH_TLD,
@@ -27,13 +24,10 @@ const {
   ReverseSoundcloudRegistryState,
   ReverseTwitterRegistryState,
   ReverseInstagramRegistryState,
-  getNameAccountKey,
-  getHashedName,
-  NameRegistryState,
   getEnsForEthAddress,
   getTwitterProfile,
   getSoundcloudProfile,
-} = names
+} from './names.js';
 
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000

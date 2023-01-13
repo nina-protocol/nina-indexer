@@ -1,22 +1,21 @@
-require('dotenv/config');
-const Koa = require('koa')
-const KoaRouter = require('koa-router')
-const ratelimit = require('koa-ratelimit');
-const bodyParser = require('koa-bodyparser')
-const cors = require('@koa/cors');
-const { connectDb } = require('@nina-protocol/nina-db');
+import "dotenv/config.js";
+import Koa from 'koa'
+import KoaRouter from 'koa-router'
+import ratelimit from 'koa-ratelimit';
+import bodyParser from 'koa-bodyparser'
+import cors from '@koa/cors';
+import { connectDb } from '@nina-protocol/nina-db';
 
-const registerApi = require('./api');
+import registerApi from './api.js';
 
 const router = new KoaRouter({
   prefix: '/v1'
 })
 const app = new Koa()
 app.use(cors())
-const db = new Map();
 app.use(ratelimit({
   driver: 'memory',
-  db: db,
+  db: new Map(),
   duration: 60000,
   errorMessage:`Casey Jones you better watch your speed`,
   id: (ctx) => ctx.ip,

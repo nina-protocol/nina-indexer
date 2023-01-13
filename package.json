@@ -5,10 +5,11 @@
   "source": "api/index.js",
   "type": "module",
   "scripts": {
-    "start:indexer": "yarn && node indexer/index.js",
+    "start:prod": "yarn start:indexer:prod && yarn start:api:prod",
+    "start:indexer": "cd db && yarn migrate && cd ../ && yarn && node indexer/index.js",
     "start:indexer:prod": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer",
     "restart:indexer": "pm2 stop nina-indexer && pm2 delete nina-indexer && yarn start:indexer:prod",
-    "start:api": "yarn %% node api/index.js",
+    "start:api": "yarn && node api/index.js",
     "start:api:prod": "pm2 start yarn --interpreter bash --name nina-api -- start:api",
     "restart:api": "pm2 stop nina-api && pm2 delete nina-api && yarn start:api:prod",
     "test": "echo \"Error: no test specified\" && exit 1",

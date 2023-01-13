@@ -8,44 +8,39 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 
 export default class Release extends Model {
-  static get tableName() {
-    return 'releases';
-  }
-  static get idColumn() {
-    return 'id';
-  }
-  static get jsonSchema() {
-    return {
-      type: 'object',
-      required: ['publicKey', 'mint', 'metadata', 'datetime'],
-      properties: {
-        publicKey: { type: 'string' },
-        mint: { type: 'string' },
-        metadata: {
-          type: 'object',
-          required: ['name', 'symbol', 'description', 'image', 'properties'],
+  static tableName = 'releases';
+  
+  static idColumn = 'id';
+  static jsonSchema = {
+    type: 'object',
+    required: ['publicKey', 'mint', 'metadata', 'datetime'],
+    properties: {
+      publicKey: { type: 'string' },
+      mint: { type: 'string' },
+      metadata: {
+        type: 'object',
+        required: ['name', 'symbol', 'description', 'image', 'properties'],
+        properties: {
+          name: { type: 'string' },
+          symbol: { type: 'string' },
+          description: { type: 'string' },
           properties: {
-            name: { type: 'string' },
-            symbol: { type: 'string' },
-            description: { type: 'string' },
+            type: 'object',
             properties: {
-              type: 'object',
-              properties: {
-                artist: { type: 'string' },
-                title: { type: 'string' },
-                date: { type: 'string' },
-                files: { type: 'array' },
-                category: { type: 'string' },
-                creators: { type: 'array' },
-              }
+              artist: { type: 'string' },
+              title: { type: 'string' },
+              date: { type: 'string' },
+              files: { type: 'array' },
+              category: { type: 'string' },
+              creators: { type: 'array' },
             }
           }
-        },
+        }
       },
-    };
+    },
   }
 
-  static async findOrCreate(publicKey) {
+  static findOrCreate = async (publicKey) => {
     let release = await Release.query().findOne({ publicKey });
     if (release) {
       return release;
@@ -74,7 +69,7 @@ export default class Release extends Model {
     return release;
   }
 
-  static async createRelease({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
     const release = await Release.query().insertGraph({
       publicKey,
       mint,
@@ -88,7 +83,7 @@ export default class Release extends Model {
     return release;
   }
 
-  static async processRevenueShares (releaseData, releaseRecord) {
+  static processRevenueShares = async (releaseData, releaseRecord) => {
     const royaltyRecipients = releaseData.account?.royaltyRecipients || releaseData.royaltyRecipients
     for await (let recipient of royaltyRecipients) {
       try {
@@ -105,7 +100,8 @@ export default class Release extends Model {
     }
   }
 
-  async format() {
+  format = async () => {
+    console.log('formatting release: ', this.publicKey)
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
