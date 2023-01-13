@@ -1,6 +1,7 @@
 /**
  * @type { Object.<string, import("knex").Knex.Config> }
  */
+import "dotenv/config.js";
 
 export default {
 
