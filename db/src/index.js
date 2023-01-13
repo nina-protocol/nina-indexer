@@ -1,7 +1,8 @@
+import "dotenv/config.js";
 import Knex from 'knex'
 import { Model } from 'objection'
 import Models from './models/index.js'
-import knexConfig from './utils/knexfile.js'
+import knexConfig from './knexfile.js'
 
 export const initDb = async () => {
   const db = Knex(knexConfig.development)

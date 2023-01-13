@@ -1,5 +1,3 @@
-// Update with your config settings.
-
 /**
  * @type { Object.<string, import("knex").Knex.Config> }
  */
@@ -15,7 +13,6 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
   },
-
   staging: {
     client: 'postgresql',
     connection: {
@@ -25,7 +22,6 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
   },
-
   production: {
     client: 'postgresql',
     connection: {
@@ -35,5 +31,4 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
   }
-
 };
