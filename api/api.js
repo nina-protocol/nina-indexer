@@ -137,7 +137,6 @@ export default (router) => {
           const length = tx.transaction.message.instructions.length
           const accounts = tx.transaction.message.instructions[length - 1].accounts
           if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-            tx.type = 'ReleasePurchaseViaHub'
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[0].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
