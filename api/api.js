@@ -136,16 +136,10 @@ export default (router) => {
         if (tx) {
           const length = tx.transaction.message.instructions.length
           const accounts = tx.transaction.message.instructions[length - 1].accounts
-          if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
+          if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
             tx.type = 'ReleasePurchaseViaHub'
-            releasePublicKey = accounts[2].toBase58()
-            accountPublicKey = accounts[0].toBase58()
-            hubPublicKey = accounts[8].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-            tx.type = 'ReleasePurchase'
-            releasePublicKey = accounts[2].toBase58()
-            accountPublicKey = accounts[0].toBase58()
+            let releasePublicKey = accounts[2].toBase58()
+            let accountPublicKey = accounts[0].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
           }
         }
