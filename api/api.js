@@ -648,7 +648,10 @@ module.exports = (router) => {
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
-      let releases = await hub.$relatedQuery('releases')
+      // releases = await getVisibleReleases(releases, true)
+      for (let release of releases) {
+        await release.format();
+      }
 
       const posts = await hub.$relatedQuery('posts')
 
