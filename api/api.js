@@ -134,9 +134,8 @@ export default (router) => {
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, 'confirmed')
         
         if (tx) {
-          const length = tx.transaction.message.instructions.length
-          const accounts = tx.transaction.message.instructions[length - 1].accounts
-          if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+          const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+          if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[0].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
@@ -648,6 +647,9 @@ export default (router) => {
 
       const collaborators = await hub.$relatedQuery('collaborators')
       let releases = await hub.$relatedQuery('releases')
+      for (let release of releases) {
+        await release.format();
+      }
 
       const posts = await hub.$relatedQuery('posts')
 
@@ -656,8 +658,6 @@ export default (router) => {
       for (let collaborator of collaborators) {
         await collaborator.format();
       }
-
-      releases = await getVisibleReleases(releases, true)
 
       for await (let post of posts) {
         await post.format();

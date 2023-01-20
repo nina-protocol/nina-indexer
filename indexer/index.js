@@ -3,6 +3,7 @@ import cron from 'node-cron';
 
 import { connectDb } from '@nina-protocol/nina-db';
 import NinaProcessor from './processor.js';
+import { environmentIsSetup } from "../scripts/env_check.js";
 
 const startProcessing = async () => {
   console.log('Indexer Starting Up')
@@ -30,4 +31,10 @@ const startProcessing = async () => {
   })
 }
 
-startProcessing();
+try {
+  environmentIsSetup()
+  startProcessing()
+} catch (error) {
+  console.error('Environment is not properly setup.  Check .env file and try again.')
+  console.error(error)
+}

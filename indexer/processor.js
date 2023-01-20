@@ -208,11 +208,14 @@ class NinaProcessor {
       const release = await Release.query().findOne({ publicKey: releasePublicKey })
       if (release) {
         const account = await Account.findOrCreate(accountPublicKey)
-        await release.$relatedQuery('collectors').relate(account.id);
-        console.log('added collector to release')
+        const collectors = await release.$relatedQuery('collectors')
+        if (!collectors.find(c => c.id === account.id)) {
+          await release.$relatedQuery('collectors').relate(account.id);
+          console.log('added collector to release')
+        }
       }
     } catch (error) {
-      console.log('addCollectorForRelease: ', error)
+      console.log('error addCollectorForRelease: ', error)
     }
   }
 
@@ -234,7 +237,7 @@ class NinaProcessor {
         for await (let tx of txs) {
           if (tx) {
             const length = tx.transaction.message.instructions.length
-            const accounts = tx.transaction.message.instructions[length - 1].accounts
+            const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
             const blocktime = tx.blockTime
             const datetime = new Date(blocktime * 1000).toISOString()
             const txid = txIds[i]
