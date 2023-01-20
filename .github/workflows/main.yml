@@ -8,7 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Step 1
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         
   continuous-deployment:
     runs-on: ubuntu-latest
@@ -23,7 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
      # Step 2
-      - name: Create CodeDeploy Deployment
+      - name: Create Nina Indexer deployment
         id: deploy
         run: |
           aws deploy create-deployment \
