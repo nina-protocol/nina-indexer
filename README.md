@@ -18,8 +18,8 @@ Public Endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/
 
 The Indexer consists of a Postgres Db and a Processor that periodically checks the [on-chain Nina Program](https://github.com/nina-protocol/nina/tree/main/programs/nina) and ingests the updates.  It does this in two loops:
 
-1. Changes to Release, Hub, HubRelease, HubPost (syncs every minute)
-2. Changes to Collectors (syncs every hour)
+1. Changes to Release, Hub, HubRelease, HubPost (syncs every 1 min)
+2. Changes to Collectors (syncs every 1 hour)
 
 >Note: Updating Collector information requires a premium RPC connection in order to call `getProgramAccounts` on the Solana Token Program
 
