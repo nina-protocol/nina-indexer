@@ -53,4 +53,4 @@ The API is a simple Koa app that connects to the Postgres Database used by the i
 - `yarn docs` runs the documenation for local development
 
 ## Contributors welcome! 
-Need help?  Ask a question in our [Discord](https://discord.gg/ePkqJqSBgj) or open an issue.
+Need help? Ask a question in our [Discord](https://discord.gg/ePkqJqSBgj) or open an issue.
