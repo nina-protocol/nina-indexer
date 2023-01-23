@@ -10,6 +10,9 @@ jobs:
       # Step 1
       - name: Checkout
         uses: actions/checkout@v2
+      # Step 2
+      - name: AWS SDK
+        run: npm install aws-sdk
         
   continuous-deployment:
     runs-on: ubuntu-latest
