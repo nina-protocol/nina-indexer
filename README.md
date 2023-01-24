@@ -30,7 +30,7 @@ The Indexer consists of a Postgres Db and a Processor that periodically checks t
 - `yarn`
 - `yarn start:indexer`
 
->Note: The Indexer can be run as a standalone process
+>Note: The Indexer can be run as a standalone process.
 
 ---
 
