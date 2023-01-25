@@ -1,18 +1,15 @@
 name: Nina CI/CD Pipeline
 on:
   push:
-    branches: [ main ]
+    branches: [ deploy_dev ]
 
 jobs:
   continuous-integration:
     runs-on: ubuntu-latest
     steps:
-      # Step 1
+      # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
-      # Step 2
-      - name: AWS SDK
-        run: npm install aws-sdk
         
   continuous-deployment:
     runs-on: ubuntu-latest
@@ -27,7 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
      # Step 2
-      - name: Create Nina Indexer deployment
+      - name: Deploy Nina Indexer
         id: deploy
         run: |
           aws deploy create-deployment \
