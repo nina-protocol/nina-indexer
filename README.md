@@ -18,8 +18,8 @@ Public Endpoint: [https://api.ninaprotocol.com/v1](https://api.ninaprotocol.com/
 
 The Indexer consists of a Postgres Db and a Processor that periodically checks the [on-chain Nina Program](https://github.com/nina-protocol/nina/tree/main/programs/nina) and ingests the updates.  It does this in two loops:
 
-1. Changes to Release, Hub, HubRelease, HubPost (frequency: every minute)
-2. Changes to Collectors (frequency: every hour)
+1. Changes to Release, Hub, HubRelease, HubPost (syncs every 1 min)
+2. Changes to Collectors (syncs every 1 hour)
 
 >Note: Updating Collector information requires a premium RPC connection in order to call `getProgramAccounts` on the Solana Token Program
 
@@ -30,7 +30,7 @@ The Indexer consists of a Postgres Db and a Processor that periodically checks t
 - `yarn`
 - `yarn start:indexer`
 
->Note: The Indexer can be run as a standalone process
+>Note: The Indexer can be run as a standalone process.
 
 ---
 
@@ -53,4 +53,4 @@ The API is a simple Koa app that connects to the Postgres Database used by the i
 - `yarn docs` runs the documenation for local development
 
 ## Contributors welcome! 
-Need help?  Ask a question in our [Discord](https://discord.gg/ePkqJqSBgj) or open an issue.
+Need help? Ask a question in our [Discord](https://discord.gg/ePkqJqSBgj) or open an issue.
