@@ -40,7 +40,7 @@ The API is a simple Koa app that connects to the Postgres Database used by the i
 
 ###Setup
 
-- After setting up the Indexer as described above:
+- After setting up the Indexer as described above run the following which will set up on port 3004
 - `yarn start:api` 
 
 ---
