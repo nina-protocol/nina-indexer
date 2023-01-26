@@ -23,7 +23,7 @@ The Indexer consists of a Postgres Db and a Processor that periodically checks t
 
 >Note: Updating Collector information requires a premium RPC connection in order to call `getProgramAccounts` on the Solana Token Program
 
-### Setup
+## Setup
 
 - Copy contents of `.env.example` to `.env` - this includes a default `SOLANA_CLUSTER_URL` for Genysys Go's Public RPC which will be enough to handle (1.) above, but not (2.)
 - Setup a Postgres db and replace details in `.env` with your configuration
