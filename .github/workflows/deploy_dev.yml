@@ -1,0 +1,34 @@
+name: Nina CI/CD Pipeline
+on:
+  push:
+    branches: [ deploy_dev ]
+
+jobs:
+  continuous-integration:
+    runs-on: ubuntu-latest
+    steps:
+      # Repo Checkout
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+  continuous-deployment:
+    runs-on: ubuntu-latest
+    needs: [continuous-integration]
+    if: github.ref == 'refs/heads/deploy_dev'
+    steps:
+     # Step 1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+     # Step 2
+      - name: Deploy Nina Indexer
+        id: deploy
+        run: |
+          aws deploy create-deployment \
+            --application-name Nina_Indexer \
+            --deployment-group-name development_gropup \
+            --deployment-config-name CodeDeployDefault.OneAtATime \
+            --github-location repository=${{ github.repository }},commitId=${{ github.sha }}
