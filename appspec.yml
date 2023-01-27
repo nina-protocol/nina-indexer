@@ -6,22 +6,22 @@ files:
     overwrite: true
     file_exists_behavior: OVERWRITE
 permissions:
-  - object: /home/ec2-user/nina-indexer/setup.sh
+  - object: setup.sh
     owner: root
     mode: 777
     type:
       - file
-  - object: /home/ec2-user/nina-indexer/run.sh
+  - object: run.sh
     owner: ec2-user
     mode: 755
     type:
       - file
 hooks:
   AfterInstall:
-   - location: /home/ec2-user/nina-indexer/setup.sh
+   - location: setup.sh
      timeout: 300
      runas: root
   ApplicationStart:
-   - location: /home/ec2-user/nina-indexer/run.sh
+   - location: run.sh
      timeout: 300
      runas: ec2-user
