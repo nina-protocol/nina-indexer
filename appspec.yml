@@ -3,12 +3,23 @@ os: linux
 files:
   - source: .
     destination: /home/ec2-user/nina-indexer/
+permissions:
+  - object: /home/ec2-user/nina-indexer/setup.sh
+    owner: root
+    mode: 777
+    type:
+      - file
+  - object: /home/ec2-user/nina-indexer/run.sh
+    owner: ec2-user
+    mode: 755
+    type:
+      - file
 hooks:
   AfterInstall:
-   - location: setup.sh
+   - location: /home/ec2-user/nina-indexer/setup.sh
      timeout: 300
      runas: root
   ApplicationStart:
-   - location: run.sh
+   - location: /home/ec2-user/nina-indexer/run.sh
      timeout: 300
      runas: ec2-user
