@@ -13,7 +13,7 @@ permissions:
       - file
   - object: run.sh
     owner: ec2-user
-    mode: 755
+    mode: 777
     type:
       - file
 hooks:
