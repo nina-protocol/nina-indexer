@@ -8,12 +8,12 @@ files:
 permissions:
   - object: setup.sh
     owner: root
-    mode: 777
+    mode: 755
     type:
       - file
   - object: run.sh
     owner: ec2-user
-    mode: 777
+    mode: 755
     type:
       - file
 hooks:
