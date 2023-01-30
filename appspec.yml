@@ -7,12 +7,12 @@ files:
     file_exists_behavior: OVERWRITE
 permissions:
   - object: setup.sh
-    owner: ec2-user
+    owner: root
     mode: 755
     type:
       - file
   - object: run.sh
-    owner: ec2-user
+    owner: root
     mode: 755
     type:
       - file
@@ -20,8 +20,8 @@ hooks:
   AfterInstall:
    - location: setup.sh
      timeout: 300
-     runas: ec2-user
+     runas: root
   ApplicationStart:
    - location: run.sh
      timeout: 300
-     runas: ec2-user
+     runas: root
