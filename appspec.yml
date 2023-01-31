@@ -12,7 +12,7 @@ permissions:
     type:
       - file
   - object: run.sh
-    owner: root
+    owner: ec2-user
     mode: 777
     type:
       - file
@@ -24,4 +24,4 @@ hooks:
   ApplicationStart:
    - location: run.sh
      timeout: 300
-     runas: root
+     runas: ec2-user
