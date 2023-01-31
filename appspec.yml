@@ -8,12 +8,12 @@ files:
 permissions:
   - object: setup.sh
     owner: root
-    mode: 755
+    mode: 777
     type:
       - file
   - object: run.sh
-    owner: ec2-user
-    mode: 755
+    owner: root
+    mode: 777
     type:
       - file
 hooks:
@@ -24,4 +24,4 @@ hooks:
   ApplicationStart:
    - location: run.sh
      timeout: 300
-     runas: ec2-user
+     runas: root
