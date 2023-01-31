@@ -1,27 +1,14 @@
 version: 0.0
 os: linux
 files:
-  - source: .
+  - source: /
     destination: /home/ec2-user/nina-indexer
-    overwrite: true
-    file_exists_behavior: OVERWRITE
-permissions:
-  - object: setup.sh
-    owner: ec2-user
-    mode: 777
-    type:
-      - file
-  - object: run.sh
-    owner: ec2-user
-    mode: 777
-    type:
-      - file
 hooks:
   AfterInstall:
    - location: setup.sh
      timeout: 300
-     runas: ec2-user
+     runas: root
   ApplicationStart:
    - location: run.sh
      timeout: 300
-     runas: ec2-user
+     runas: root
