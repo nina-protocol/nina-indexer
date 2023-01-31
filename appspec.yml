@@ -4,6 +4,10 @@ files:
   - source: /
     destination: /home/ec2-user/nina-indexer
 hooks:
+  BeforeInstall:
+   - location: stop.sh
+     timeout: 300
+     runas: ec2-user
   AfterInstall:
    - location: setup.sh
      timeout: 300
