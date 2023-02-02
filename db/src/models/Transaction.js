@@ -1,4 +1,8 @@
-const { Model } = require('objection');
+import { Model } from 'objection';
+import Account from './Account.js';
+import Hub from './Hub.js';
+import Release from './Release.js';
+import Post from './Post.js';
 
 class Transaction extends Model {
   static get tableName() {
@@ -81,63 +85,56 @@ class Transaction extends Model {
     delete this.id;
   }
 
-  static get relationMappings() {
-    const Account = require('./Account');
-    const Hub = require('./Hub');
-    const Release = require('./Release');
-    const Post = require('./Post');
-
-    return {
-      authority: {
-        relation: Model.HasOneRelation,
-        modelClass: Account,
-        join: {
-          from: 'transactions.authorityId',
-          to: 'accounts.id',
-        },
+  static relationMappings = () => ({
+    authority: {
+      relation: Model.HasOneRelation,
+      modelClass: Account,
+      join: {
+        from: 'transactions.authorityId',
+        to: 'accounts.id',
       },
-      hub: {  
-        relation: Model.HasOneRelation,
-        modelClass: Hub,
-        join: {
-          from: 'transactions.hubId',
-          to: 'hubs.id',
-        },
+    },
+    hub: {  
+      relation: Model.HasOneRelation,
+      modelClass: Hub,
+      join: {
+        from: 'transactions.hubId',
+        to: 'hubs.id',
       },
-      release: {
-        relation: Model.HasOneRelation,
-        modelClass: Release,
-        join: {
-          from: 'transactions.releaseId',
-          to: 'releases.id',
-        },
+    },
+    release: {
+      relation: Model.HasOneRelation,
+      modelClass: Release,
+      join: {
+        from: 'transactions.releaseId',
+        to: 'releases.id',
       },
-      post: {
-        relation: Model.HasOneRelation,
-        modelClass: Post,
-        join: {
-          from: 'transactions.postId',
-          to: 'posts.id',
-        },
+    },
+    post: {
+      relation: Model.HasOneRelation,
+      modelClass: Post,
+      join: {
+        from: 'transactions.postId',
+        to: 'posts.id',
       },
-      toAccount: {
-        relation: Model.HasOneRelation,
-        modelClass: Account,
-        join: {
-          from: 'transactions.toAccountId',
-          to: 'accounts.id',
-        },
+    },
+    toAccount: {
+      relation: Model.HasOneRelation,
+      modelClass: Account,
+      join: {
+        from: 'transactions.toAccountId',
+        to: 'accounts.id',
       },
-      toHub: {
-        relation: Model.HasOneRelation,
-        modelClass: Hub,
-        join: {
-          from: 'transactions.toHubId',
-          to: 'hubs.id',
-        },
+    },
+    toHub: {
+      relation: Model.HasOneRelation,
+      modelClass: Hub,
+      join: {
+        from: 'transactions.toHubId',
+        to: 'hubs.id',
       },
-    };
-  }
+    },
+  })
 }
 
-module.exports = Transaction;
+export default Transaction;

@@ -1,22 +1,22 @@
-require('dotenv/config');
-const Koa = require('koa')
-const KoaRouter = require('koa-router')
-const ratelimit = require('koa-ratelimit');
-const bodyParser = require('koa-bodyparser')
-const cors = require('@koa/cors');
-const { connectDb } = require('../indexer/db/index');
+import "dotenv/config.js";
+import Koa from 'koa'
+import KoaRouter from 'koa-router'
+import ratelimit from 'koa-ratelimit';
+import bodyParser from 'koa-bodyparser'
+import cors from '@koa/cors';
+import { connectDb } from '@nina-protocol/nina-db';
 
-const registerApi = require('./api');
+import registerApi from './api.js';
+import { environmentIsSetup } from "../scripts/env_check.js";
 
 const router = new KoaRouter({
   prefix: '/v1'
 })
 const app = new Koa()
 app.use(cors())
-const db = new Map();
 app.use(ratelimit({
   driver: 'memory',
-  db: db,
+  db: new Map(),
   duration: 60000,
   errorMessage:`Casey Jones you better watch your speed`,
   id: (ctx) => ctx.ip,
@@ -44,7 +44,13 @@ app.use(bodyParser())
 app.use(router.routes())
 app.use(router.allowedMethods())
 
-app.listen(process.env.PORT, async () => {
-  await connectDb()
-  console.log(`Nina Api listening on port ${process.env.PORT}!`)
-})
+try {
+  environmentIsSetup()
+  app.listen(process.env.PORT, async () => {
+    await connectDb()
+    console.log(`Nina Api listening on port ${process.env.PORT}!`)
+  })
+} catch (error) {
+  console.error('Environment is not properly setup.  Check .env file and try again.')
+  console.error(error)
+}
