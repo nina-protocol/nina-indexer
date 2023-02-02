@@ -1,17 +1,19 @@
-const { ref } = require('objection');
-const _ = require('lodash');
-const anchor = require('@project-serum/anchor');
-const axios = require('axios')
-const Account = require('../indexer/db/models/Account');
-const Exchange = require('../indexer/db/models/Exchange');
-const Hub = require('../indexer/db/models/Hub');
-const Post = require('../indexer/db/models/Post');
-const Release = require('../indexer/db/models/Release');
-const NinaProcessor = require('../indexer/processor');
-const { decode } = require('../indexer/utils');
-const Subscription = require('../indexer/db/models/Subscription');
-const Transaction = require('../indexer/db/models/Transaction');
-const Verification = require('../indexer/db/models/Verification');
+import { ref } from 'objection';
+import _  from 'lodash';
+import anchor from '@project-serum/anchor';
+import axios from 'axios'
+import {
+  Account,
+  Exchange,
+  Hub,
+  Post,
+  Release,
+  Subscription,
+  Transaction,
+  Verification,
+} from '@nina-protocol/nina-db';
+import NinaProcessor from '../indexer/processor.js';
+import { decode } from '../indexer/utils.js';
 
 const getVisibleReleases = async (published) => {
   const releases = []
@@ -41,7 +43,7 @@ const getVisibleReleases = async (published) => {
   return releases
 }
 
-module.exports = (router) => {
+export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
@@ -472,6 +474,10 @@ module.exports = (router) => {
       const { offset=0, limit=20, sort='desc' } = ctx.query;
       const total = await Release.query().count();
       const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
+
+      for await (let release of releases) {
+        await release.format();
+      }
 
       ctx.body = {
         releases,

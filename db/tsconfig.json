@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "allowUnreachableCode": false,
+    "alwaysStrict": false,
+    "module": "ES6",
+    "moduleResolution": "node",
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "strict": false,
+    "strictNullChecks": true,
+    "esModuleInterop": true,
+    "allowJs": true,
+    "target": "esnext",
+    "rootDir": "./src",
+    "outDir": "dist",
+    "skipLibCheck": true  
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
