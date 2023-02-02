@@ -30,7 +30,7 @@ The Indexer consists of a Postgres Db and a Processor that periodically checks t
 - `yarn`
 - `yarn start:indexer`
 
->Note: The Indexer can be run as a standalone process.
+>Note: The Indexer can be run as its own standalone process.
 
 ---
 
@@ -40,7 +40,7 @@ The API is a simple Koa app that connects to the Postgres Database used by the i
 
 ###Setup
 
-- After setting up the Indexer as described above:
+- After setting up the Indexer as described above run the following which will set up on port 3004
 - `yarn start:api` 
 
 ---
