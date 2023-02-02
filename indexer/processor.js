@@ -1,16 +1,19 @@
-const anchor = require('@project-serum/anchor');
-const { Metaplex } = require('@metaplex-foundation/js');
-const axios = require('axios');
-const Account = require('./db/models/Account');
-const Exchange = require('./db/models/Exchange');
-const Hub = require('./db/models/Hub');
-const Post = require('./db/models/Post');
-const Release = require('./db/models/Release');
-const Subscription = require('./db/models/Subscription');
-const Transaction = require('./db/models/Transaction');
-const Verification = require('./db/models/Verification');
-const { decode } = require('./utils');
-const {
+import anchor from '@project-serum/anchor';
+import { Metaplex } from '@metaplex-foundation/js';
+import axios from 'axios';
+import {
+  Account,
+  Exchange,
+  Hub,
+  Post,
+  Release,
+  Subscription,
+  Transaction,
+  Verification,
+} from '@nina-protocol/nina-db';
+import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
+import { decode } from './utils.js';
+import {
   NAME_PROGRAM_ID,
   NINA_ID,
   NINA_ID_ETH_TLD,
@@ -21,14 +24,11 @@ const {
   ReverseSoundcloudRegistryState,
   ReverseTwitterRegistryState,
   ReverseInstagramRegistryState,
-  getNameAccountKey,
-  getHashedName,
-  NameRegistryState,
   getEnsForEthAddress,
   getTwitterProfile,
   getSoundcloudProfile,
-} = require('./names');
- 
+} from './names.js';
+
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000
 
@@ -728,4 +728,5 @@ class NinaProcessor {
   }
 }
 
-module.exports = new NinaProcessor();
+const processor = new NinaProcessor();
+export default processor;
