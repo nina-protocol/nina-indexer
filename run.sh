@@ -5,5 +5,5 @@ export NVM_DIR="$HOME/.nvm"
 
 source /home/ec2-user/.env.development
 cd /home/ec2-user/nina-indexer
-pm2 start /home/ec2-user/.yarn/bin/yarn --interpreter bash --name nina-indexer -- start:indexer --no-autorestart
-pm2 start /home/ec2-user/.yarn/bin/yarn --interpreter bash --name nina-api -- start:api --no-autorestart
+pm2 start /home/ec2-user/.yarn/bin/yarn --interpreter bash --name nina-indexer -- start:indexer
+pm2 start /home/ec2-user/.yarn/bin/yarn --interpreter bash --name nina-api -- start:api
