@@ -67,7 +67,8 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
+      console.log('account: ', account)
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -125,7 +126,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const { txId } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
@@ -155,7 +156,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
       for await (let hub of hubs) {
         await hub.format();
@@ -169,7 +170,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/posts', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
       for await (let post of posts) {
         await post.format();
@@ -183,7 +184,7 @@ module.exports = (router) => {
   
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
       published = await getVisibleReleases(published)
 
@@ -196,7 +197,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const exchanges = []
       const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
       for await (let exchange of exchangesInitialized) {
@@ -217,7 +218,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
       revenueShares = await getVisibleReleases(revenueShares)
 
@@ -230,8 +231,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
@@ -252,7 +252,7 @@ module.exports = (router) => {
 
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
@@ -267,7 +267,7 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
 
@@ -316,7 +316,7 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey/activity', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const releases = await account.$relatedQuery('revenueShares')
       const hubs = await account.$relatedQuery('hubs')
       const transactions = await Transaction.query()
