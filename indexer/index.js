@@ -1,13 +1,13 @@
-require('dotenv/config');
-const cron = require('node-cron');
+import "dotenv/config.js";
+import cron from 'node-cron';
 
-const { initDb } = require('./db/index');
-const NinaProcessor = require('./processor');
+import { connectDb } from '@nina-protocol/nina-db';
+import NinaProcessor from './processor.js';
+import { environmentIsSetup } from "../scripts/env_check.js";
 
 const startProcessing = async () => {
   console.log('Indexer Starting Up')
-
-  await initDb()
+  await connectDb()
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
 
@@ -31,4 +31,10 @@ const startProcessing = async () => {
   })
 }
 
-startProcessing();
+try {
+  environmentIsSetup()
+  startProcessing()
+} catch (error) {
+  console.error('Environment is not properly setup.  Check .env file and try again.')
+  console.error(error)
+}
