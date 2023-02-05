@@ -101,7 +101,6 @@ export default class Release extends Model {
   }
 
   format = async () => {
-    console.log('formatting release: ', this.publicKey)
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
