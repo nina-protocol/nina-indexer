@@ -68,7 +68,6 @@ module.exports = (router) => {
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
       const account = await Account.findOrCreate(ctx.params.publicKey);
-      console.log('account: ', account)
       if (!account) {
         accountNotFound(ctx);
         return;
