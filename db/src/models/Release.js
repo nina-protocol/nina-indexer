@@ -54,7 +54,7 @@ export default class Release extends Model {
     )
     const metaplex = new Metaplex(connection);
 
-    const releaseAccount = await program.account.release.fetch(publicKey, 'confirmed')
+    const releaseAccount = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
     const metadataAccount = await metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
     let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
 
@@ -101,7 +101,6 @@ export default class Release extends Model {
   }
 
   format = async () => {
-    console.log('formatting release: ', this.publicKey)
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {

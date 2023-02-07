@@ -6,7 +6,6 @@ const removeQuotesFromStartAndEndOfString = (string) => {
 }
 
 export const stripHtmlIfNeeded = (object, value) => {
-  console.log('stripHtmlIfNeeded', object, value)
   let strippedDescription = striptags(object[value], [], ' ');
   strippedDescription = strippedDescription.replace('&nbsp;', ' ');
   if (strippedDescription !== object[value]) {
@@ -18,6 +17,8 @@ export const stripHtmlIfNeeded = (object, value) => {
 export const decode = (byteArray) => {
   return new TextDecoder().decode(new Uint8Array(byteArray)).replaceAll(/\u0000/g, '');
 }
+
+const sleep = (time) => new Promise(resolve => setTimeout(resolve, time))
 
 export const tweetNewRelease = async (metadata) => {
   if (process.env.TWITTER_API_SECRET) {
