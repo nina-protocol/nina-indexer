@@ -5,7 +5,7 @@
   "source": "api/index.js",
   "type": "module",
   "scripts": {
-    "start:indexer": "cd db && yarn migrate && cd ../ && yarn && node indexer/index.js",
+    "start:indexer": "node indexer/index.js",
     "start:indexer:prod": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer",
     "restart:indexer": "pm2 stop nina-indexer && pm2 delete nina-indexer && yarn start:indexer:prod",
     "start:api": "yarn && node api/index.js",
