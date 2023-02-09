@@ -495,7 +495,7 @@ export default (router) => {
     try {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
-        release = await Release.findOrCreate(ctx.params.publicKey,)
+        release = await Release.findOrCreate(ctx.params.publicKey)
       }  
       await release.format();
       ctx.body = {
@@ -615,7 +615,7 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
-        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(hub.publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
