@@ -615,7 +615,7 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
-        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(hub.publicKey), 'confirmed')
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
