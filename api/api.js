@@ -502,7 +502,7 @@ export default (router) => {
         release,
       }
   } catch (err) {
-      console.log(`${err} - publicKey: ${ctx.params.publicKey}`)
+      console.log(`/releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -753,7 +753,9 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
     try {
+      console.log('ctx.params.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
       const hub = await hubForPublicKeyOrHandle(ctx)
+      console.log('hub', hub)
       const release = await Release
         .query()
         .joinRelated('hubs')
@@ -762,7 +764,9 @@ export default (router) => {
         .first()
       if (!release) {
         await NinaProcessor.init()
+        console.log('NinaProcessor inited')
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+        console.log('hubRelease', hubRelease)
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
       
