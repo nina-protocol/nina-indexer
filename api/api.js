@@ -502,7 +502,7 @@ export default (router) => {
         release,
       }
   } catch (err) {
-      console.log(err)
+      console.log(`${err} - publicKey: ${ctx.params.publicKey}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
