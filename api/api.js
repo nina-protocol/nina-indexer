@@ -495,14 +495,14 @@ export default (router) => {
     try {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
-        release = await Release.findOrCreate(ctx.params.publicKey,)
+        release = await Release.findOrCreate(ctx.params.publicKey)
       }  
       await release.format();
       ctx.body = {
         release,
       }
   } catch (err) {
-      console.log(err)
+      console.log(`${err} - publicKey: ${ctx.params.publicKey}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
