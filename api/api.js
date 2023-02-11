@@ -753,9 +753,7 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
     try {
-      console.log('ctx.params.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
       const hub = await hubForPublicKeyOrHandle(ctx)
-      console.log('hub', hub)
       const release = await Release
         .query()
         .joinRelated('hubs')
@@ -764,14 +762,10 @@ export default (router) => {
         .first()
       if (!release) {
         await NinaProcessor.init()
-        console.log('NinaProcessor inited')
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
-        console.log('hubRelease', hubRelease)
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
-          console.log('releaseRecord', releaseRecord)
           let hub = await hubForPublicKeyOrHandle(ctx)
-          console.log('hub', hub)
           if (hub) {      
             const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
               [
@@ -782,7 +776,6 @@ export default (router) => {
               NinaProcessor.program.programId
             )
             const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-            console.log('hubContent', hubContent)
             await Hub.relatedQuery('releases').for(hub.id).relate({
               id: releaseRecord.id,
               hubReleasePublicKey: ctx.params.hubReleasePublicKey,
@@ -792,7 +785,6 @@ export default (router) => {
             }
             await hub.format();
             await releaseRecord.format();
-            console.log('releaseRecord formatted', releaseRecord)
             ctx.body = {
               release: releaseRecord,
               hub,
