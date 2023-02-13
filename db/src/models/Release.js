@@ -1,7 +1,7 @@
 import anchor from '@project-serum/anchor';
 import { Metaplex } from '@metaplex-foundation/js';
 import { Model } from 'objection';
-import { stripHtmlIfNeeded, tweetNewRelease }from '../utils/index.js';
+import { stripHtmlIfNeeded }from '../utils/index.js';
 import  Account from './Account.js';
 import Exchange from './Exchange.js';
 import Hub from './Hub.js';
@@ -78,7 +78,7 @@ export default class Release extends Model {
       publisherId,
     })
     await this.processRevenueShares(releaseAccount, release);
-    tweetNewRelease(metadata);
+    // tweetNewRelease(metadata);
     console.log('Inserted Release: ', publicKey)
     return release;
   }
