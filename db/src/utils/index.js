@@ -18,12 +18,10 @@ export const decode = (byteArray) => {
   return new TextDecoder().decode(new Uint8Array(byteArray)).replaceAll(/\u0000/g, '');
 }
 
-const sleep = (time) => new Promise(resolve => setTimeout(resolve, time))
-
 export const tweetNewRelease = async (metadata) => {
   if (process.env.TWITTER_API_SECRET) {
     try {
-      await sleep(60000)
+      await new Promise(resolve => setTimeout(resolve, 60000))
       const client = new TwitterApi({
         appKey: process.env.TWITTER_API_KEY,
         appSecret: process.env.TWITTER_API_SECRET,
