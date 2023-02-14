@@ -356,8 +356,8 @@ class NinaProcessor {
             }
             if (accounts) {
               if (accounts.length === 13) {
-                const mintPublicKey = accounts[1]
                 try {
+                  const mintPublicKey = accounts[1]
                   await this.provider.connection.getTokenSupply(mintPublicKey)
                   const config = coder.decode(ninaInstruction.data, 'base58').data.config
                   exchangeInits.push({
@@ -371,6 +371,7 @@ class NinaProcessor {
                   })
                   console.log('found an exchange init', accounts[5].toBase58())
                 } catch (error) {
+                  console.log('error not a token mint: ', txid, error)
                 }
               } else if (accounts.length === 6) {
                 exchangeCancels.push({
