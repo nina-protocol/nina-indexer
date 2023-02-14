@@ -353,40 +353,40 @@ class NinaProcessor {
                 }
                 await Transaction.query().insertGraph(transactionObject)
               }
-            }
-            if (accounts) {
-              if (accounts.length === 13) {
-                try {
-                  const mintPublicKey = accounts[1]
-                  await this.provider.connection.getTokenSupply(mintPublicKey)
-                  const config = coder.decode(ninaInstruction.data, 'base58').data.config
-                  exchangeInits.push({
-                    expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
-                    initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
-                    publicKey: accounts[5].toBase58(),
-                    release: accounts[9].toBase58(),
-                    isSale: config.isSelling,
-                    initializer: accounts[0].toBase58(),
-                    createdAt: datetime
+              if (accounts && !transactionObject.type) {
+                if (accounts.length === 13) {
+                  try {
+                    const mintPublicKey = accounts[1]
+                    await this.provider.connection.getTokenSupply(mintPublicKey)
+                    const config = coder.decode(ninaInstruction.data, 'base58').data.config
+                    exchangeInits.push({
+                      expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
+                      initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
+                      publicKey: accounts[5].toBase58(),
+                      release: accounts[9].toBase58(),
+                      isSale: config.isSelling,
+                      initializer: accounts[0].toBase58(),
+                      createdAt: datetime
+                    })
+                    console.log('found an exchange init', accounts[5].toBase58())
+                  } catch (error) {
+                    console.log('error not a token mint: ', txid, error)
+                  }
+                } else if (accounts.length === 6) {
+                  exchangeCancels.push({
+                    publicKey: accounts[2].toBase58(),
+                    updatedAt: datetime
                   })
-                  console.log('found an exchange init', accounts[5].toBase58())
-                } catch (error) {
-                  console.log('error not a token mint: ', txid, error)
+                  console.log('found an exchange cancel', accounts[2].toBase58())
+                } else if (accounts.length === 16) {
+                  completedExchanges.push({
+                    publicKey: accounts[2].toBase58(),
+                    legacyExchangePublicKey: accounts[7].toBase58(),
+                    completedBy: accounts[0].toBase58(),
+                    updatedAt: datetime
+                  })
+                  console.log('found an exchange completed', accounts[2].toBase58())
                 }
-              } else if (accounts.length === 6) {
-                exchangeCancels.push({
-                  publicKey: accounts[2].toBase58(),
-                  updatedAt: datetime
-                })
-                console.log('found an exchange cancel', accounts[2].toBase58())
-              } else if (accounts.length === 16) {
-                completedExchanges.push({
-                  publicKey: accounts[2].toBase58(),
-                  legacyExchangePublicKey: accounts[7].toBase58(),
-                  completedBy: accounts[0].toBase58(),
-                  updatedAt: datetime
-                })
-                console.log('found an exchange completed', accounts[2].toBase58())
               }
             }
           }

@@ -11,12 +11,12 @@ const startProcessing = async () => {
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
 
+  console.log('Initial Sync starting')
+  await NinaProcessor.runDbProcesses()
   if (process.env.RUN_INITIAL_SYNC === 'true') {
-    console.log('Initial Sync starting')
-    await NinaProcessor.runDbProcesses()
     await NinaProcessor.processCollectors()
-    console.log('Initial Sync complete')
   }
+  console.log('Initial Sync complete')
 
   cron.schedule('* * * * *', async() => {
     console.log('Cron job starting: Sync Hubs + Releases');
@@ -32,7 +32,7 @@ const startProcessing = async () => {
 }
 
 try {
-  environmentIsSetup()
+  environmentIsSetup()  
   startProcessing()
 } catch (error) {
   console.error('Environment is not properly setup.  Check .env file and try again.')
