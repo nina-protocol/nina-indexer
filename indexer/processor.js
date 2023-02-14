@@ -61,7 +61,7 @@ class NinaProcessor {
   async runDbProcesses() {
     try {
       await this.processReleases();
-      await this.processPosts();
+      // await this.processPosts();
       await this.processHubs();
       await this.processSubscriptions();
       await this.processVerifications();
@@ -307,6 +307,17 @@ class NinaProcessor {
                 transactionObject.type = 'SubscriptionSubscribeHub'
                 accountPublicKey = accounts[0].toBase58()
                 toHubPublicKey = accounts[2].toBase58()
+              } else {
+                console.log('unknown transaction -------- ', txid)
+                if (accounts?.length === 10 && accounts[0].toBase58() === accounts[1].toBase58()) {
+                  const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() })
+                  if (release) {
+                    transactionObject.type = 'ReleasePurchase'
+                    releasePublicKey = accounts[2].toBase58()
+                    accountPublicKey = accounts[0].toBase58()
+                  }
+                  console.log('10 account transaction -------- ', txid)
+                }
               }
 
               if (transactionObject.type) {
