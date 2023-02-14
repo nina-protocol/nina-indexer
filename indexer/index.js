@@ -24,17 +24,8 @@ const startProcessing = async () => {
 
   cron.schedule('* * * * *', async() => {
     console.log('Cron job starting: Sync Hubs + Releases');
-    if(arg[2]=="--heap-stats") {
-      console.log("Memory Diagnostics at " + new Date(Date.now()) + ": ");
-      console.log("   os.freemem():  " + os.freemem());
-      console.log("   os.totalmem(): " + os.totalmem());
-      console.log("process.memoryUsage(): ");
-      console.log(process.memoryUsage());
-      console.log("v8.getHeapSpaceStatistics(): ");
-      console.log(v8.getHeapSpaceStatistics());
-      console.log("v8.getHeapStatistics(): ");
-      console.log(v8.getHeapStatistics());
-    }
+    if(arg[2]=="--heap-stats")
+      runHeapDiagnostics()
     await NinaProcessor.runDbProcesses()
     console.log('Cron job ended: Sync Hubs + Releases');
   });
@@ -44,6 +35,18 @@ const startProcessing = async () => {
     await NinaProcessor.processCollectors()
     console.log('Cron job ended: Sync Collectors');
   })
+}
+
+function runHeapDiagnostics() {
+  console.log("Memory Diagnostics at " + new Date(Date.now()) + ": ");
+  console.log("   os.freemem():  " + os.freemem());
+  console.log("   os.totalmem(): " + os.totalmem());
+  console.log("process.memoryUsage(): ");
+  console.log(process.memoryUsage());
+  console.log("v8.getHeapSpaceStatistics(): ");
+  console.log(v8.getHeapSpaceStatistics());
+  console.log("v8.getHeapStatistics(): ");
+  console.log(v8.getHeapStatistics());
 }
 
 try {
