@@ -78,7 +78,7 @@ export default class Release extends Model {
       publisherId,
     })
     await this.processRevenueShares(releaseAccount, release);
-    // tweetNewRelease(metadata);
+    tweetNewRelease(metadata);
     console.log('Inserted Release: ', publicKey)
     return release;
   }
