@@ -237,11 +237,11 @@ class NinaProcessor {
         for await (let tx of txs) {
           if (tx) {
             const length = tx.transaction.message.instructions.length
-            const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+            const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+            const accounts = ninaInstruction?.accounts
             const blocktime = tx.blockTime
             const datetime = new Date(blocktime * 1000).toISOString()
             const txid = txIds[i]
-
             let transactionRecord = await Transaction.query().findOne({ txid })
             if (!transactionRecord) {
               let transactionObject = {
@@ -356,36 +356,36 @@ class NinaProcessor {
             }
             if (accounts) {
               if (accounts.length === 13) {
-                const mintPublicKey = tx.transaction.message.instructions[length - 1].accounts[1]
+                const mintPublicKey = accounts[1]
                 try {
                   await this.provider.connection.getTokenSupply(mintPublicKey)
-                  const config = coder.decode(tx.transaction.message.instructions[length - 1].data, 'base58').data.config
+                  const config = coder.decode(ninaInstruction.data, 'base58').data.config
                   exchangeInits.push({
                     expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
                     initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
-                    publicKey: tx.transaction.message.instructions[length - 1].accounts[5].toBase58(),
-                    release: tx.transaction.message.instructions[length - 1].accounts[9].toBase58(),
+                    publicKey: accounts[5].toBase58(),
+                    release: accounts[9].toBase58(),
                     isSale: config.isSelling,
-                    initializer: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                    initializer: accounts[0].toBase58(),
                     createdAt: datetime
                   })
-                  console.log('found an exchange init',tx.transaction.message.instructions[length - 1].accounts[5].toBase58())
+                  console.log('found an exchange init', accounts[5].toBase58())
                 } catch (error) {
                 }
               } else if (accounts.length === 6) {
                 exchangeCancels.push({
-                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
+                  publicKey: accounts[2].toBase58(),
                   updatedAt: datetime
                 })
-                console.log('found an exchange cancel', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+                console.log('found an exchange cancel', accounts[2].toBase58())
               } else if (accounts.length === 16) {
                 completedExchanges.push({
-                  publicKey: tx.transaction.message.instructions[length - 1].accounts[2].toBase58(),
-                  legacyExchangePublicKey: tx.transaction.message.instructions[length - 1].accounts[7].toBase58(),
-                  completedBy: tx.transaction.message.instructions[length - 1].accounts[0].toBase58(),
+                  publicKey: accounts[2].toBase58(),
+                  legacyExchangePublicKey: accounts[7].toBase58(),
+                  completedBy: accounts[0].toBase58(),
                   updatedAt: datetime
                 })
-                console.log('found an exchange completed', tx.transaction.message.instructions[length - 1].accounts[2].toBase58())
+                console.log('found an exchange completed', accounts[2].toBase58())
               }
             }
           }
