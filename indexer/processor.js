@@ -157,13 +157,13 @@ class NinaProcessor {
         } catch (error) {
           console.warn(error)
         }
-      } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
-        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
-        const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
-        const account = await Account.findOrCreate(registry.owner.toBase58());
-        verification.accountId = account.id;
-        verification.value = name.instagramHandle
-        verification.type = 'instagram'
+      // } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
+      //   const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
+      //   const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
+      //   const account = await Account.findOrCreate(registry.owner.toBase58());
+      //   verification.accountId = account.id;
+      //   verification.value = name.instagramHandle
+      //   verification.type = 'instagram'
       } else if (registry.parentName.toBase58() === NINA_ID_SC_TLD.toBase58()) {
         const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_SC_TLD);
         const name = await ReverseSoundcloudRegistryState.retrieve(this.provider.connection, nameAccountKey)
