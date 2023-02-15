@@ -3,7 +3,7 @@ import cron from 'node-cron';
 import os from 'os';
 import v8 from 'node:v8';
 
-import { connectDb } from '@nina-protocol/nina-db';
+import { initDb, config } from '@nina-protocol/nina-db';
 import NinaProcessor from './processor.js';
 import { environmentIsSetup } from "../scripts/env_check.js";
 
@@ -11,7 +11,7 @@ const arg = process.argv.slice()
 
 const startProcessing = async () => {
   console.log('Indexer Starting Up')
-  await connectDb()
+  await initDb(config)
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
 
