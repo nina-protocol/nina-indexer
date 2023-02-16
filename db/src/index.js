@@ -5,7 +5,7 @@ import Models from './models/index.js'
 import knexConfig from './knexfile.js'
 
 export const initDb = async (config) => {
-  const db = Knex(config)
+  const db = Knex(config.development)
   await db.raw(`SELECT 'CREATE DATABASE ${process.env.POSTGRES_DATABASE}'
     WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${process.env.POSTGRES_DATABASE}')`
   )
