@@ -313,18 +313,22 @@ class NinaProcessor {
                     if (accounts[0].toBase58() === accounts[1].toBase58()) {
                       try {
                         const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() })
-                        transactionObject.type = 'ReleasePurchase'
-                        releasePublicKey = accounts[2].toBase58()
-                        accountPublicKey = accounts[0].toBase58()
+                        if (release) {
+                          transactionObject.type = 'ReleasePurchase'
+                          releasePublicKey = accounts[2].toBase58()
+                          accountPublicKey = accounts[0].toBase58()
+                        }
                       } catch (error) {
                         console.log(error)
                       }
                     } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
                       try {
                         const release = await Release.query().findOne({ publicKey: accounts[0].toBase58() })
-                        transactionObject.type = 'ReleasePurchase'
-                        releasePublicKey = accounts[0].toBase58()
-                        accountPublicKey = accounts[3].toBase58()
+                        if (release) {
+                          transactionObject.type = 'ReleasePurchase'
+                          releasePublicKey = accounts[0].toBase58()
+                          accountPublicKey = accounts[3].toBase58()
+                        }
                       } catch (error) {
                         console.log(error)
                       }
@@ -378,7 +382,6 @@ class NinaProcessor {
                       transactionObject.toHubId = subscribeToHub.id
                     }
                   }
-                  console.log('transactionObject', transactionObject)
                   await Transaction.query().insertGraph(transactionObject)
                 }
                 if (accounts && !transactionObject.type) {
@@ -386,9 +389,7 @@ class NinaProcessor {
                     try {
                       const mintPublicKey = accounts[1]
                       await this.provider.connection.getTokenSupply(mintPublicKey)
-                      console.log('pre decode config')
                       const config = coder.decode(ninaInstruction.data, 'base58').data.config
-                      console.log('decoded config', config)
                       exchangeInits.push({
                         expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
                         initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
