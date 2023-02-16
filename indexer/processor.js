@@ -37,6 +37,13 @@ const blacklist = [
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
 ]
 
+const nameAccountSkipList = [
+  '79k2rLEdyzgMyyztSXxk3BsZoyysxt4SKv7h47iv4qBo',
+  'ApfQPjGAN6pyRor1brdEg7kTehC62oCQJB3TnYKGfzcK',
+  '9PXFaDKJRrpa4yW7tofMVpVwZYe68DrAi2Ri8wCexPRo',
+  'FcjfZvofUYBbMJPEpv38nfx6XfkzwY6YvnuKFnyercE8'
+]
+
 class NinaProcessor {
   constructor() {
     this.provider = null;
@@ -92,7 +99,9 @@ class NinaProcessor {
     const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
     for await (let nameRegistry of newNameRegistries) {
       try {
-        await this.processVerification(nameRegistry.pubkey);
+        if (!nameAccountSkipList.includes(nameRegistry.pubkey.toBase58())) {
+          await this.processVerification(nameRegistry.pubkey);
+        }
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
       }
