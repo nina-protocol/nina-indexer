@@ -1938,24 +1938,16 @@
     "@solana/web3.js" "^1.56.2"
     bn.js "^5.2.0"
 
-"@metaplex-foundation/mpl-candy-machine@4.3.0", "@metaplex-foundation/mpl-candy-machine@^5.0.0":
-  version "4.3.0"
-  resolved "https://registry.yarnpkg.com/@metaplex-foundation/mpl-candy-machine/-/mpl-candy-machine-4.3.0.tgz#168e0de04548b0ba62abb78ddc90aafd07de804d"
-  integrity sha512-Vgx0Ly+JGosXFFz/mz5eWKovZgAQBLSFAwuat/c+yGmT7FGlnCEqV3lsBsg+P8iiuG39DxCvNfBQEH8fsiuOlQ==
+"@metaplex-foundation/mpl-candy-machine@5.0.0", "@metaplex-foundation/mpl-candy-machine@^5.0.0":
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/@metaplex-foundation/mpl-candy-machine/-/mpl-candy-machine-5.0.0.tgz#2eae8f02a1479c62ef9b9b521215988d6fc06818"
+  integrity sha512-df2OmZ4s8PJXQXtGAyfZIIitwJPKebtj4f8tab/o5VNhYsW5M9YKfMyAEBBNHm1n/xz+C8Lxy05e6qo3nU/30g==
   dependencies:
-    "@metaplex-foundation/beet" "^0.4.0"
-    "@metaplex-foundation/beet-solana" "^0.3.0"
+    "@metaplex-foundation/beet" "^0.7.1"
+    "@metaplex-foundation/beet-solana" "^0.4.0"
     "@metaplex-foundation/cusper" "^0.0.2"
-    "@metaplex-foundation/mpl-core" "^0.6.1"
-    "@solana/web3.js" "^1.35.1"
-
-"@metaplex-foundation/mpl-core@^0.6.1":
-  version "0.6.1"
-  resolved "https://registry.yarnpkg.com/@metaplex-foundation/mpl-core/-/mpl-core-0.6.1.tgz#bdc76a8b447a2ef310693973bf430e5ecec6ef0b"
-  integrity sha512-6R4HkfAqU2EUakNbVLcCmka0YuQTLGTbHJ62ig765+NRWuB2HNGUQ1HfHcRsGnyxhlCvwKK79JE01XUjFE+dzw==
-  dependencies:
-    "@solana/web3.js" "^1.35.1"
-    bs58 "^4.0.1"
+    "@solana/spl-token" "^0.3.6"
+    "@solana/web3.js" "^1.66.2"
 
 "@metaplex-foundation/mpl-token-metadata@^2.7.0":
   version "2.8.3"
@@ -2133,7 +2125,7 @@
   dependencies:
     eventemitter3 "^4.0.0"
 
-"@solana/web3.js@^1.32.0", "@solana/web3.js@^1.35.1", "@solana/web3.js@^1.36.0", "@solana/web3.js@^1.56.2", "@solana/web3.js@^1.66.2":
+"@solana/web3.js@^1.32.0", "@solana/web3.js@^1.36.0", "@solana/web3.js@^1.56.2", "@solana/web3.js@^1.66.2":
   version "1.73.0"
   resolved "https://registry.yarnpkg.com/@solana/web3.js/-/web3.js-1.73.0.tgz#c65f9f954ac80fca6952765c931dd72e57e1b572"
   integrity sha512-YrgX3Py7ylh8NYkbanoINUPCj//bWUjYZ5/WPy9nQ9SK3Cl7QWCR+NmbDjmC/fTspZGR+VO9LTQslM++jr5PRw==

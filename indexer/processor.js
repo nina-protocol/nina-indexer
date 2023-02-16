@@ -308,15 +308,18 @@ class NinaProcessor {
                 accountPublicKey = accounts[0].toBase58()
                 toHubPublicKey = accounts[2].toBase58()
               } else {
-                console.log('unknown transaction -------- ', txid)
                 if (accounts?.length === 10 && accounts[0].toBase58() === accounts[1].toBase58()) {
                   const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() })
                   if (release) {
+                    console.log('ReleasePurchase transaction -------- ', txid)
                     transactionObject.type = 'ReleasePurchase'
                     releasePublicKey = accounts[2].toBase58()
                     accountPublicKey = accounts[0].toBase58()
                   }
-                  console.log('10 account transaction -------- ', txid)
+                } else {
+                  console.log('unknown transaction -------- ', txid)
+                  transactionObject.type = 'Unknown'
+                  accountPublicKey = accounts[0].toBase58()
                 }
               }
 

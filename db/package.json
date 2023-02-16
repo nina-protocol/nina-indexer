@@ -32,7 +32,7 @@
     "twitter-api-v2": "^1.12.9"
   },
   "resolutions": {
-    "@metaplex-foundation/mpl-candy-machine": "4.3.0"
+    "@metaplex-foundation/mpl-candy-machine": "5.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",
