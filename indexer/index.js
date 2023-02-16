@@ -24,8 +24,9 @@ const startProcessing = async () => {
 
   cron.schedule('* * * * *', async() => {
     console.log('Cron job starting: Sync Hubs + Releases');
-    if(arg[2]=="--heap-stats")
+    if (arg[2]=="--heap-stats") {
       runHeapDiagnostics()
+    }
     await NinaProcessor.runDbProcesses()
     console.log('Cron job ended: Sync Hubs + Releases');
   });
@@ -37,7 +38,15 @@ const startProcessing = async () => {
   })
 }
 
-function runHeapDiagnostics() {
+try {
+  environmentIsSetup()
+  startProcessing()
+} catch (error) {
+  console.error('Environment is not properly setup.  Check .env file and try again.')
+  console.error(error)
+}
+
+const runHeapDiagnostics = () => {
   console.log("Memory Diagnostics at " + new Date(Date.now()) + ": ");
   console.log("   os.freemem():  " + os.freemem());
   console.log("   os.totalmem(): " + os.totalmem());
@@ -47,12 +56,4 @@ function runHeapDiagnostics() {
   console.log(v8.getHeapSpaceStatistics());
   console.log("v8.getHeapStatistics(): ");
   console.log(v8.getHeapStatistics());
-}
-
-try {
-  environmentIsSetup()
-  startProcessing()
-} catch (error) {
-  console.error('Environment is not properly setup.  Check .env file and try again.')
-  console.error(error)
 }

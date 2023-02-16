@@ -456,17 +456,8 @@ class NinaProcessor {
   async processReleases() {
     // Get all releases that are not on the blacklist
     const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
-    
-    const metadataAccounts = (
-      await this.metaplex.nfts()
-        .findAllByMintList(
-          releases.map(
-            release => release.account.releaseMint
-          )
-        )
-        .run()
-    ).filter(x => x);
-
+    const releaseMints = releases.map(x => x.account.releaseMint)
+    const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
     const existingReleases = await Release.query();
 
     const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
@@ -474,14 +465,21 @@ class NinaProcessor {
     const newMetadata = metadataAccounts.filter(x => newMints.includes(x.mintAddress.toBase58()));
     const newReleasesWithMetadata = releases.filter(x => newMints.includes(x.account.releaseMint.toBase58()));
     
-    const newMetadataJson = await axios.all(
-      newMetadata.map(metadata => axios.get(metadata.uri))
-    ).then(axios.spread((...responses) => responses))
+    let newMetadataJson
+    try {
+      newMetadataJson = await axios.all(
+        newMetadata.map(metadata => axios.get(metadata.uri))
+      ).then(axios.spread((...responses) => responses))
+    } catch (error) {
+      newMetadataJson = await axios.all(
+        newMetadata.map(metadata => axios.get(metadata.uri.replace('arweave.net', 'ar-io.net')))
+      ).then(axios.spread((...responses) => responses))
+    }
 
     for await (let release of newReleasesWithMetadata) {
       try {
         const metadata = metadataAccounts.find(x => x.mintAddress.toBase58() === release.account.releaseMint.toBase58());
-        const metadataJson = newMetadataJson.find(x => x.config.url === metadata.uri).data;
+        const metadataJson = newMetadataJson.find(x => x.config.url.includes(metadata.uri.replace('https://arweave.net/', ''))).data;
   
         let publisher = await Account.findOrCreate(release.account.authority.toBase58());
   
@@ -517,9 +515,16 @@ class NinaProcessor {
     const existingPosts = await Post.query();
     const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
 
-    const newPostsJson = await axios.all(
-      newPosts.map(post => axios.get(decode(post.account.uri)))
-    ).then(axios.spread((...responses) => responses))
+    let newPostsJson
+    try {
+      newPostsJson = await axios.all(
+        newPosts.map(post => axios.get(decode(post.account.uri)))
+      ).then(axios.spread((...responses) => responses))
+    } catch (error) {
+      newPostsJson = await axios.all(
+        newPosts.map(post => axios.get(decode(post.account.uri).replace('arweave.net', 'ar-io.net')))
+      ).then(axios.spread((...responses) => responses))
+    }
 
     for await (let newPost of newPosts) {
       try {
@@ -551,8 +556,40 @@ class NinaProcessor {
     const existingHubs = await Hub.query();
 
     for await (let existingHub of existingHubs) {
+      const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+      const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(existingHub)).map(x => x.publicKey);
+      const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
+  
+
+      const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+      const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(existingHub)).map(x => x.publicKey);
+      const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
+  
+      const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+      const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(existingHub)).map(x => x.publicKey);
+      const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
+      
+
+      const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === existingHub.publicKey)
+
       const hubAccount = hubs.find(x => x.publicKey.toBase58() === existingHub.publicKey);
-      await this.updateHub(existingHub, hubAccount, hubContent, hubReleases, hubCollaborators, hubPosts);
+      await this.updateHub(
+        existingHub,
+        hubAccount,
+        hubContentsForHub,
+        {
+          hubReleasesForHubOnChain,
+          hubReleasesForHubDb,
+          newHubReleasesForHub
+        }, {
+          hubCollaboratorsForHubOnChain,
+          hubCollaboratorsForHubDb,
+          newHubCollaboratorsForHub
+        }, {
+          hubPostsForHubOnChain,
+          hubPostsForHubDb,
+          newHubPostsForHub
+        });
     }
     
     let newHubs = hubs.filter(x => !existingHubs.find(y => y.publicKey === x.publicKey.toBase58()));
@@ -561,13 +598,20 @@ class NinaProcessor {
     })
     newHubs = newHubs.filter(hub => hub.account.uri.indexOf("arweave.net") > -1)
 
-    const newHubsJson = await axios.all(
-      newHubs.map(hub => axios.get(hub.account.uri))
-    ).then(axios.spread((...responses) => responses))
+    let newHubsJson
+    try {
+      newHubsJson = await axios.all(
+        newHubs.map(hub => axios.get(hub.account.uri))
+      ).then(axios.spread((...responses) => responses))
+    } catch (error) {
+      newHubsJson = await axios.all(
+        newHubs.map(hub => axios.get(hub.account.uri.replace('arweave.net', 'ar-io.net')))
+      ).then(axios.spread((...responses) => responses))
+    }
 
     for await (let newHub of newHubs) {
       try {
-        const data = newHubsJson.find(x => x.config.url === newHub.account.uri).data
+        const data = newHubsJson.find(x => x.config.url.includes(newHub.account.uri.replace('https://arweave.net/'))).data
         let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
         const hub = await Hub.query().insertGraph({
           publicKey: newHub.publicKey.toBase58(),
@@ -578,7 +622,40 @@ class NinaProcessor {
           authorityId: authority.id,
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
-        await this.updateHub(hub, newHub, hubContent, hubReleases, hubCollaborators, hubPosts);
+        
+        const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
+        const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(hub)).map(x => x.publicKey);
+        const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
+    
+  
+        const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === hub.publicKey);
+        const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(hub)).map(x => x.publicKey);
+        const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
+    
+        const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === hub.publicKey);
+        const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(hub)).map(x => x.publicKey);
+        const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
+        
+  
+        const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === hub.publicKey)
+  
+        await this.updateHub(
+          hub,
+          newHub,
+          hubContentsForHub,
+          {
+            hubReleasesForHubOnChain,
+            hubReleasesForHubDb,
+            newHubReleasesForHub
+          }, {
+            hubCollaboratorsForHubOnChain,
+            hubCollaboratorsForHubDb,
+            newHubCollaboratorsForHub
+          }, {
+            hubPostsForHubOnChain,
+            hubPostsForHubDb,
+            newHubPostsForHub
+          });
       } catch (err) {
         console.log(err);
       }
@@ -619,17 +696,10 @@ class NinaProcessor {
 
   async processCollectors() {
     const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
-    const exchanges = await this.program.account.exchange.all();
+    const releaseMints = releases.map(x => x.account.releaseMint)
+    const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
 
-    const metadataAccounts = (
-      await this.metaplex.nfts()
-        .findAllByMintList(
-          releases.map(
-            release => release.account.releaseMint
-          )
-        )
-        .run()
-    ).filter(x => x);
+    const exchanges = await this.program.account.exchange.all();
 
     for await (let metadata of metadataAccounts) {
       try {
@@ -732,7 +802,12 @@ class NinaProcessor {
       hubAccount.account.uri = decode(hubAccount.account.uri)
     }
     if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
-      const data = (await axios.get(hubAccount.account.uri)).data;
+      let data 
+      try {
+        data = (await axios.get(hubAccount.account.uri)).data;
+      } catch (error) {
+        data = (await axios.get(hubAccount.account.uri.replace('arweave.net', 'ar-io.net'))).data;
+      }
       await hub.$query().patch({
         data,
         dataUri: hubAccount.account.uri
@@ -740,9 +815,9 @@ class NinaProcessor {
     }
   
     // Update Hub Releases
-    const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
-    const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(hub)).map(x => x.publicKey);
-    const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
+    const hubReleasesForHubOnChain = hubReleases.hubReleasesForHubOnChain;
+    const hubReleasesForHubDb = hubReleases.hubReleasesForHubDb;
+    const newHubReleasesForHub = hubReleases.newHubReleasesForHub;
   
     for await (let hubRelease of hubReleasesForHubOnChain) {
       try {
@@ -780,9 +855,9 @@ class NinaProcessor {
     }
     
     // Update Hub Collaborators
-    const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === hub.publicKey);
-    const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(hub)).map(x => x.publicKey);
-    const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
+    const hubCollaboratorsForHubOnChain = hubCollaborators.hubCollaboratorsForHubOnChain;
+    const hubCollaboratorsForHubDb = hubCollaborators.hubCollaboratorsForHubDb
+    const newHubCollaboratorsForHub = hubCollaborators.newHubCollaboratorsForHub
     for await (let hubCollaborator of newHubCollaboratorsForHub) {
       try {
         const collaboratorRecord = await Account.findOrCreate(hubCollaborator.account.collaborator.toBase58());
@@ -811,11 +886,11 @@ class NinaProcessor {
       }
     }
   
-    //Update HubPosts
-    const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === hub.publicKey);
-    const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(hub)).map(x => x.publicKey);
-    const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
-  
+    //Update HubPosts  
+    const hubPostsForHubOnChain = hubPosts.hubPostsForHubOnChain
+    const hubPostsForHubDb = hubPosts.hubPostsForHubDb
+    const newHubPostsForHub = hubPosts.newHubPostsForHub
+
     for await (let hubPost of hubPostsForHubOnChain) {
       try {
         if (hubPostsForHubDb.includes(hubPost.account.post.toBase58())) {
@@ -832,7 +907,7 @@ class NinaProcessor {
         console.log(err);
       }
     }
-  
+
     for await (let hubPost of newHubPostsForHub) {
       try {
         const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0]
@@ -851,7 +926,7 @@ class NinaProcessor {
           
           if (hubPost.account.referenceContent) {
             const release = await Release.query().findOne({publicKey: hubPost.account.referenceContent.toBase58()});
-            if (release) {
+            if (release && post) {
               const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
               if (!relatedRelease) {
                 await Post.relatedQuery('releases').for(post.id).relate(release.id);
