@@ -317,9 +317,11 @@ class NinaProcessor {
                     accountPublicKey = accounts[0].toBase58()
                   }
                 } else {
-                  console.log('unknown transaction -------- ', txid)
-                  transactionObject.type = 'Unknown'
-                  accountPublicKey = accounts[0].toBase58()
+                  if (accounts) {
+                    console.log('unknown transaction -------- ', txid)
+                    transactionObject.type = 'Unknown'
+                    accountPublicKey = accounts[0].toBase58()
+                  }
                 }
               }
 
