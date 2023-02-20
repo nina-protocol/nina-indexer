@@ -32,7 +32,9 @@ class Transaction extends Model {
             'PostInitViaHubWithReferenceRelease',
             'SubscriptionSubscribeAccount',
             'SubscriptionSubscribeHub',
-            'Unknown'
+            'ExchangeAccept',
+            'ExchangeInit',
+            'Unknown',
           ],
         },
       },
