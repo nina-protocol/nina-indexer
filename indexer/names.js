@@ -377,7 +377,7 @@ export const getTwitterProfile = async (twitterHandle) => {
     }
     return twitterProfile
   } catch (error) {
-    console.warn(error)
+    console.warn(`Twitter handle doesn't exist: ${twitterHandle}`)
     return undefined
   }
 }
