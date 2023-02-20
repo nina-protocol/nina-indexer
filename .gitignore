@@ -4,3 +4,5 @@ node_modules
 .env.dev
 .env.production
 *.pem
+dist
+.DS_Store

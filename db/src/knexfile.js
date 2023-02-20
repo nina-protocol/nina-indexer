@@ -1,9 +1,8 @@
-// Update with your config settings.
-
 /**
  * @type { Object.<string, import("knex").Knex.Config> }
  */
-module.exports = {
+import "dotenv/config.js";
+export default {
 
   development: {
     client: 'postgresql',
@@ -14,10 +13,9 @@ module.exports = {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: __dirname + '/migrations',
+      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
   },
-
   staging: {
     client: 'postgresql',
     connection: {
@@ -27,10 +25,9 @@ module.exports = {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: __dirname + '/migrations',
+      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
   },
-
   production: {
     client: 'postgresql',
     connection: {
@@ -40,8 +37,7 @@ module.exports = {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: __dirname + '/migrations',
+      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
   }
-
 };
