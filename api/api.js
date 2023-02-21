@@ -67,6 +67,41 @@ export default (router) => {
     }
   })
 
+  const getCollectedDate = async (release, account) => {
+    let purchaseTransactions = []
+    const exchanges = await Exchange.query().where('releaseId', release.id)
+    const releasePurchaseTxs = await Transaction.query()
+      .where('releaseId', release.id)
+      .andWhere('authorityId', account.id)
+      .andWhere('type', 'ReleasePurchase')
+    purchaseTransactions = purchaseTransactions.concat(releasePurchaseTxs.map(tx => tx.blocktime))
+
+    const releasePurchaseViaHubTxs = await Transaction.query()
+      .where('releaseId', release.id)
+      .andWhere('authorityId', account.id)
+      .andWhere('type', 'ReleasePurchaseViaHub')
+    purchaseTransactions = purchaseTransactions.concat(releasePurchaseViaHubTxs.map(tx => tx.blocktime))
+
+    for await (let exchange of exchanges) {
+      const initializer = await exchange.$relatedQuery('initializer')
+      const completedBy = await exchange.$relatedQuery('completedBy')
+
+      if ((exchange.isSale && completedBy?.publicKey === account.publicKey) || 
+          (!exchange.isSale && initializer?.publicKey === account.publicKey)
+      ) {
+        const blocktime = new Date(exchange.completedAt).getTime() / 1000
+        purchaseTransactions.push(blocktime)
+      }
+    }
+
+    const earliestPurchaseTx = purchaseTransactions.sort((a, b) => a - b)[0]
+    if (earliestPurchaseTx) {
+      return new Date(earliestPurchaseTx * 1000).toISOString()
+    }
+
+    return release.datetime
+  }
+
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
       const account = await Account.findOrCreate(ctx.params.publicKey);
@@ -74,8 +109,22 @@ export default (router) => {
         accountNotFound(ctx);
         return;
       }
+
+      const exchanges = []
+      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
+      for await (let exchange of exchangesInitialized) {
+        await exchange.format();
+        exchanges.push(exchange)
+      }
+      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
+      for await (let exchange of exchangesCompleted) {
+        await exchange.format();
+        exchanges.push(exchange)
+      }
+
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
+        release.collectedDate = await getCollectedDate(release, account)
         await release.format();
       }
 
@@ -89,17 +138,6 @@ export default (router) => {
       const posts = await account.$relatedQuery('posts')
       for await (let post of posts) {
         await post.format();
-      }
-      const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
-      for await (let exchange of exchangesInitialized) {
-        await exchange.format();
-        exchanges.push(exchange)
-      }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-      for await (let exchange of exchangesCompleted) {
-        await exchange.format();
-        exchanges.push(exchange)
       }
 
       let revenueShares = await account.$relatedQuery('revenueShares')
@@ -145,6 +183,7 @@ export default (router) => {
       
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
+        release.collectedDate = await getCollectedDate(release, account)
         await release.format();
       }
       ctx.body = { collected };
@@ -532,12 +571,14 @@ export default (router) => {
     try {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
+
       for await (let account of collectors) {
         if (ctx.request.query.withCollection) {
           const collectedReleases = await account.$relatedQuery('collected')
           const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
           account.collection = collectedPublicKeys
         }
+        account.collectedDate = await getCollectedDate(release, account)
         await account.format();
       }
       ctx.body = { collectors };
