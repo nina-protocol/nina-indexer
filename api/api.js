@@ -801,35 +801,32 @@ export default (router) => {
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
-      if (!release) {
+      if (hub && !release) {
         await NinaProcessor.init()
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
-          let hub = await hubForPublicKeyOrHandle(ctx)
-          if (hub) {      
-            const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
-              [
-                Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
-                hubRelease.hub.toBuffer(),
-                hubRelease.release.toBuffer(),
-              ],
-              NinaProcessor.program.programId
-            )
-            const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-            await Hub.relatedQuery('releases').for(hub.id).relate({
-              id: releaseRecord.id,
-              hubReleasePublicKey: ctx.params.hubReleasePublicKey,
-            });
-            if (hubContent.publishedThroughHub) {
-              await releaseRecord.$query().patch({hubId: hub.id});
-            }
-            await hub.format();
-            await releaseRecord.format();
-            ctx.body = {
-              release: releaseRecord,
-              hub,
-            }
+          const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+            [
+              Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+              hubRelease.hub.toBuffer(),
+              hubRelease.release.toBuffer(),
+            ],
+            NinaProcessor.program.programId
+          )
+          const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+          await Hub.relatedQuery('releases').for(hub.id).relate({
+            id: releaseRecord.id,
+            hubReleasePublicKey: ctx.params.hubReleasePublicKey,
+          });
+          if (hubContent.publishedThroughHub) {
+            await releaseRecord.$query().patch({hubId: hub.id});
+          }
+          await hub.format();
+          await releaseRecord.format();
+          ctx.body = {
+            release: releaseRecord,
+            hub,
           }
         } else {
           throw ('Hub release not found')
