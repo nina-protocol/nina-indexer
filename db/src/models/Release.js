@@ -6,6 +6,7 @@ import  Account from './Account.js';
 import Exchange from './Exchange.js';
 import Hub from './Hub.js';
 import Post from './Post.js';
+import axios from 'axios';
 
 export default class Release extends Model {
   static tableName = 'releases';
@@ -54,14 +55,20 @@ export default class Release extends Model {
     )
     const metaplex = new Metaplex(connection);
 
-    const releaseAccount = await program.account.release.fetch(publicKey, 'confirmed')
-    const metadataAccount = await metaplex.nfts().findByMint(releaseAccount.releaseMint, {commitment: "confirmed"}).run();
-    let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
+    const releaseAccount = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+    let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+    let json
+    try {
+      json = await axios.get(metadataAccount.uri)
+    } catch (error) {
+      json = await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))
+    }
 
+    let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
     release = await this.createRelease({
       publicKey,
       mint: releaseAccount.releaseMint.toBase58(),
-      metadata: metadataAccount.json,
+      metadata: json,
       datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
       publisherId: publisher.id,
       releaseAccount
@@ -78,7 +85,7 @@ export default class Release extends Model {
       publisherId,
     })
     await this.processRevenueShares(releaseAccount, release);
-    await tweetNewRelease(metadata);
+    tweetNewRelease(metadata);
     console.log('Inserted Release: ', publicKey)
     return release;
   }
@@ -101,7 +108,6 @@ export default class Release extends Model {
   }
 
   format = async () => {
-    console.log('formatting release: ', this.publicKey)
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {

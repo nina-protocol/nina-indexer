@@ -67,15 +67,64 @@ export default (router) => {
     }
   })
 
+  const getCollectedDate = async (release, account) => {
+    let purchaseTransactions = []
+    const exchanges = await Exchange.query().where('releaseId', release.id)
+    const releasePurchaseTxs = await Transaction.query()
+      .where('releaseId', release.id)
+      .andWhere('authorityId', account.id)
+      .andWhere('type', 'ReleasePurchase')
+    purchaseTransactions = purchaseTransactions.concat(releasePurchaseTxs.map(tx => tx.blocktime))
+
+    const releasePurchaseViaHubTxs = await Transaction.query()
+      .where('releaseId', release.id)
+      .andWhere('authorityId', account.id)
+      .andWhere('type', 'ReleasePurchaseViaHub')
+    purchaseTransactions = purchaseTransactions.concat(releasePurchaseViaHubTxs.map(tx => tx.blocktime))
+
+    for await (let exchange of exchanges) {
+      const initializer = await exchange.$relatedQuery('initializer')
+      const completedBy = await exchange.$relatedQuery('completedBy')
+
+      if ((exchange.isSale && completedBy?.publicKey === account.publicKey) || 
+          (!exchange.isSale && initializer?.publicKey === account.publicKey)
+      ) {
+        const blocktime = new Date(exchange.completedAt).getTime() / 1000
+        purchaseTransactions.push(blocktime)
+      }
+    }
+
+    const earliestPurchaseTx = purchaseTransactions.sort((a, b) => a - b)[0]
+    if (earliestPurchaseTx) {
+      return new Date(earliestPurchaseTx * 1000).toISOString()
+    }
+
+    return release.datetime
+  }
+
   router.get('/accounts/:publicKey', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       if (!account) {
         accountNotFound(ctx);
         return;
       }
+
+      const exchanges = []
+      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
+      for await (let exchange of exchangesInitialized) {
+        await exchange.format();
+        exchanges.push(exchange)
+      }
+      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
+      for await (let exchange of exchangesCompleted) {
+        await exchange.format();
+        exchanges.push(exchange)
+      }
+
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
+        release.collectedDate = await getCollectedDate(release, account)
         await release.format();
       }
 
@@ -89,17 +138,6 @@ export default (router) => {
       const posts = await account.$relatedQuery('posts')
       for await (let post of posts) {
         await post.format();
-      }
-      const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
-      for await (let exchange of exchangesInitialized) {
-        await exchange.format();
-        exchanges.push(exchange)
-      }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-      for await (let exchange of exchangesCompleted) {
-        await exchange.format();
-        exchanges.push(exchange)
       }
 
       let revenueShares = await account.$relatedQuery('revenueShares')
@@ -127,7 +165,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const { txId } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
@@ -145,6 +183,7 @@ export default (router) => {
       
       const collected = await account.$relatedQuery('collected')
       for await (let release of collected) {
+        release.collectedDate = await getCollectedDate(release, account)
         await release.format();
       }
       ctx.body = { collected };
@@ -157,7 +196,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
       for await (let hub of hubs) {
         await hub.format();
@@ -171,7 +210,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/posts', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
       for await (let post of posts) {
         await post.format();
@@ -185,7 +224,7 @@ export default (router) => {
   
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
       published = await getVisibleReleases(published)
 
@@ -198,7 +237,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const exchanges = []
       const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
       for await (let exchange of exchangesInitialized) {
@@ -219,7 +258,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
       revenueShares = await getVisibleReleases(revenueShares)
 
@@ -232,8 +271,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
-
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
@@ -254,7 +292,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
@@ -269,7 +307,7 @@ export default (router) => {
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
 
@@ -318,7 +356,7 @@ export default (router) => {
   router.get('/accounts/:publicKey/activity', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
-      const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
+      const account = await Account.findOrCreate(ctx.params.publicKey);
       const releases = await account.$relatedQuery('revenueShares')
       const hubs = await account.$relatedQuery('hubs')
       const transactions = await Transaction.query()
@@ -496,14 +534,14 @@ export default (router) => {
     try {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       if (!release) {
-        release = await Release.findOrCreate(ctx.params.publicKey,)
+        release = await Release.findOrCreate(ctx.params.publicKey)
       }  
       await release.format();
       ctx.body = {
         release,
       }
   } catch (err) {
-      console.log(err)
+      console.log(`/releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -533,12 +571,14 @@ export default (router) => {
     try {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
+
       for await (let account of collectors) {
         if (ctx.request.query.withCollection) {
           const collectedReleases = await account.$relatedQuery('collected')
           const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
           account.collection = collectedPublicKeys
         }
+        account.collectedDate = await getCollectedDate(release, account)
         await account.format();
       }
       ctx.body = { collectors };
@@ -766,7 +806,6 @@ export default (router) => {
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
-      
           let hub = await hubForPublicKeyOrHandle(ctx)
           if (hub) {      
             const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(

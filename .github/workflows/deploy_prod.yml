@@ -1,7 +1,7 @@
 name: Nina CI/CD Pipeline
 on:
   push:
-    branches: [ deploy_dev ]
+    branches: [ deploy_prod ]
 
 jobs:
   continuous-integration:
@@ -14,7 +14,7 @@ jobs:
   continuous-deployment:
     runs-on: ubuntu-latest
     needs: [continuous-integration]
-    if: github.ref == 'refs/heads/deploy_dev'
+    if: github.ref == 'refs/heads/deploy_prod'
     steps:
      # Step 1
       - name: Configure AWS credentials
@@ -28,7 +28,7 @@ jobs:
         id: deploy
         run: |
           aws deploy create-deployment \
-            --application-name Nina_Indexer \
-            --deployment-group-name Nina_Indexer_Dev \
+            --application-name Nina_Indexer_Prod \
+            --deployment-group-name nina_indexer_prod \
             --deployment-config-name CodeDeployDefault.OneAtATime \
             --github-location repository=${{ github.repository }},commitId=${{ github.sha }}
