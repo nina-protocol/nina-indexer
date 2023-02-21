@@ -247,7 +247,6 @@ class NinaProcessor {
         for await (let tx of txs) {
           try {
             if (tx) {
-              const length = tx.transaction.message.instructions.length
               const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
               const accounts = ninaInstruction?.accounts
               const blocktime = tx.blockTime
@@ -443,6 +442,7 @@ class NinaProcessor {
           } catch (error) {
             console.log('error processing tx', error)
           }
+          this.latestSignature = page[i]
           i++
         }
       }
@@ -836,12 +836,6 @@ class NinaProcessor {
         options.until = tx.signature
       }
       const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
-      newSignatures.forEach(x => {
-        if (!this.latestSignature || x.blockTime > this.latestSignature.blockTime) {
-          this.latestSignature = x
-          console.log('New Latest Signature:', this.latestSignature.blockTime)
-        }
-      })
       let signature
       if (isBefore) {
         signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
