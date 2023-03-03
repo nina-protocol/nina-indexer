@@ -69,22 +69,22 @@ export default class Release extends Model {
       mint: releaseAccount.releaseMint.toBase58(),
       metadata: json,
       datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
-      publisherId: publisher.id,
+      publisher,
       releaseAccount
     });
     return release;
   }
 
-  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisher, releaseAccount}) => {
     const release = await Release.query().insertGraph({
       publicKey,
       mint,
       metadata,
       datetime,
-      publisherId,
+      publisherId: publisher.id,
     })
     await this.processRevenueShares(releaseAccount, release);
-    tweetNewRelease(metadata);
+    tweetNewRelease(metadata, publisher);
     return release;
   }
 

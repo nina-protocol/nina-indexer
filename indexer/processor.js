@@ -543,7 +543,7 @@ class NinaProcessor {
             mint: release.account.releaseMint.toBase58(),
             metadata: metadataJson,
             datetime: new Date(release.account.releaseDatetime.toNumber() * 1000).toISOString(),
-            publisherId: publisher.id,
+            publisher,
             releaseAccount: release
           })
         } catch (err) {
