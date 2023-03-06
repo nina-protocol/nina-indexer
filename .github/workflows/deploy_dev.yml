@@ -11,6 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
   environment:
+    runs-on: ubuntu-latest
     steps:
       - name: Envronment for Dev
         run: ./dev.sh
