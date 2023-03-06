@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Envronment for Dev
-        run: source /home/ec2-user/.env.development
+        run: |
+          source /home/ec2-user/.env.development
         shell: bash
         
   continuous-deployment:

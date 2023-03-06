@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Envronment for Production
-        run: source /home/ec2-user/.env.production
+        run: |
+          source /home/ec2-user/.env.production
         shell: bash
 
   continuous-deployment:
