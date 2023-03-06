@@ -10,15 +10,19 @@ jobs:
       # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
-  environment:
+  environment-setup:
     runs-on: ubuntu-latest
-    steps:
-      - name: Envronment for Dev
-        run: cat ${{ secrets.ENV_TEST }} > ./.env.development
-        shell: bash
-      - name: Echo
-        run: source ./.env.development
-        shell: bash
+    env:
+      ENV_TEST: ${{ secrets.ENV_TEST }}
+    run: |
+      touch .env.test
+      echo ENV_TEST="$ENV_TEST" >> .env.test
+      cat .env.test
+      source .env.test
+      echo $ENV_TEST
+    shell:
+      bash
+
         
   continuous-deployment:
     runs-on: ubuntu-latest
