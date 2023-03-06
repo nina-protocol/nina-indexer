@@ -21,6 +21,7 @@ export default class Hub extends Model {
         data: { type: 'object' },
         dataUri: { type: 'string' },
         datetime: { type: 'string' },
+        updatedAt: { type: 'string' },
       },
     };
   }
