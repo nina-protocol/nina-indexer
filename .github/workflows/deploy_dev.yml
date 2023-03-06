@@ -23,6 +23,8 @@ jobs:
         cat .env.test
         source .env.test
         echo $ENV_TEST
+        ls -a .
+        ls -la /home/ec2-user
       shell:
         bash
 
