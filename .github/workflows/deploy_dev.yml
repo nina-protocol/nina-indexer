@@ -14,16 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Configure dev environment
-    env:
+      env:
       ENV_TEST: ${{ secrets.ENV_TEST }}
-    run: |
-      touch .env.test
-      echo ENV_TEST="$ENV_TEST" >> .env.test
-      cat .env.test
-      source .env.test
-      echo $ENV_TEST
-    shell:
-      bash
+      run: |
+        touch .env.test
+        echo ENV_TEST="$ENV_TEST" >> .env.test
+        cat .env.test
+        source .env.test
+        echo $ENV_TEST
+      shell:
+        bash
 
         
   continuous-deployment:
