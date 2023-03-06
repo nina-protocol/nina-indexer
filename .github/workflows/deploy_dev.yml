@@ -13,21 +13,6 @@ jobs:
       # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
-  environment-setup:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Configure dev environment
-      run: |
-        touch .env.test
-        echo ENV_TEST="$ENV_TEST" >> .env.test
-        cat .env.test
-        source .env.test
-        echo $ENV_TEST
-        ls -a .
-        ls -la /home/ec2-user
-      shell:
-        bash
-
         
   continuous-deployment:
     runs-on: ubuntu-latest

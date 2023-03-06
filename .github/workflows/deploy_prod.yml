@@ -10,13 +10,6 @@ jobs:
       # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
-  environment:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Envronment for Production
-        run: |
-          source /home/ec2-user/.env.production
-        shell: bash
 
   continuous-deployment:
     runs-on: ubuntu-latest
