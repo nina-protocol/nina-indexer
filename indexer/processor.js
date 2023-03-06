@@ -32,6 +32,8 @@ import {
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000
 
+const CACHE_RESET_TIME = 1200000 // 20 minutes
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -558,7 +560,7 @@ class NinaProcessor {
             await Release.processRevenueShares(release, releaseRecord);
           }
           // If release.createdAt is newer than 20 minutes, reset the image cache
-          if (Date.parse(releaseRecord.datetime) > (Date.now() - 1200000)) {
+          if (Date.parse(releaseRecord.datetime) > (Date.now() - CACHE_RESET_TIME)) {
             this.warmCache(releaseRecord.metadata.image);
           }
         } catch (error) {
@@ -878,7 +880,7 @@ class NinaProcessor {
     }
 
     // If hub.updatedAt is newer than 20 minutes, reset the image cache
-    if (Date.parse(hub.updatedAt) > (Date.now() - 1200000)) {
+    if (Date.parse(hub.updatedAt) > (Date.now() - CACHE_RESET_TIME)) {
       this.warmCache(hub.data.image);
     }
 
