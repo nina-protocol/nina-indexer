@@ -1,1 +1,0 @@
-source /home/ec2-user/.env.development
