@@ -10,6 +10,11 @@ jobs:
       # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
+  environment:
+    steps:
+      - name: Envronment for Dev
+        run: ./dev.sh
+        shell: bash
         
   continuous-deployment:
     runs-on: ubuntu-latest
