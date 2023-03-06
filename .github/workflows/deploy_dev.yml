@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Envronment for Dev
-        run: source ${{ secrets.ENV_TEST }}
+        run: cat ${{ secrets.ENV_TEST }} > ./.env.development
         shell: bash
       - name: Echo
-        run: echo "$ENV_TEST"
+        run: source ./.env.development
         shell: bash
         
   continuous-deployment:
