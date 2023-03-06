@@ -3,6 +3,9 @@ on:
   push:
     branches: [ deploy_dev ]
 
+env:
+  ENV_TEST: ${{ secrets.ENV_TEST }}
+
 jobs:
   continuous-integration:
     runs-on: ubuntu-latest
@@ -14,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Configure dev environment
-      env:
-      ENV_TEST: ${{ secrets.ENV_TEST }}
       run: |
         touch .env.test
         echo ENV_TEST="$ENV_TEST" >> .env.test
