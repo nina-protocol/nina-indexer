@@ -54,14 +54,13 @@ export default class Release extends Model {
       provider,
     )
     const metaplex = new Metaplex(connection);
-
     const releaseAccount = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
     let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
     let json
     try {
-      json = await axios.get(metadataAccount.uri)
+      json = (await axios.get(metadataAccount.uri)).data
     } catch (error) {
-      json = await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))
+      json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
     }
 
     let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
@@ -86,7 +85,6 @@ export default class Release extends Model {
     })
     await this.processRevenueShares(releaseAccount, release);
     tweetNewRelease(metadata);
-    console.log('Inserted Release: ', publicKey)
     return release;
   }
 
