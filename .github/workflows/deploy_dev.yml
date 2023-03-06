@@ -12,6 +12,8 @@ jobs:
         uses: actions/checkout@v2
   environment-setup:
     runs-on: ubuntu-latest
+    steps:
+    - name: Configure dev environment
     env:
       ENV_TEST: ${{ secrets.ENV_TEST }}
     run: |
