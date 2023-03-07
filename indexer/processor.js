@@ -1024,21 +1024,25 @@ class NinaProcessor {
   }
 
   async warmCache(image) {
-    if (process.env.IMGIX_API_KEY) {
-      const purgeRequest = await axios.post('https://api.imgix.com/api/v1/purge', {
-        data: {
-          attributes: {
-            url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
-          },
-          type: 'purges'
-        }
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
-        }
-      })
-      console.log('Warmed Cache On Image:', image)
+    try {
+      if (process.env.IMGIX_API_KEY) {
+        const purgeRequest = await axios.post('https://api.imgix.com/api/v1/purge', {
+          data: {
+            attributes: {
+              url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
+            },
+            type: 'purges'
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
+          }
+        })
+        console.log('Warmed Cache On Image:', image)
+      }
+    } catch (err) {
+      console.log('Error warming cache:', err.toString());
     }
   }
 }
