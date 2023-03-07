@@ -879,9 +879,11 @@ class NinaProcessor {
       });
     }
 
-    // If hub.updatedAt is newer than 20 minutes, reset the image cache
-    if (Date.parse(hub.updatedAt) > (Date.now() - CACHE_RESET_TIME)) {
-      this.warmCache(hub.data.image);
+    if (hub.updatedAt) {
+      // If hub.updatedAt is newer than 20 minutes, reset the image cache
+      if (Date.parse(hub.updatedAt) > (Date.now() - CACHE_RESET_TIME)) {
+        this.warmCache(hub.data.image);
+      }
     }
 
     // Update Hub Releases
