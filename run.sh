@@ -10,6 +10,5 @@ else
 fi
 
 cd /home/ec2-user/nina-indexer
-yarn
 pm2 start yarn --name nina-indexer -- start:indexer
 pm2 start yarn --name nina-api -- start:api
