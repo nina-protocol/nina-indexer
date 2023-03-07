@@ -32,6 +32,8 @@ import {
 const MAX_PARSED_TRANSACTIONS = 150
 const MAX_TRANSACTION_SIGNATURES = 1000
 
+const CACHE_RESET_TIME = 1200000 // 20 minutes
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -557,6 +559,10 @@ class NinaProcessor {
           if (release) {
             await Release.processRevenueShares(release, releaseRecord);
           }
+          // If release.createdAt is newer than 20 minutes, reset the image cache
+          if (Date.parse(releaseRecord.datetime) > (Date.now() - CACHE_RESET_TIME)) {
+            this.warmCache(releaseRecord.metadata.image);
+          }
         } catch (error) {
           console.log('error Release.processRevenueShares existingReleases: ', error)
         }
@@ -682,6 +688,7 @@ class NinaProcessor {
           data,
           dataUri: newHub.account.uri,
           datetime: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
+          updatedAt: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
           authorityId: authority.id,
         });
         console.log('Inserted Hub:', newHub.publicKey.toBase58());
@@ -867,10 +874,16 @@ class NinaProcessor {
       }
       await hub.$query().patch({
         data,
-        dataUri: hubAccount.account.uri
+        dataUri: hubAccount.account.uri,
+        updatedAt: new Date().toISOString(),
       });
     }
-  
+
+    // If hub.updatedAt is newer than 20 minutes, reset the image cache
+    if (Date.parse(hub.updatedAt) > (Date.now() - CACHE_RESET_TIME)) {
+      this.warmCache(hub.data.image);
+    }
+
     // Update Hub Releases
     const hubReleasesForHubOnChain = hubReleases.hubReleasesForHubOnChain;
     const hubReleasesForHubDb = hubReleases.hubReleasesForHubDb;
@@ -1001,6 +1014,25 @@ class NinaProcessor {
       } catch (err) {
         console.log(err);
       }
+    }
+  }
+
+  async warmCache(image) {
+    if (process.env.IMGIX_API_KEY) {
+      const purgeRequest = await axios.post('https://api.imgix.com/api/v1/purge', {
+        data: {
+          attributes: {
+            url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
+          },
+          type: 'purges'
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
+        }
+      })
+      console.log('Warmed Cache On Image:', image)
     }
   }
 }
