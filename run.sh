@@ -15,5 +15,5 @@ else
 fi
 
 cd /home/ec2-user/nina-indexer
-pm2 start yarn --name nina-indexer -- start:indexer
-pm2 start yarn --name nina-api -- start:api
+pm2 --max-memory-restart 2048M start yarn --name nina-indexer -- start:indexer
+pm2 --max-memory-restart 2048M start yarn --name nina-api -- start:api
