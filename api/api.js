@@ -1361,7 +1361,7 @@ export default (router) => {
     }
   })
 
-  const sleep = () => new Promise(resolve => setTimeout(resolve, 2000))
+  const sleep = () => new Promise(resolve => setTimeout(resolve, 500))
 
   const verficationRequest = async (publicKey) => {
     try {
