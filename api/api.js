@@ -1376,7 +1376,7 @@ export default (router) => {
     try {
       let i = 0;
       let verification
-      while (!verification && i < 30) {
+      while (!verification && i < 60) {
         verification = await verficationRequest(publicKey)
         i++;
         await sleep()
