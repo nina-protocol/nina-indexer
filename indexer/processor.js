@@ -53,6 +53,7 @@ class NinaProcessor {
     this.program = null;
     this.metaplex = null;
     this.latestSignature = null;
+    this.isProcessing = false;
   }
 
   async init() {
@@ -68,15 +69,22 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    try {
-      await this.processReleases();
-      await this.processPosts();
-      await this.processHubs();
-      await this.processSubscriptions();
-      await this.processVerifications();
-      await this.processExchangesAndTransactions();
-    } catch (error) {
-      console.warn(error)
+    if (!this.isProcessing) {
+      console.log(`${new Date()} Running DB processes`)
+      this.isProcessing = true;
+      try {
+        await this.processReleases();
+        await this.processPosts();
+        await this.processHubs();
+        await this.processSubscriptions();
+        await this.processVerifications();
+        await this.processExchangesAndTransactions();
+        this.isProcessing = false;
+      } catch (error) {
+        console.warn(error)
+      }
+    } else {
+      console.log(`${new Date()} DB processes already running`)
     }
   }
 
@@ -95,7 +103,6 @@ class NinaProcessor {
         }]
       }
     );
-
     const existingNameRegistries = await Verification.query();
     const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
     const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
@@ -108,7 +115,6 @@ class NinaProcessor {
         console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
       }
     }
-
     for await (let nameRegistry of deletedNameRegistries) {
       try {
         await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
@@ -129,6 +135,25 @@ class NinaProcessor {
                 displayName: profile.name,
                 image: profile.profile_image_url.replace('_normal', ''),
                 description: profile.description,
+                active: true,
+              }).where({ publicKey: nameRegistry.publicKey });
+            } else {
+              if (nameRegistry.active) {
+                await Verification.query().patch({
+                  active: false,
+                }).where({ publicKey: nameRegistry.publicKey });  
+              }
+            }
+          }
+        } else if (nameRegistry.type === 'soundcloud') {
+          try {
+            await axios.get(nameRegistry.image)
+          } catch (e) {
+            const profile = await getSoundcloudProfile(nameRegistry.value);
+            if (profile) {
+              await Verification.query().patch({
+                displayName: profile.username,
+                image: profile.avatar_url,
                 active: true,
               }).where({ publicKey: nameRegistry.publicKey });
             } else {

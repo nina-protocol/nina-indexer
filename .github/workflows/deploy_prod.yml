@@ -10,7 +10,7 @@ jobs:
       # Repo Checkout
       - name: Checkout
         uses: actions/checkout@v2
-        
+
   continuous-deployment:
     runs-on: ubuntu-latest
     needs: [continuous-integration]
