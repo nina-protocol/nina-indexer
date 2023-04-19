@@ -72,17 +72,36 @@ class NinaProcessor {
     if (!this.isProcessing) {
       console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
+      
       try {
+        console.log(`${new Date()} Running processReleases()`)
         await this.processReleases();
+        console.log(`${new Date()} Completed processReleases()`)
+
+        console.log(`${new Date()} Running processPosts()`)
         await this.processPosts();
+        console.log(`${new Date()} Completed processReleases()`)
+
+        console.log(`${new Date()} Running processHubs()`)
         await this.processHubs();
+        console.log(`${new Date()} Completed processHubs()`)
+
+        console.log(`${new Date()} Running processSubscriptions()`)
         await this.processSubscriptions();
+        console.log(`${new Date()} Completed processSubscriptions()`)
+
+        console.log(`${new Date()} Running processVerifications()`)
         await this.processVerifications();
+        console.log(`${new Date()} Completed processVerifications()`)
+
+        console.log(`${new Date()} Running processExchangesAndTransactions()`)
         await this.processExchangesAndTransactions();
-        this.isProcessing = false;
+        console.log(`${new Date()} Completed processExchangesAndTransactions()`)
       } catch (error) {
-        console.warn(error)
+        console.log(`${new Date()} Error running DB processes: ${error}`)
       }
+
+      this.isProcessing = false;
     } else {
       console.log(`${new Date()} DB processes already running`)
     }
