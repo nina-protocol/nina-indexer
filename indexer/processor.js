@@ -70,7 +70,7 @@ class NinaProcessor {
 
   async runDbProcesses() {
     if (!this.isProcessing) {
-      console.log(`running db processes`)
+      console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
       try {
         await this.processReleases();
@@ -84,7 +84,7 @@ class NinaProcessor {
         console.warn(error)
       }
     } else {
-      console.log(`db processes already running`)
+      console.log(`${new Date()} DB processes already running`)
     }
   }
 
