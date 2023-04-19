@@ -72,7 +72,7 @@ class NinaProcessor {
     if (!this.isProcessing) {
       console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
-      
+
       try {
         console.log(`${new Date()} Running processReleases()`)
         await this.processReleases();
@@ -80,7 +80,7 @@ class NinaProcessor {
 
         console.log(`${new Date()} Running processPosts()`)
         await this.processPosts();
-        console.log(`${new Date()} Completed processReleases()`)
+        console.log(`${new Date()} Completed processPosts()`)
 
         console.log(`${new Date()} Running processHubs()`)
         await this.processHubs();
