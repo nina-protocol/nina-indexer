@@ -53,6 +53,7 @@ class NinaProcessor {
     this.program = null;
     this.metaplex = null;
     this.latestSignature = null;
+    this.isProcessing = false;
   }
 
   async init() {
@@ -68,15 +69,22 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    try {
-      await this.processReleases();
-      await this.processPosts();
-      await this.processHubs();
-      await this.processSubscriptions();
-      await this.processVerifications();
-      await this.processExchangesAndTransactions();
-    } catch (error) {
-      console.warn(error)
+    if (!this.isProcessing) {
+      console.log(`running db processes`)
+      this.isProcessing = true;
+      try {
+        await this.processReleases();
+        await this.processPosts();
+        await this.processHubs();
+        await this.processSubscriptions();
+        await this.processVerifications();
+        await this.processExchangesAndTransactions();
+        this.isProcessing = false;
+      } catch (error) {
+        console.warn(error)
+      }
+    } else {
+      console.log(`db processes already running`)
     }
   }
 
