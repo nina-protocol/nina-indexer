@@ -10,7 +10,7 @@ import { environmentIsSetup } from "../scripts/env_check.js";
 const arg = process.argv.slice()
 
 const startProcessing = async () => {
-  console.log('Indexer Starting Up')
+  console.log(`${new Date()} Indexer Starting Up`)
   await initDb(config)
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
@@ -23,18 +23,18 @@ const startProcessing = async () => {
   console.log('Initial Sync complete')
 
   cron.schedule('* * * * *', async() => {
-    console.log('Cron job starting: Sync Hubs + Releases');
+    console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
     if (arg[2]=="--heap-stats") {
       runHeapDiagnostics()
     }
     await NinaProcessor.runDbProcesses()
-    console.log('Cron job ended: Sync Hubs + Releases');
+    console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
   });
   
   cron.schedule('0 * * * *', async() => {
-    console.log('Cron job starting: Sync Collectors');
+    console.log(`${new Date()} Cron job starting: Sync Collectors`);
     await NinaProcessor.processCollectors()
-    console.log('Cron job ended: Sync Collectors');
+    console.log(`${new Date()} Cron job ended: Sync Collectors`);
   })
 }
 
