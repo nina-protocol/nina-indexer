@@ -3,6 +3,7 @@ os: linux
 files:
   - source: /
     destination: /home/ec2-user/nina-indexer
+    overwrite: yes
 hooks:
   BeforeInstall:
    - location: stop.sh
