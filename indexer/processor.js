@@ -51,6 +51,7 @@ class NinaProcessor {
     this.program = null;
     this.metaplex = null;
     this.latestSignature = null;
+    this.isProcessing = false;
   }
 
   async init() {
@@ -66,15 +67,41 @@ class NinaProcessor {
   }
 
   async runDbProcesses() {
-    try {
-      await this.processReleases();
-      await this.processPosts();
-      await this.processHubs();
-      await this.processSubscriptions();
-      await this.processVerifications();
-      await this.processExchangesAndTransactions();
-    } catch (error) {
-      console.warn(error)
+    if (!this.isProcessing) {
+      console.log(`${new Date()} Running DB processes`)
+      this.isProcessing = true;
+
+      try {
+        console.log(`${new Date()} Running processReleases()`)
+        await this.processReleases();
+        console.log(`${new Date()} Completed processReleases()`)
+
+        console.log(`${new Date()} Running processPosts()`)
+        await this.processPosts();
+        console.log(`${new Date()} Completed processPosts()`)
+
+        console.log(`${new Date()} Running processHubs()`)
+        await this.processHubs();
+        console.log(`${new Date()} Completed processHubs()`)
+
+        console.log(`${new Date()} Running processSubscriptions()`)
+        await this.processSubscriptions();
+        console.log(`${new Date()} Completed processSubscriptions()`)
+
+        console.log(`${new Date()} Running processVerifications()`)
+        await this.processVerifications();
+        console.log(`${new Date()} Completed processVerifications()`)
+
+        console.log(`${new Date()} Running processExchangesAndTransactions()`)
+        await this.processExchangesAndTransactions();
+        console.log(`${new Date()} Completed processExchangesAndTransactions()`)
+      } catch (error) {
+        console.log(`${new Date()} Error running DB processes: ${error}`)
+      }
+
+      this.isProcessing = false;
+    } else {
+      console.log(`${new Date()} DB processes already running`)
     }
   }
 
@@ -137,7 +164,27 @@ class NinaProcessor {
               }
             }
           }
+        } else if (nameRegistry.type === 'soundcloud') {
+          try {
+            await axios.get(nameRegistry.image)
+          } catch (e) {
+            const profile = await getSoundcloudProfile(nameRegistry.value);
+            if (profile) {
+              await Verification.query().patch({
+                displayName: profile.username,
+                image: profile.avatar_url,
+                active: true,
+              }).where({ publicKey: nameRegistry.publicKey });
+            } else {
+              if (nameRegistry.active) {
+                await Verification.query().patch({
+                  active: false,
+                }).where({ publicKey: nameRegistry.publicKey });  
+              }
+            }
+          }
         }
+
       } catch (e) {
         console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
