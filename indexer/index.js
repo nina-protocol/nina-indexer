@@ -27,6 +27,7 @@ const startProcessing = async () => {
     if (arg[2]=="--heap-stats") {
       runHeapDiagnostics()
     }
+    console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
     await NinaProcessor.runDbProcesses()
     console.log('Cron job ended: Sync Hubs + Releases');
   });
@@ -44,6 +45,13 @@ try {
 } catch (error) {
   console.error('Environment is not properly setup.  Check .env file and try again.')
   console.error(error)
+}
+
+function getUsedHeapSize() {
+  const heapStats = v8.getHeapStatistics();
+  const usedHeapSizeBytes = heapStats.used_heap_size;
+  const usedHeapSizeMB = usedHeapSizeBytes / (1024 * 1024);
+  return usedHeapSizeMB;
 }
 
 const runHeapDiagnostics = () => {
