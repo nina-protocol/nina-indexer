@@ -9,6 +9,13 @@ import { environmentIsSetup } from "../scripts/env_check.js";
 
 const arg = process.argv.slice()
 
+function getUsedHeapSize() {
+  const heapStats = v8.getHeapStatistics();
+  const usedHeapSizeBytes = heapStats.used_heap_size;
+  const usedHeapSizeMB = usedHeapSizeBytes / (1024 * 1024);
+  return usedHeapSizeMB;
+}
+
 const startProcessing = async () => {
   console.log(`${new Date()} Indexer Starting Up`)
   await initDb(config)
@@ -25,8 +32,9 @@ const startProcessing = async () => {
   cron.schedule('* * * * *', async() => {
     console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
     if (arg[2]=="--heap-stats") {
-      runHeapDiagnostics()
+      runHeapDiagnostics() // Verbose heap diagnostics if option enabled
     }
+    console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
     await NinaProcessor.runDbProcesses()
     console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
   });
