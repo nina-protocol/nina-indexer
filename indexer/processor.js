@@ -108,87 +108,90 @@ class NinaProcessor {
   }
 
   async processVerifications() {
-    
-    let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
-      NAME_PROGRAM_ID, {
-        commitment: this.provider.connection.commitment,
-        filters: [{
-          dataSize: 192
-        }, {
-          memcmp: {
-            offset: 64,
-            bytes: NINA_ID.toBase58()
-          }
-        }]
-      }
-    );
-    const existingNameRegistries = await Verification.query();
-    const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
-    const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
-    for await (let nameRegistry of newNameRegistries) {
-      try {
-        if (!nameAccountSkipList.includes(nameRegistry.pubkey.toBase58())) {
-          await this.processVerification(nameRegistry.pubkey);
+    try {
+      let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
+        NAME_PROGRAM_ID, {
+          commitment: this.provider.connection.commitment,
+          filters: [{
+            dataSize: 192
+          }, {
+            memcmp: {
+              offset: 64,
+              bytes: NINA_ID.toBase58()
+            }
+          }]
         }
-      } catch (e) {
-        console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+      );
+      const existingNameRegistries = await Verification.query();
+      const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
+      const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
+      for await (let nameRegistry of newNameRegistries) {
+        try {
+          if (!nameAccountSkipList.includes(nameRegistry.pubkey.toBase58())) {
+            await this.processVerification(nameRegistry.pubkey);
+          }
+        } catch (e) {
+          console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+        }
       }
-    }
-    for await (let nameRegistry of deletedNameRegistries) {
-      try {
-        await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
-      } catch (e) {
-        console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+      for await (let nameRegistry of deletedNameRegistries) {
+        try {
+          await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
+        } catch (e) {
+          console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+        }
       }
-    }
-    
-    for await (let nameRegistry of existingNameRegistries) {
-      try {
-        if (nameRegistry.type === 'twitter') {
-          try {
-            await axios.get(nameRegistry.image)
-          } catch (e){
-            const profile = await getTwitterProfile(nameRegistry.value);
-            if (profile) {
-              await Verification.query().patch({
-                displayName: profile.name,
-                image: profile.profile_image_url.replace('_normal', ''),
-                description: profile.description,
-                active: true,
-              }).where({ publicKey: nameRegistry.publicKey });
-            } else {
-              if (nameRegistry.active) {
+      
+      for await (let nameRegistry of existingNameRegistries) {
+        try {
+          if (nameRegistry.type === 'twitter') {
+            try {
+              await axios.get(nameRegistry.image)
+            } catch (e){
+              const profile = await getTwitterProfile(nameRegistry.value);
+              if (profile) {
                 await Verification.query().patch({
-                  active: false,
-                }).where({ publicKey: nameRegistry.publicKey });  
+                  displayName: profile.name,
+                  image: profile.profile_image_url.replace('_normal', ''),
+                  description: profile.description,
+                  active: true,
+                }).where({ publicKey: nameRegistry.publicKey });
+              } else {
+                if (nameRegistry.active) {
+                  await Verification.query().patch({
+                    active: false,
+                  }).where({ publicKey: nameRegistry.publicKey });  
+                }
+              }
+            }
+          } else if (nameRegistry.type === 'soundcloud') {
+            try {
+              await axios.get(nameRegistry.image)
+            } catch (e) {
+              const profile = await getSoundcloudProfile(nameRegistry.value);
+              if (profile) {
+                await Verification.query().patch({
+                  displayName: profile.username,
+                  image: profile.avatar_url,
+                  active: true,
+                }).where({ publicKey: nameRegistry.publicKey });
+              } else {
+                if (nameRegistry.active) {
+                  await Verification.query().patch({
+                    active: false,
+                  }).where({ publicKey: nameRegistry.publicKey });  
+                }
               }
             }
           }
-        } else if (nameRegistry.type === 'soundcloud') {
-          try {
-            await axios.get(nameRegistry.image)
-          } catch (e) {
-            const profile = await getSoundcloudProfile(nameRegistry.value);
-            if (profile) {
-              await Verification.query().patch({
-                displayName: profile.username,
-                image: profile.avatar_url,
-                active: true,
-              }).where({ publicKey: nameRegistry.publicKey });
-            } else {
-              if (nameRegistry.active) {
-                await Verification.query().patch({
-                  active: false,
-                }).where({ publicKey: nameRegistry.publicKey });  
-              }
-            }
-          }
+        } catch (e) {
+          console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
         }
-      } catch (e) {
-        console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
+      return true
+    } catch (error) {
+      console.log(`${new Date()} Error processing verifications: ${error}`)
     }
-    return true
   }
 
   async processVerification (publicKey) {
