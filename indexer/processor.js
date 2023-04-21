@@ -34,6 +34,8 @@ const MAX_TRANSACTION_SIGNATURES = 1000
 
 const CACHE_RESET_TIME = 1200000 // 20 minutes
 
+const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -336,7 +338,7 @@ class NinaProcessor {
                 } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
                   transactionObject.type = 'ReleasePurchase'
                   releasePublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
+                  accountPublicKey = accounts[1].toBase58()
                   await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
                 } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
                   transactionObject.type = 'HubAddCollaborator'
@@ -359,6 +361,14 @@ class NinaProcessor {
                   postPublicKey = accounts[2].toBase58()
                   accountPublicKey = accounts[0].toBase58()
                   hubPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccountDelegated'))) {
+                  transactionObject.type = 'SubscriptionSubscribeAccountDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                  toAccountPublicKey = accounts[3].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHubDelegated'))) {
+                  transactionObject.type = 'SubscriptionSubscribeHubDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                  toHubPublicKey = accounts[3].toBase58()
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
                   transactionObject.type = 'SubscriptionSubscribeAccount'
                   accountPublicKey = accounts[0].toBase58()
@@ -367,6 +377,16 @@ class NinaProcessor {
                   transactionObject.type = 'SubscriptionSubscribeHub'
                   accountPublicKey = accounts[0].toBase58()
                   toHubPublicKey = accounts[2].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribeDelegated'))) {
+                  transactionObject.type = 'SubscriptionUnsubscribeDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
+                  transactionObject.type = 'SubscriptionUnsubscribe'
+                  accountPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+                  transactionObject.type = 'ReleaseClaim'
+                  accountPublicKey = accounts[3].toBase58()
+                  releasePublicKey = accounts[1].toBase58()
                 } else {
                   if (accounts?.length === 10) {
                     if (accounts[0].toBase58() === accounts[1].toBase58()) {
