@@ -34,6 +34,8 @@ const MAX_TRANSACTION_SIGNATURES = 1000
 
 const CACHE_RESET_TIME = 1200000 // 20 minutes
 
+const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
+
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -108,87 +110,90 @@ class NinaProcessor {
   }
 
   async processVerifications() {
-    
-    let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
-      NAME_PROGRAM_ID, {
-        commitment: this.provider.connection.commitment,
-        filters: [{
-          dataSize: 192
-        }, {
-          memcmp: {
-            offset: 64,
-            bytes: NINA_ID.toBase58()
-          }
-        }]
-      }
-    );
-    const existingNameRegistries = await Verification.query();
-    const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
-    const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
-    for await (let nameRegistry of newNameRegistries) {
-      try {
-        if (!nameAccountSkipList.includes(nameRegistry.pubkey.toBase58())) {
-          await this.processVerification(nameRegistry.pubkey);
+    try {
+      let ninaIdNameRegistries = await this.provider.connection.getParsedProgramAccounts(
+        NAME_PROGRAM_ID, {
+          commitment: this.provider.connection.commitment,
+          filters: [{
+            dataSize: 192
+          }, {
+            memcmp: {
+              offset: 64,
+              bytes: NINA_ID.toBase58()
+            }
+          }]
         }
-      } catch (e) {
-        console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+      );
+      const existingNameRegistries = await Verification.query();
+      const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
+      const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
+      for await (let nameRegistry of newNameRegistries) {
+        try {
+          if (!nameAccountSkipList.includes(nameRegistry.pubkey.toBase58())) {
+            await this.processVerification(nameRegistry.pubkey);
+          }
+        } catch (e) {
+          console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+        }
       }
-    }
-    for await (let nameRegistry of deletedNameRegistries) {
-      try {
-        await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
-      } catch (e) {
-        console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+      for await (let nameRegistry of deletedNameRegistries) {
+        try {
+          await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
+        } catch (e) {
+          console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+        }
       }
-    }
-    
-    for await (let nameRegistry of existingNameRegistries) {
-      try {
-        if (nameRegistry.type === 'twitter') {
-          try {
-            await axios.get(nameRegistry.image)
-          } catch (e){
-            const profile = await getTwitterProfile(nameRegistry.value);
-            if (profile) {
-              await Verification.query().patch({
-                displayName: profile.name,
-                image: profile.profile_image_url.replace('_normal', ''),
-                description: profile.description,
-                active: true,
-              }).where({ publicKey: nameRegistry.publicKey });
-            } else {
-              if (nameRegistry.active) {
+      
+      for await (let nameRegistry of existingNameRegistries) {
+        try {
+          if (nameRegistry.type === 'twitter') {
+            try {
+              await axios.get(nameRegistry.image)
+            } catch (e){
+              const profile = await getTwitterProfile(nameRegistry.value);
+              if (profile) {
                 await Verification.query().patch({
-                  active: false,
-                }).where({ publicKey: nameRegistry.publicKey });  
+                  displayName: profile.name,
+                  image: profile.profile_image_url.replace('_normal', ''),
+                  description: profile.description,
+                  active: true,
+                }).where({ publicKey: nameRegistry.publicKey });
+              } else {
+                if (nameRegistry.active) {
+                  await Verification.query().patch({
+                    active: false,
+                  }).where({ publicKey: nameRegistry.publicKey });  
+                }
+              }
+            }
+          } else if (nameRegistry.type === 'soundcloud') {
+            try {
+              await axios.get(nameRegistry.image)
+            } catch (e) {
+              const profile = await getSoundcloudProfile(nameRegistry.value);
+              if (profile) {
+                await Verification.query().patch({
+                  displayName: profile.username,
+                  image: profile.avatar_url,
+                  active: true,
+                }).where({ publicKey: nameRegistry.publicKey });
+              } else {
+                if (nameRegistry.active) {
+                  await Verification.query().patch({
+                    active: false,
+                  }).where({ publicKey: nameRegistry.publicKey });  
+                }
               }
             }
           }
-        } else if (nameRegistry.type === 'soundcloud') {
-          try {
-            await axios.get(nameRegistry.image)
-          } catch (e) {
-            const profile = await getSoundcloudProfile(nameRegistry.value);
-            if (profile) {
-              await Verification.query().patch({
-                displayName: profile.username,
-                image: profile.avatar_url,
-                active: true,
-              }).where({ publicKey: nameRegistry.publicKey });
-            } else {
-              if (nameRegistry.active) {
-                await Verification.query().patch({
-                  active: false,
-                }).where({ publicKey: nameRegistry.publicKey });  
-              }
-            }
-          }
+        } catch (e) {
+          console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
         }
-      } catch (e) {
-        console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
       }
+      return true
+    } catch (error) {
+      console.log(`${new Date()} Error processing verifications: ${error}`)
     }
-    return true
   }
 
   async processVerification (publicKey) {
@@ -333,7 +338,7 @@ class NinaProcessor {
                 } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
                   transactionObject.type = 'ReleasePurchase'
                   releasePublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
+                  accountPublicKey = accounts[1].toBase58()
                   await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
                 } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
                   transactionObject.type = 'HubAddCollaborator'
@@ -356,6 +361,14 @@ class NinaProcessor {
                   postPublicKey = accounts[2].toBase58()
                   accountPublicKey = accounts[0].toBase58()
                   hubPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccountDelegated'))) {
+                  transactionObject.type = 'SubscriptionSubscribeAccountDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                  toAccountPublicKey = accounts[3].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHubDelegated'))) {
+                  transactionObject.type = 'SubscriptionSubscribeHubDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                  toHubPublicKey = accounts[3].toBase58()
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
                   transactionObject.type = 'SubscriptionSubscribeAccount'
                   accountPublicKey = accounts[0].toBase58()
@@ -364,6 +377,16 @@ class NinaProcessor {
                   transactionObject.type = 'SubscriptionSubscribeHub'
                   accountPublicKey = accounts[0].toBase58()
                   toHubPublicKey = accounts[2].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribeDelegated'))) {
+                  transactionObject.type = 'SubscriptionUnsubscribeDelegated'
+                  accountPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
+                  transactionObject.type = 'SubscriptionUnsubscribe'
+                  accountPublicKey = accounts[1].toBase58()
+                } else if (tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+                  transactionObject.type = 'ReleaseClaim'
+                  accountPublicKey = accounts[3].toBase58()
+                  releasePublicKey = accounts[1].toBase58()
                 } else {
                   if (accounts?.length === 10) {
                     if (accounts[0].toBase58() === accounts[1].toBase58()) {
@@ -660,102 +683,36 @@ class NinaProcessor {
   }
 
   async processHubs() {
-    const hubs = await this.program.account.hub.all();
-    const hubContent = await this.program.account.hubContent.all();
-    const hubReleases = await this.program.account.hubRelease.all();
-    const hubCollaborators = await this.program.account.hubCollaborator.all();
-    const hubPosts = await this.program.account.hubPost.all();
-
-    const existingHubs = await Hub.query();
-
-    for await (let existingHub of existingHubs) {
-      const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
-      const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(existingHub)).map(x => x.publicKey);
-      const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
-  
-
-      const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
-      const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(existingHub)).map(x => x.publicKey);
-      const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
-  
-      const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
-      const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(existingHub)).map(x => x.publicKey);
-      const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
-      
-
-      const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === existingHub.publicKey)
-
-      const hubAccount = hubs.find(x => x.publicKey.toBase58() === existingHub.publicKey);
-      await this.updateHub(
-        existingHub,
-        hubAccount,
-        hubContentsForHub,
-        {
-          hubReleasesForHubOnChain,
-          hubReleasesForHubDb,
-          newHubReleasesForHub
-        }, {
-          hubCollaboratorsForHubOnChain,
-          hubCollaboratorsForHubDb,
-          newHubCollaboratorsForHub
-        }, {
-          hubPostsForHubOnChain,
-          hubPostsForHubDb,
-          newHubPostsForHub
-        });
-    }
-    
-    let newHubs = hubs.filter(x => !existingHubs.find(y => y.publicKey === x.publicKey.toBase58()));
-    newHubs.forEach(hub => {
-      hub.account.uri = decode(hub.account.uri);
-    })
-    newHubs = newHubs.filter(hub => hub.account.uri.indexOf("arweave.net") > -1)
-
-    let newHubsJson
     try {
-      newHubsJson = await axios.all(
-        newHubs.map(hub => axios.get(hub.account.uri))
-      ).then(axios.spread((...responses) => responses))
-    } catch (error) {
-      newHubsJson = await axios.all(
-        newHubs.map(hub => axios.get(hub.account.uri.replace('arweave.net', 'ar-io.net')))
-      ).then(axios.spread((...responses) => responses))
-    }
-
-    for await (let newHub of newHubs) {
-      try {
-        const data = newHubsJson.find(x => x.config.url.includes(uriExtractor(newHub.account.uri))).data
-        let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
-        const hub = await Hub.query().insertGraph({
-          publicKey: newHub.publicKey.toBase58(),
-          handle: decode(newHub.account.handle),
-          data,
-          dataUri: newHub.account.uri,
-          datetime: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
-          updatedAt: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
-          authorityId: authority.id,
-        });
-        console.log('Inserted Hub:', newHub.publicKey.toBase58());
-        
-        const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
-        const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(hub)).map(x => x.publicKey);
+      const hubs = await this.program.account.hub.all();
+      const hubContent = await this.program.account.hubContent.all();
+      const hubReleases = await this.program.account.hubRelease.all();
+      const hubCollaborators = await this.program.account.hubCollaborator.all();
+      const hubPosts = await this.program.account.hubPost.all();
+  
+      const existingHubs = await Hub.query();
+  
+      for await (let existingHub of existingHubs) {
+        const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+        const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(existingHub)).map(x => x.publicKey);
         const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
     
   
-        const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === hub.publicKey);
-        const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(hub)).map(x => x.publicKey);
+        const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+        const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(existingHub)).map(x => x.publicKey);
         const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
     
-        const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === hub.publicKey);
-        const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(hub)).map(x => x.publicKey);
+        const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
+        const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(existingHub)).map(x => x.publicKey);
         const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
         
   
-        const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === hub.publicKey)
+        const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === existingHub.publicKey)
   
+        const hubAccount = hubs.find(x => x.publicKey.toBase58() === existingHub.publicKey);
         await this.updateHub(
-          hub,
-          newHub,
+          existingHub,
+          hubAccount,
           hubContentsForHub,
           {
             hubReleasesForHubOnChain,
@@ -770,111 +727,189 @@ class NinaProcessor {
             hubPostsForHubDb,
             newHubPostsForHub
           });
-      } catch (err) {
-        console.log(err);
       }
+      
+      let newHubs = hubs.filter(x => !existingHubs.find(y => y.publicKey === x.publicKey.toBase58()));
+      newHubs.forEach(hub => {
+        hub.account.uri = decode(hub.account.uri);
+      })
+      newHubs = newHubs.filter(hub => hub.account.uri.indexOf("arweave.net") > -1)
+  
+      let newHubsJson
+      try {
+        newHubsJson = await axios.all(
+          newHubs.map(hub => axios.get(hub.account.uri))
+        ).then(axios.spread((...responses) => responses))
+      } catch (error) {
+        newHubsJson = await axios.all(
+          newHubs.map(hub => axios.get(hub.account.uri.replace('arweave.net', 'ar-io.net')))
+        ).then(axios.spread((...responses) => responses))
+      }
+  
+      for await (let newHub of newHubs) {
+        try {
+          const data = newHubsJson.find(x => x.config.url.includes(uriExtractor(newHub.account.uri))).data
+          let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
+          const hub = await Hub.query().insertGraph({
+            publicKey: newHub.publicKey.toBase58(),
+            handle: decode(newHub.account.handle),
+            data,
+            dataUri: newHub.account.uri,
+            datetime: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
+            updatedAt: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
+            authorityId: authority.id,
+          });
+          console.log('Inserted Hub:', newHub.publicKey.toBase58());
+          
+          const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
+          const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(hub)).map(x => x.publicKey);
+          const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
+      
+    
+          const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === hub.publicKey);
+          const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(hub)).map(x => x.publicKey);
+          const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
+      
+          const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === hub.publicKey);
+          const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(hub)).map(x => x.publicKey);
+          const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
+          
+    
+          const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === hub.publicKey)
+    
+          await this.updateHub(
+            hub,
+            newHub,
+            hubContentsForHub,
+            {
+              hubReleasesForHubOnChain,
+              hubReleasesForHubDb,
+              newHubReleasesForHub
+            }, {
+              hubCollaboratorsForHubOnChain,
+              hubCollaboratorsForHubDb,
+              newHubCollaboratorsForHub
+            }, {
+              hubPostsForHubOnChain,
+              hubPostsForHubDb,
+              newHubPostsForHub
+            });
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    } catch (error) {
+      console.log(`${new Date()} - Error processing hubs: ${error}`)
     }
   }
 
   async processSubscriptions() {
-    const subscriptions = await this.program.account.subscription.all();
-    const existingSubscriptions = await Subscription.query();
-
-    let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
-
-    for await (let newSubscription of newSubscriptions) {
-      try {
-        await Subscription.query().insert({
-          publicKey: newSubscription.publicKey.toBase58(),
-          datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
-          from: newSubscription.account.from.toBase58(),
-          to: newSubscription.account.to.toBase58(),
-          subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
-        });
-        console.log('Inserted Subscription:', newSubscription.publicKey.toBase58());
-      } catch (err) {
-        console.log(err);
+    try {
+      const subscriptions = await this.program.account.subscription.all();
+      const existingSubscriptions = await Subscription.query();
+  
+      let newSubscriptions = subscriptions.filter(x => !existingSubscriptions.find(y => y.publicKey === x.publicKey.toBase58()));
+  
+      for await (let newSubscription of newSubscriptions) {
+        try {
+          await Subscription.query().insert({
+            publicKey: newSubscription.publicKey.toBase58(),
+            datetime: new Date(newSubscription.account.datetime.toNumber() * 1000).toISOString(),
+            from: newSubscription.account.from.toBase58(),
+            to: newSubscription.account.to.toBase58(),
+            subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
+          });
+          console.log('Inserted Subscription:', newSubscription.publicKey.toBase58());
+        } catch (err) {
+          console.log(err);
+        }
       }
-    }
-
-    let unsubscribes = existingSubscriptions.filter(x => !subscriptions.find(y => y.publicKey.toBase58() === x.publicKey));
-    for await (let unsubscribe of unsubscribes) {
-      try {
-        await Subscription.query().delete().where('publicKey', unsubscribe.publicKey)
-        console.log('Deleted Subscription:', unsubscribe.publicKey);
-      } catch (err) {
-        console.log(err);
+  
+      let unsubscribes = existingSubscriptions.filter(x => !subscriptions.find(y => y.publicKey.toBase58() === x.publicKey));
+      for await (let unsubscribe of unsubscribes) {
+        try {
+          await Subscription.query().delete().where('publicKey', unsubscribe.publicKey)
+          console.log('Deleted Subscription:', unsubscribe.publicKey);
+        } catch (err) {
+          console.log(err);
+        }
       }
+    } catch (error) {
+      console.log(`${new Date()} - Error processing subscriptions: ${error}`)
     }
   }
 
   async processCollectors() {
-    const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
-    const releaseMints = releases.map(x => x.account.releaseMint)
-    const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
-
-    const exchanges = await this.program.account.exchange.all();
-
-    for await (let metadata of metadataAccounts) {
-      try {
-        const release = releases.filter(x => x.account.releaseMint.toBase58() === metadata.mintAddress.toBase58())[0];
-        const releaseInDb = await Release.query().findOne({publicKey: release.publicKey.toBase58()});
-        const existingCollectorsInDb = await releaseInDb
-          .$relatedQuery('collectors')
-          .select('accountId', 'publicKey')
-        
-          let tokenAccountsForRelease = await this.tokenIndexProvider.connection.getParsedProgramAccounts(
-          new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
-          commitment: this.provider.connection.commitment,
-          filters: [{
-              dataSize: 165
-            }, {
-              memcmp: {
-                offset: 0,
-                bytes: release.account.releaseMint.toBase58()
-              }
-            }
-          ]
-        })
-        
-        const existingCollectorsOnChain = []
-        for await(let tokenAccount of tokenAccountsForRelease) {
-          try {
-            let response = await this.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
-            if (response.value.uiAmount > 0) {
-              let collectorPubkey = tokenAccount.account.data.parsed.info.owner
-              const isCollectorExchange = exchanges.filter(x => x.account.exchangeSigner.toBase58() === collectorPubkey)[0];
-              if (isCollectorExchange) {
-                collectorPubkey = isCollectorExchange.account.initializer.toBase58();
-              }
-              existingCollectorsOnChain.push(collectorPubkey);
-              if (!existingCollectorsInDb.map(x => x.publicKey).includes(collectorPubkey)) {
-                const account = await Account.findOrCreate(collectorPubkey);
-                try {
-                  await releaseInDb.$relatedQuery('collectors').relate(account.id);
-                  console.log('Inserted Collector For Release:', collectorPubkey, release.publicKey.toBase58());
-                } catch (error) {
-                  console.warn(error)
+    try {
+      const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
+      const releaseMints = releases.map(x => x.account.releaseMint)
+      const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
+  
+      const exchanges = await this.program.account.exchange.all();
+  
+      for await (let metadata of metadataAccounts) {
+        try {
+          const release = releases.filter(x => x.account.releaseMint.toBase58() === metadata.mintAddress.toBase58())[0];
+          const releaseInDb = await Release.query().findOne({publicKey: release.publicKey.toBase58()});
+          const existingCollectorsInDb = await releaseInDb
+            .$relatedQuery('collectors')
+            .select('accountId', 'publicKey')
+          
+            let tokenAccountsForRelease = await this.tokenIndexProvider.connection.getParsedProgramAccounts(
+            new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
+            commitment: this.provider.connection.commitment,
+            filters: [{
+                dataSize: 165
+              }, {
+                memcmp: {
+                  offset: 0,
+                  bytes: release.account.releaseMint.toBase58()
                 }
               }
+            ]
+          })
+          
+          const existingCollectorsOnChain = []
+          for await(let tokenAccount of tokenAccountsForRelease) {
+            try {
+              let response = await this.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccount.pubkey, this.provider.connection.commitment)
+              if (response.value.uiAmount > 0) {
+                let collectorPubkey = tokenAccount.account.data.parsed.info.owner
+                const isCollectorExchange = exchanges.filter(x => x.account.exchangeSigner.toBase58() === collectorPubkey)[0];
+                if (isCollectorExchange) {
+                  collectorPubkey = isCollectorExchange.account.initializer.toBase58();
+                }
+                existingCollectorsOnChain.push(collectorPubkey);
+                if (!existingCollectorsInDb.map(x => x.publicKey).includes(collectorPubkey)) {
+                  const account = await Account.findOrCreate(collectorPubkey);
+                  try {
+                    await releaseInDb.$relatedQuery('collectors').relate(account.id);
+                    console.log('Inserted Collector For Release:', collectorPubkey, release.publicKey.toBase58());
+                  } catch (error) {
+                    console.warn(error)
+                  }
+                }
+              }
+            } catch (err) {
+              console.log(err)
             }
-          } catch (err) {
-            console.log(err)
           }
+    
+          const collectorsToRemoveFromDb = existingCollectorsInDb.filter(x => !existingCollectorsOnChain.includes(x.publicKey));
+          for await (let collectorToRemove of collectorsToRemoveFromDb) {
+            try {
+              await releaseInDb.$relatedQuery('collectors').unrelate().where('accountId', collectorToRemove.accountId);
+              console.log('Removed Collector From Release:', collectorToRemove.publicKey, release.publicKey.toBase58());
+            } catch (err) {
+              console.log(err);
+            }
+          }      
+        } catch (err) {
+          console.log(err)
         }
-  
-        const collectorsToRemoveFromDb = existingCollectorsInDb.filter(x => !existingCollectorsOnChain.includes(x.publicKey));
-        for await (let collectorToRemove of collectorsToRemoveFromDb) {
-          try {
-            await releaseInDb.$relatedQuery('collectors').unrelate().where('accountId', collectorToRemove.accountId);
-            console.log('Removed Collector From Release:', collectorToRemove.publicKey, release.publicKey.toBase58());
-          } catch (err) {
-            console.log(err);
-          }
-        }      
-      } catch (err) {
-        console.log(err)
       }
+    } catch (error) {
+      console.log(`${new Date()} - Error processing collectors: ${error}`)
     }
   }
 
@@ -1070,7 +1105,7 @@ class NinaProcessor {
   async warmCache(image) {
     try {
       if (process.env.IMGIX_API_KEY) {
-        const purgeRequest = await axios.post('https://api.imgix.com/api/v1/purge', {
+        await axios.post('https://api.imgix.com/api/v1/purge', {
           data: {
             attributes: {
               url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
