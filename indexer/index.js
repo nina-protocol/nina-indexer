@@ -16,18 +16,35 @@ function getUsedHeapSize() {
   return usedHeapSizeMB;
 }
 
+const runInitialSync = async () => {
+  try {
+    console.log('Initial Sync starting')
+    await NinaProcessor.runDbProcesses()
+    if (process.env.RUN_INITIAL_SYNC === 'true') {
+      await NinaProcessor.processCollectors()
+    }
+    console.log('Initial Sync complete')
+    return true
+  } catch (error) {
+    console.log('Initial Sync error: ', error)
+    return false
+  }
+}
+
 const startProcessing = async () => {
   console.log(`${new Date()} Indexer Starting Up`)
   await initDb(config)
   await NinaProcessor.init()
   console.log('Indexer Started - DB and Processor Initialized')
-
-  console.log('Initial Sync starting')
-  await NinaProcessor.runDbProcesses()
-  if (process.env.RUN_INITIAL_SYNC === 'true') {
-    await NinaProcessor.processCollectors()
+  
+  let initialSyncComplete = false
+  while (!initialSyncComplete) {
+    initialSyncComplete = await runInitialSync()
+    if (!initialSyncComplete) {
+      console.log('Initial Sync failed.  Retrying in 5 seconds.')
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
   }
-  console.log('Initial Sync complete')
 
   cron.schedule('* * * * *', async() => {
     console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
