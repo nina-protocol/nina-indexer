@@ -415,7 +415,7 @@ class NinaProcessor {
                   }
 
                   if (accounts && !transactionObject.type) {
-                    if (accounts.length === 13) {
+                    if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
                       try {
                         const mintPublicKey = accounts[1]
                         await this.provider.connection.getTokenSupply(mintPublicKey)
@@ -436,13 +436,13 @@ class NinaProcessor {
                       } catch (error) {
                         console.log('error not a token mint: ', txid, error)
                       }
-                    } else if (accounts.length === 6) {
+                    } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
                       exchangeCancels.push({
                         publicKey: accounts[2].toBase58(),
                         updatedAt: datetime
                       })
                       console.log('found an exchange cancel', accounts[2].toBase58())
-                    } else if (accounts.length === 16) {
+                    } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
                       completedExchanges.push({
                         publicKey: accounts[2].toBase58(),
                         legacyExchangePublicKey: accounts[7].toBase58(),
@@ -450,7 +450,7 @@ class NinaProcessor {
                         updatedAt: datetime
                       })
                       transactionObject.type = 'ExchangeAccept'
-                      releasePublicKey = accounts[12].toBase58()
+                      releasePublicKey = accounts[10].toBase58()
                       accountPublicKey = accounts[0].toBase58()
                       console.log('found an exchange completed', accounts[2].toBase58())
                     }
