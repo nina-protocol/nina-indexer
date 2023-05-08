@@ -729,6 +729,7 @@ export default (router) => {
         await  Hub.query().patch({
           data: data.data,
           dataUri: uri,
+          updatedAt: new Date().toISOString(),
         }).findById(hub.id);
       }
       ctx.body = {
