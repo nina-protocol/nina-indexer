@@ -371,15 +371,29 @@ class NinaProcessor {
                   toHubPublicKey = accounts[3].toBase58()
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
                   transactionObject.type = 'SubscriptionSubscribeAccount'
-                  accountPublicKey = accounts[0].toBase58()
-                  toAccountPublicKey = accounts[2].toBase58()
+                  // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
+                  // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
+                  // with subscriptions created before nina v0.2.14
+                  if (accounts.length === 4) {
+                    accountPublicKey = accounts[0].toBase58()
+                    toHubPublicKey = accounts[2].toBase58()
+                  } else {
+                    accountPublicKey = accounts[1].toBase58()
+                    toHubPublicKey = accounts[3].toBase58()
+    
+                  }
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
                   transactionObject.type = 'SubscriptionSubscribeHub'
-                  accountPublicKey = accounts[0].toBase58()
-                  toHubPublicKey = accounts[2].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribeDelegated'))) {
-                  transactionObject.type = 'SubscriptionUnsubscribeDelegated'
-                  accountPublicKey = accounts[1].toBase58()
+                  // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
+                  // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
+                  // with subscriptions created before nina v0.2.14
+                  if (accounts.length === 4) {
+                    accountPublicKey = accounts[0].toBase58()
+                    toHubPublicKey = accounts[2].toBase58()
+                  } else {
+                    accountPublicKey = accounts[1].toBase58()
+                    toHubPublicKey = accounts[3].toBase58()
+                  }
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
                   transactionObject.type = 'SubscriptionUnsubscribe'
                   accountPublicKey = accounts[1].toBase58()
