@@ -1,4 +1,4 @@
-name: Nina CI/CD Pipeline
+name: Nina Indexer Dev CI/CD Pipeline
 on:
   push:
     branches: [ deploy_dev ]
