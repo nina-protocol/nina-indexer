@@ -729,6 +729,7 @@ export default (router) => {
         await  Hub.query().patch({
           data: data.data,
           dataUri: uri,
+          updatedAt: new Date().toISOString(),
         }).findById(hub.id);
       }
       ctx.body = {
@@ -1051,11 +1052,11 @@ export default (router) => {
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
           console.log('accounts.length', accounts.length)
-          if (accounts.length === 6) {
+          if (transaction.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
             console.log('found a cancel')
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
-          } else if (accounts.length === 16) {
+          } else if (transaction.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
             console.log('found an accept')
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
