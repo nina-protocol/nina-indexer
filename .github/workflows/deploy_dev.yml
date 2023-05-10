@@ -2,6 +2,7 @@ name: Nina CI/CD Pipeline
 on:
   push:
     branches: [ deploy_dev ]
+  workflow_dispatch:
 
 jobs:
   continuous-integration:
