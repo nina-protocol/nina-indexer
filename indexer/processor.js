@@ -376,10 +376,10 @@ class NinaProcessor {
                   // with subscriptions created before nina v0.2.14
                   if (accounts.length === 4) {
                     accountPublicKey = accounts[0].toBase58()
-                    toHubPublicKey = accounts[2].toBase58()
+                    toAccountPublicKey = accounts[2].toBase58()
                   } else {
                     accountPublicKey = accounts[1].toBase58()
-                    toHubPublicKey = accounts[3].toBase58()
+                    toAccountPublicKey = accounts[3].toBase58()
     
                   }
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
