@@ -597,21 +597,25 @@ class NinaProcessor {
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
       const existingReleases = await Release.query();
-  
+
+      console.log(`${new Date()} processReleases - ${releases.length}`)
+
       const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
       const newMints = allMints.filter(x => !existingReleases.find(y => y.mint === x));
       const newMetadata = metadataAccounts.filter(x => newMints.includes(x.mintAddress.toBase58()));
       const newReleasesWithMetadata = releases.filter(x => newMints.includes(x.account.releaseMint.toBase58()));
-      
+
       let newMetadataJson
       try {
         newMetadataJson = await axios.all(
           newMetadata.map(metadata => axios.get(metadata.uri))
         ).then(axios.spread((...responses) => responses))
       } catch (error) {
+        console.log(`${new Date()} processReleases - error fetching metadata from arweave.net, trying ar-io.net`)
         newMetadataJson = await axios.all(
           newMetadata.map(metadata => axios.get(metadata.uri.replace('arweave.net', 'ar-io.net')))
         ).then(axios.spread((...responses) => responses))
+        console.log(`${new Date()} processReleases - success fetching metadata from ar-io.net ${newMetadataJson.length}`)
       }
   
       for await (let release of newReleasesWithMetadata) {
@@ -630,7 +634,7 @@ class NinaProcessor {
             releaseAccount: release
           })
         } catch (err) {
-          console.log(err);
+          console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
       }
   
@@ -645,11 +649,11 @@ class NinaProcessor {
             this.warmCache(releaseRecord.metadata.image);
           }
         } catch (error) {
-          console.log('error Release.processRevenueShares existingReleases: ', error)
+          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord.publicKey.toBase58()}: ${err}`);
         }
       }
     } catch (error) {
-      console.log('error processing releases: ', error)
+      console.log(`${new Date()} error processing releases: ${error}`)
     }
   }
   
