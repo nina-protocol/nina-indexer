@@ -307,42 +307,42 @@ class NinaProcessor {
               let transactionRecord = await Transaction.query().findOne({ txid })
               if (!transactionRecord || isInitialRun) {
                 await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord)
-                if (accounts) {
-                  if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
-                    if (!tx.meta.logMessages.some(log => log.includes('Release'))) {
-                      try {
-                        const mintPublicKey = accounts[1]
-                        await this.provider.connection.getTokenSupply(mintPublicKey)
-                        const config = coder.decode(ninaInstruction.data, 'base58').data.config
-                        exchangeInits.push({
-                          expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
-                          initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
-                          publicKey: accounts[5].toBase58(),
-                          release: accounts[9].toBase58(),
-                          isSale: config.isSelling,
-                          initializer: accounts[0].toBase58(),
-                          createdAt: datetime
-                        })
-                        console.log('found an exchange init', accounts[5].toBase58())
-                      } catch (error) {
-                        console.log('error not a token mint: ', txid, error)
-                      }
+              }
+              if (!transactionRecord && accounts) {
+                if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
+                  if (!tx.meta.logMessages.some(log => log.includes('Release'))) {
+                    try {
+                      const mintPublicKey = accounts[1]
+                      await this.provider.connection.getTokenSupply(mintPublicKey)
+                      const config = coder.decode(ninaInstruction.data, 'base58').data.config
+                      exchangeInits.push({
+                        expectedAmount: config.isSelling ? config.expectedAmount.toNumber() / 1000000 : 1,
+                        initializerAmount: config.isSelling ? 1 : config.initializerAmount.toNumber() / 1000000,
+                        publicKey: accounts[5].toBase58(),
+                        release: accounts[9].toBase58(),
+                        isSale: config.isSelling,
+                        initializer: accounts[0].toBase58(),
+                        createdAt: datetime
+                      })
+                      console.log('found an exchange init', accounts[5].toBase58())
+                    } catch (error) {
+                      console.log('error not a token mint: ', txid, error)
                     }
-                  } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
-                    exchangeCancels.push({
-                      publicKey: accounts[2].toBase58(),
-                      updatedAt: datetime
-                    })
-                    console.log('found an exchange cancel', accounts[2].toBase58())
-                  } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
-                    completedExchanges.push({
-                      publicKey: accounts[2].toBase58(),
-                      legacyExchangePublicKey: accounts[7].toBase58(),
-                      completedBy: accounts[0].toBase58(),
-                      updatedAt: datetime
-                    })
-                    console.log('found an exchange completed', accounts[2].toBase58())
                   }
+                } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
+                  exchangeCancels.push({
+                    publicKey: accounts[2].toBase58(),
+                    updatedAt: datetime
+                  })
+                  console.log('found an exchange cancel', accounts[2].toBase58())
+                } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
+                  completedExchanges.push({
+                    publicKey: accounts[2].toBase58(),
+                    legacyExchangePublicKey: accounts[7].toBase58(),
+                    completedBy: accounts[0].toBase58(),
+                    updatedAt: datetime
+                  })
+                  console.log('found an exchange completed', accounts[2].toBase58())
                 }
               }
             }
