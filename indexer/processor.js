@@ -305,7 +305,25 @@ class NinaProcessor {
               const txid = txIds[i]
               console.log(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
               let transactionRecord = await Transaction.query().findOne({ txid })
-              if (!transactionRecord) {
+              if (transactionRecord) {
+                if (transactionRecord.type === 'SubscriptionSubscribeAccount') {
+                  let toAccountPublicKey
+                  if (!transactionRecord.toAccount) {
+                    if (accounts.length === 4) {
+                      toAccountPublicKey = accounts[2].toBase58()
+                    } else {
+                      toAccountPublicKey = accounts[3].toBase58()
+                    }
+                    const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
+                    if (subscribeToAccount) {
+                      console.log(`updating transaction ${txid} with toAccountId: ${subscribeToAccount.id}`)
+                      await transactionRecord.$query().patch({
+                        toAccountId: subscribeToAccount.id,
+                      });
+                    }
+                  }
+                }
+              } else {
                 let transactionObject = {
                   txid,
                   blocktime,
@@ -380,7 +398,6 @@ class NinaProcessor {
                   } else {
                     accountPublicKey = accounts[1].toBase58()
                     toAccountPublicKey = accounts[3].toBase58()
-    
                   }
                 } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
                   transactionObject.type = 'SubscriptionSubscribeHub'
