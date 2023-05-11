@@ -70,7 +70,7 @@ class NinaProcessor {
     this.metaplex = new Metaplex(connection);
   }
 
-  async runDbProcesses() {
+  async runDbProcesses(isInitialRun = false) {
     if (!this.isProcessing) {
       console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
@@ -97,7 +97,7 @@ class NinaProcessor {
         console.log(`${new Date()} Completed processVerifications()`)
 
         console.log(`${new Date()} Running processExchangesAndTransactions()`)
-        await this.processExchangesAndTransactions();
+        await this.processExchangesAndTransactions(isInitialRun);
         console.log(`${new Date()} Completed processExchangesAndTransactions()`)
       } catch (error) {
         console.log(`${new Date()} Error running DB processes: ${error}`)
@@ -279,7 +279,7 @@ class NinaProcessor {
     }
   }
 
-  async processExchangesAndTransactions() {
+  async processExchangesAndTransactions(isInitialRun = false) {
     try {
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
@@ -305,148 +305,11 @@ class NinaProcessor {
               const txid = txIds[i]
               console.log(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
               let transactionRecord = await Transaction.query().findOne({ txid })
-              if (transactionRecord) {
-                if (transactionRecord.type === 'SubscriptionSubscribeAccount') {
-                  let toAccountPublicKey
-                  if (!transactionRecord.toAccount) {
-                    if (accounts.length === 4) {
-                      toAccountPublicKey = accounts[2].toBase58()
-                    } else {
-                      toAccountPublicKey = accounts[3].toBase58()
-                    }
-                    const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
-                    if (subscribeToAccount) {
-                      console.log(`updating transaction ${txid} with toAccountId: ${subscribeToAccount.id}`)
-                      await transactionRecord.$query().patch({
-                        toAccountId: subscribeToAccount.id,
-                      });
-                    }
-                  }
-                }
-              } else {
-                let transactionObject = {
-                  txid,
-                  blocktime,
-                }
-                let hubPublicKey
-                let accountPublicKey
-                let releasePublicKey
-                let postPublicKey
-                let toAccountPublicKey
-                let toHubPublicKey
-                if (tx.meta.logMessages.some(log => log.includes('HubInitWithCredit'))) {
-                  transactionObject.type = 'HubInitWithCredit'
-                  hubPublicKey = accounts[1].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitWithCredit'))) {
-                  transactionObject.type = 'ReleaseInitWithCredit'
-                  releasePublicKey = accounts[0].toBase58()
-                  accountPublicKey = accounts[4].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
-                  transactionObject.type = 'ReleaseInitViaHub'
-                  releasePublicKey = accounts[1].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  hubPublicKey = accounts[4].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
-                  transactionObject.type = 'ReleasePurchaseViaHub'
-                  releasePublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  hubPublicKey = accounts[8].toBase58()
-                  await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
-                } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-                  transactionObject.type = 'ReleasePurchase'
-                  releasePublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[1].toBase58()
-                  await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
-                } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
-                  transactionObject.type = 'HubAddCollaborator'
-                  hubPublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  toAccountPublicKey = accounts[4].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
-                  transactionObject.type = 'HubAddRelease'
-                  releasePublicKey = accounts[5].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  hubPublicKey = accounts[1].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
-                  transactionObject.type = 'PostInitViaHubWithReferenceRelease'
-                  postPublicKey = accounts[2].toBase58()
-                  releasePublicKey = accounts[7].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  hubPublicKey = accounts[1].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
-                  transactionObject.type = 'PostInitViaHub'
-                  postPublicKey = accounts[2].toBase58()
-                  accountPublicKey = accounts[0].toBase58()
-                  hubPublicKey = accounts[1].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccountDelegated'))) {
-                  transactionObject.type = 'SubscriptionSubscribeAccountDelegated'
-                  accountPublicKey = accounts[1].toBase58()
-                  toAccountPublicKey = accounts[3].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHubDelegated'))) {
-                  transactionObject.type = 'SubscriptionSubscribeHubDelegated'
-                  accountPublicKey = accounts[1].toBase58()
-                  toHubPublicKey = accounts[3].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
-                  transactionObject.type = 'SubscriptionSubscribeAccount'
-                  // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
-                  // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
-                  // with subscriptions created before nina v0.2.14
-                  if (accounts.length === 4) {
-                    accountPublicKey = accounts[0].toBase58()
-                    toAccountPublicKey = accounts[2].toBase58()
-                  } else {
-                    accountPublicKey = accounts[1].toBase58()
-                    toAccountPublicKey = accounts[3].toBase58()
-                  }
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
-                  transactionObject.type = 'SubscriptionSubscribeHub'
-                  // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
-                  // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
-                  // with subscriptions created before nina v0.2.14
-                  if (accounts.length === 4) {
-                    accountPublicKey = accounts[0].toBase58()
-                    toHubPublicKey = accounts[2].toBase58()
-                  } else {
-                    accountPublicKey = accounts[1].toBase58()
-                    toHubPublicKey = accounts[3].toBase58()
-                  }
-                } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
-                  transactionObject.type = 'SubscriptionUnsubscribe'
-                  accountPublicKey = accounts[1].toBase58()
-                } else if (tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
-                  transactionObject.type = 'ReleaseClaim'
-                  accountPublicKey = accounts[3].toBase58()
-                  releasePublicKey = accounts[1].toBase58()
-                } else {
-                  if (accounts?.length === 10) {
-                    if (accounts[0].toBase58() === accounts[1].toBase58()) {
-                      try {
-                        const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() })
-                        if (release) {
-                          transactionObject.type = 'ReleasePurchase'
-                          releasePublicKey = accounts[2].toBase58()
-                          accountPublicKey = accounts[0].toBase58()
-                        }
-                      } catch (error) {
-                        console.log(error)
-                      }
-                    } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
-                      try {
-                        const release = await Release.query().findOne({ publicKey: accounts[0].toBase58() })
-                        if (release) {
-                          transactionObject.type = 'ReleasePurchase'
-                          releasePublicKey = accounts[0].toBase58()
-                          accountPublicKey = accounts[3].toBase58()
-                        }
-                      } catch (error) {
-                        console.log(error)
-                      }
-                    }
-                  }
-
-                  if (accounts && !transactionObject.type) {
-                    if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
+              if (!transactionRecord || isInitialRun) {
+                await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord)
+                if (accounts) {
+                  if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
+                    if (!tx.meta.logMessages.some(log => log.includes('Release'))) {
                       try {
                         const mintPublicKey = accounts[1]
                         await this.provider.connection.getTokenSupply(mintPublicKey)
@@ -460,88 +323,33 @@ class NinaProcessor {
                           initializer: accounts[0].toBase58(),
                           createdAt: datetime
                         })
-                        transactionObject.type = 'ExchangeInit'
-                        releasePublicKey = accounts[9].toBase58()
-                        accountPublicKey = accounts[0].toBase58()
                         console.log('found an exchange init', accounts[5].toBase58())
                       } catch (error) {
                         console.log('error not a token mint: ', txid, error)
                       }
-                    } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
-                      exchangeCancels.push({
-                        publicKey: accounts[2].toBase58(),
-                        updatedAt: datetime
-                      })
-                      console.log('found an exchange cancel', accounts[2].toBase58())
-                    } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
-                      completedExchanges.push({
-                        publicKey: accounts[2].toBase58(),
-                        legacyExchangePublicKey: accounts[7].toBase58(),
-                        completedBy: accounts[0].toBase58(),
-                        updatedAt: datetime
-                      })
-                      transactionObject.type = 'ExchangeAccept'
-                      releasePublicKey = accounts[10].toBase58()
-                      accountPublicKey = accounts[0].toBase58()
-                      console.log('found an exchange completed', accounts[2].toBase58())
                     }
+                  } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
+                    exchangeCancels.push({
+                      publicKey: accounts[2].toBase58(),
+                      updatedAt: datetime
+                    })
+                    console.log('found an exchange cancel', accounts[2].toBase58())
+                  } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
+                    completedExchanges.push({
+                      publicKey: accounts[2].toBase58(),
+                      legacyExchangePublicKey: accounts[7].toBase58(),
+                      completedBy: accounts[0].toBase58(),
+                      updatedAt: datetime
+                    })
+                    console.log('found an exchange completed', accounts[2].toBase58())
                   }
-
-                  if (accounts && !transactionObject.type) {
-                    transactionObject.type = 'Unknown'
-                    accountPublicKey = tx.transaction.message.accountKeys[0].pubkey.toBase58()
-                  }
-                }
-                if (transactionObject.type) {
-                  if (accountPublicKey) {
-                    const account = await Account.findOrCreate(accountPublicKey)
-                    if (account) {
-                      transactionObject.authorityId = account.id
-                    }
-                  }
-      
-                  if (hubPublicKey) {
-                    const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
-                    if (hub) {
-                      transactionObject.hubId = hub.id
-                    }
-                  }
-      
-                  if (releasePublicKey && blacklist.indexOf(releasePublicKey) === -1) {
-                    const release = await Release.findOrCreate(releasePublicKey)
-                    if (release) {
-                      transactionObject.releaseId = release.id
-                    }
-                  }
-      
-                  if (postPublicKey) {
-                    const post = await Post.query().findOne({ publicKey: postPublicKey })
-                    if (post) {
-                      transactionObject.postId = post.id
-                    }
-                  }
-      
-                  if (toAccountPublicKey) {
-                    const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
-                    if (subscribeToAccount) {
-                      transactionObject.toAccountId = subscribeToAccount.id
-                    }
-                  }
-      
-                  if (toHubPublicKey) {
-                    const subscribeToHub = await Hub.query().findOne({ publicKey: toHubPublicKey })
-                    if (subscribeToHub) {
-                      transactionObject.toHubId = subscribeToHub.id
-                    }
-                  }
-  
-                  await Transaction.query().insertGraph(transactionObject)
                 }
               }
             }
           } catch (error) {
             console.log('error processing tx', error)
           }
+
           this.latestSignature = page[i]
           i++
         }
@@ -607,6 +415,238 @@ class NinaProcessor {
     }
   }
 
+  async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null) {
+    let transactionObject = {
+      txid,
+      blocktime,
+    }
+    let hubPublicKey
+    let accountPublicKey
+    let releasePublicKey
+    let postPublicKey
+    let toAccountPublicKey
+    let toHubPublicKey
+    if (tx.meta.logMessages.some(log => log.includes('HubInitWithCredit'))) {
+      transactionObject.type = 'HubInitWithCredit'
+      hubPublicKey = accounts[1].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitWithCredit'))) {
+      transactionObject.type = 'ReleaseInitWithCredit'
+      releasePublicKey = accounts[0].toBase58()
+      accountPublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
+      transactionObject.type = 'ReleaseInitViaHub'
+      releasePublicKey = accounts[1].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
+      transactionObject.type = 'ReleasePurchaseViaHub'
+      releasePublicKey = accounts[2].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[8].toBase58()
+      await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+      transactionObject.type = 'ReleasePurchase'
+      releasePublicKey = accounts[2].toBase58()
+      accountPublicKey = accounts[1].toBase58()
+      await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
+    } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
+      transactionObject.type = 'HubAddCollaborator'
+      hubPublicKey = accounts[2].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      toAccountPublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
+      transactionObject.type = 'HubAddRelease'
+      releasePublicKey = accounts[5].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
+      transactionObject.type = 'PostInitViaHubWithReferenceRelease'
+      postPublicKey = accounts[2].toBase58()
+      releasePublicKey = accounts[7].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
+      transactionObject.type = 'PostInitViaHub'
+      postPublicKey = accounts[2].toBase58()
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
+      transactionObject.type = 'SubscriptionSubscribeAccount'
+      // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
+      // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
+      // with subscriptions created before nina v0.2.14
+      if (accounts.length === 4) {
+        accountPublicKey = accounts[0].toBase58()
+        toAccountPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[1].toBase58()
+        toAccountPublicKey = accounts[3].toBase58()
+      }
+    } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeHub'))) {
+      transactionObject.type = 'SubscriptionSubscribeHub'
+      // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
+      // we increase the accounts size from 4 to 5 and need to do the below to remain backwards compatible
+      // with subscriptions created before nina v0.2.14
+      if (accounts.length === 4) {
+        accountPublicKey = accounts[0].toBase58()
+        toHubPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[1].toBase58()
+        toHubPublicKey = accounts[3].toBase58()
+      }
+    } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
+      transactionObject.type = 'SubscriptionUnsubscribe'
+      accountPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+      transactionObject.type = 'ReleaseClaim'
+      accountPublicKey = accounts[3].toBase58()
+      releasePublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubInit'))) {
+      transactionObject.type = 'HubInit'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInit'))) {
+      transactionObject.type = 'ReleaseInit'
+      accountPublicKey = accounts[4].toBase58()
+      releasePublicKey = accounts[0].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseCloseEdition'))) {
+      transactionObject.type = 'ReleaseCloseEdition'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubContentToggleVisibility'))) {
+      transactionObject.type = 'HubContentToggleVisibility'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubRemoveCollaborator'))) {
+      transactionObject.type = 'HubRemoveCollaborator'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+      toAccountPublicKey = accounts[3].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubUpdateCollaboratorPermissions'))) {
+      transactionObject.type = 'HubUpdateCollaboratorPermissions'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[2].toBase58()
+      toAccountPublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('HubUpdateConfig'))) {
+      transactionObject.type = 'HubUpdateConfig'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareCollectViaHub'))) {
+      transactionObject.type = 'ReleaseRevenueShareCollectViaHub'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[2].toBase58()
+      hubPublicKey = accounts[5].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareCollect'))) {
+      transactionObject.type = 'ReleaseRevenueShareCollect'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareTransfer'))) {
+      transactionObject.type = 'ReleaseRevenueShareTransfer'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[4].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) {
+      transactionObject.type = 'ReleaseUpdateMetadata'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
+      transactionObject.type = 'ExchangeInit'
+      accountPublicKey = accounts[0].toBase58()
+      releasePublicKey = accounts[9].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
+      transactionObject.type = 'ExchangeCancel'
+      accountPublicKey = accounts[0].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
+      transactionObject.type = 'ExchangeAccept'
+      accountPublicKey = accounts[0].toBase58()
+      if (accounts.length === 16) {
+        releasePublicKey = accounts[12].toBase58()
+      } else if (accounts.length === 14) {
+        releasePublicKey = accounts[10].toBase58()
+      }
+    } else if (tx.meta.logMessages.some(log => log.includes('HubWithdraw'))) {
+      transactionObject.type = 'HubWithdraw'
+      accountPublicKey = accounts[0].toBase58()
+      hubPublicKey = accounts[1].toBase58()
+    } else if (accounts?.length === 10) {
+      if (accounts[0].toBase58() === accounts[1].toBase58()) {
+        try {
+          const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() })
+          if (release) {
+            transactionObject.type = 'ReleasePurchase'
+            releasePublicKey = accounts[2].toBase58()
+            accountPublicKey = accounts[0].toBase58()
+          }
+        } catch (error) {
+          console.log(error)
+        }
+      } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
+        try {
+          const release = await Release.query().findOne({ publicKey: accounts[0].toBase58() })
+          if (release) {
+            transactionObject.type = 'ReleasePurchase'
+            releasePublicKey = accounts[0].toBase58()
+            accountPublicKey = accounts[3].toBase58()
+          }
+        } catch (error) {
+          console.log(error)
+        }
+      }
+    } else {
+      transactionObject.type = 'Unknown'
+      accountPublicKey = tx.transaction.message.accountKeys[0].pubkey.toBase58()
+    }
+
+    if (transactionObject.type) {
+      if (accountPublicKey) {
+        const account = await Account.findOrCreate(accountPublicKey)
+        if (account) {
+          transactionObject.authorityId = account.id
+        }
+      }
+
+      if (hubPublicKey) {
+        const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+        if (hub) {
+          transactionObject.hubId = hub.id
+        }
+      }
+
+      if (releasePublicKey && blacklist.indexOf(releasePublicKey) === -1) {
+        const release = await Release.findOrCreate(releasePublicKey)
+        if (release) {
+          transactionObject.releaseId = release.id
+        }
+      }
+
+      if (postPublicKey) {
+        const post = await Post.query().findOne({ publicKey: postPublicKey })
+        if (post) {
+          transactionObject.postId = post.id
+        }
+      }
+
+      if (toAccountPublicKey) {
+        const subscribeToAccount = await Account.findOrCreate(toAccountPublicKey)
+        if (subscribeToAccount) {
+          transactionObject.toAccountId = subscribeToAccount.id
+        }
+      }
+
+      if (toHubPublicKey) {
+        const subscribeToHub = await Hub.query().findOne({ publicKey: toHubPublicKey })
+        if (subscribeToHub) {
+          transactionObject.toHubId = subscribeToHub.id
+        }
+      }
+      if (transactionRecord) {
+        await transactionRecord.$query().patch(transactionObject)
+      } else {
+        await Transaction.query().insertGraph(transactionObject)
+      }
+    }
+  }
+
   async processReleases() {
     // Get all releases that are not on the blacklist
     try {
@@ -650,6 +690,7 @@ class NinaProcessor {
             publisherId: publisher.id,
             releaseAccount: release
           })
+          console.log(`Instered Relase: ${release.publicKey.toBase58()}`)
         } catch (err) {
           console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
