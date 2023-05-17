@@ -174,7 +174,7 @@ class NinaProcessor {
               if (profile) {
                 await Verification.query().patch({
                   displayName: profile.username,
-                  image: profile.avatar_url,
+                  image: profile.avatar_url.replace('-large.jpg', '-t500x500.jpg'),
                   active: true,
                 }).where({ publicKey: nameRegistry.publicKey });
               } else {
@@ -234,7 +234,7 @@ class NinaProcessor {
         const soundcloudProfile = await getSoundcloudProfile(name.soundcloudHandle);
         if (soundcloudProfile) {  
           verification.displayName = soundcloudProfile.username
-          verification.image = soundcloudProfile.avatar_url
+          verification.image = soundcloudProfile.avatar_url.replace('-large.jpg', '-t500x500.jpg')
           if (soundcloudProfile.description) {
             // verification.description = soundcloudProfile.description
           }
