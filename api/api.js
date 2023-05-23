@@ -762,8 +762,17 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
+      const { offset=0, limit, sort='desc' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases = await hub.$relatedQuery('releases')
+      let releases
+      if (limit) {
+        releases = await hub.$relatedQuery('releases')
+          .orderBy('datetime', sort)
+          .limit(limit)
+          .offset(offset);
+      } else {
+        releases = await hub.$relatedQuery('releases')
+      }
       releases = await getVisibleReleases(releases)
 
       ctx.body = { 
