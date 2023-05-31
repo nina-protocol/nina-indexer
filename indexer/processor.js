@@ -407,7 +407,7 @@ class NinaProcessor {
             if (exchange.isSale) {
               accountPublicKey = completedBy.publicKey
             } else {
-              const account = await Account.query().findOne({publicKey: exchange.initializerId});
+              const account = await Account.query().findById(exchange.initializerId);
               accountPublicKey = account.publicKey;
             }
             await this.addCollectorForRelease(release.publicKey, accountPublicKey)
