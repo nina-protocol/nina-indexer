@@ -402,6 +402,8 @@ class NinaProcessor {
           if (exchange) {
             const completedBy = await Account.findOrCreate(completedExchange.completedBy);
             await Exchange.query().patch({updatedAt: completedExchange.updatedAt, completedById: completedBy.id}).findById(exchange.id);
+            
+            await this.addCollectorForRelease(exchange.release.publicKey, exchange.isSale ? completedBy.publicKey : exchange.initializer.publicKey)
             console.log('Completed Exchange:', completedExchange.publicKey);
           } else {
             console.log('could not find exchange: ', completedExchange.publicKey)
@@ -502,6 +504,7 @@ class NinaProcessor {
       transactionObject.type = 'ReleaseClaim'
       accountPublicKey = accounts[3].toBase58()
       releasePublicKey = accounts[1].toBase58()
+      await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubInit'))) {
       transactionObject.type = 'HubInit'
       accountPublicKey = accounts[0].toBase58()
