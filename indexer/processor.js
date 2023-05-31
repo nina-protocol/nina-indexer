@@ -402,6 +402,8 @@ class NinaProcessor {
           if (exchange) {
             const completedBy = await Account.findOrCreate(completedExchange.completedBy);
             await Exchange.query().patch({updatedAt: completedExchange.updatedAt, completedById: completedBy.id}).findById(exchange.id);
+            
+            await this.addCollectorForRelease(exchange.release.publicKey, exchange.isSale ? completedBy.publicKey : exchange.initializer.publicKey)
             console.log('Completed Exchange:', completedExchange.publicKey);
           } else {
             console.log('could not find exchange: ', completedExchange.publicKey)
