@@ -502,6 +502,7 @@ class NinaProcessor {
       transactionObject.type = 'ReleaseClaim'
       accountPublicKey = accounts[3].toBase58()
       releasePublicKey = accounts[1].toBase58()
+      await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubInit'))) {
       transactionObject.type = 'HubInit'
       accountPublicKey = accounts[0].toBase58()
