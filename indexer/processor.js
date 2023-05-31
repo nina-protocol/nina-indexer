@@ -403,7 +403,7 @@ class NinaProcessor {
             const completedBy = await Account.findOrCreate(completedExchange.completedBy);
             await Exchange.query().patch({updatedAt: completedExchange.updatedAt, completedById: completedBy.id}).findById(exchange.id);
             const release = await Release.query().findById(exchange.releaseId);
-            let accountPublicKey = completedBy.publicKey;
+            let accountPublicKey
             if (exchange.isSale) {
               accountPublicKey = completedBy.publicKey
             } else {
