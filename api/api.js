@@ -15,6 +15,11 @@ import {
 import NinaProcessor from '../indexer/processor.js';
 import { decode } from '../indexer/utils.js';
 
+// NOTE: originally many endpoints were lacking pagination
+// BIG_LIMIT is a temporary solution to allow us to still return all 
+// results in applications that haven't implemented pagination yet
+const BIG_LIMIT = 5000;
+
 const getVisibleReleases = async (published) => {
   const releases = []
   for await (let release of published) {
@@ -47,14 +52,17 @@ export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const total = await Account.query().count();
-      const accounts = await Account.query().orderBy('publicKey', sort).limit(limit).offset(offset);
-      for await (let account of accounts) {
+      const accounts = await Account
+        .query()
+        .orderBy('publicKey', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+        
+      for await (let account of accounts.results) {
         await account.format();
       }
       ctx.body = {
-        accounts,
-        total: total.count,
+        accounts: accounts.results,
+        total: accounts.total,
       };
 
     } catch (err) {
@@ -165,6 +173,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const { txId } = ctx.query;
       if (txId) {
@@ -182,11 +191,16 @@ export default (router) => {
       }
       
       const collected = await account.$relatedQuery('collected')
-      for await (let release of collected) {
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let release of collected.results) {
         release.collectedDate = await getCollectedDate(release, account)
         await release.format();
       }
-      ctx.body = { collected };
+      ctx.body = {
+        collected: collected.results,
+        total: collected.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -196,12 +210,18 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
-      for await (let hub of hubs) {
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let hub of hubs.results) {
         await hub.format();
       }
-      ctx.body = { hubs };
+      ctx.body = {
+        hubs: hubs.results,
+        total: hubs.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -210,12 +230,18 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/posts', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
-      for await (let post of posts) {
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let post of posts.results) {
         await post.format();
       }
-      ctx.body = { posts };
+      ctx.body = {
+        posts: posts.results,
+        total: posts.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -224,11 +250,17 @@ export default (router) => {
   
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
-      published = await getVisibleReleases(published)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      const publishedVisible = await getVisibleReleases(published.results)
 
-      ctx.body = { published };
+      ctx.body = {
+        published: publishedVisible,
+        total: published.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -237,19 +269,22 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      console.log('limit', limit)
       const account = await Account.findOrCreate(ctx.params.publicKey);
-      const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
-      for await (let exchange of exchangesInitialized) {
+      const exchanges = await Exchange.query()
+        .where('completedById', account.id)
+        .orWhere('initializerId', account.id)
+        .orderBy('createdAt', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let exchange of exchanges.results) {
         await exchange.format();
-        exchanges.push(exchange)
       }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-      for await (let exchange of exchangesCompleted) {
-        await exchange.format();
-        exchanges.push(exchange)
-      }
-      ctx.body = { exchanges };
+      ctx.body = {
+        exchanges: exchanges.results,
+        total: exchanges.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -258,11 +293,18 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
-      revenueShares = await getVisibleReleases(revenueShares)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      ctx.body = { revenueShares };
+      const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
+
+      ctx.body = {
+        revenueShares: revenueSharesVisible,
+        total: revenueShares.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -271,16 +313,22 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       
-      for await (let subscription of subscriptions) {
+      for await (let subscription of subscriptions.results) {
         await subscription.format();
       }
 
-      ctx.body = { subscriptions };
+      ctx.body = {
+        subscriptions: subscriptions.results,
+        total: subscriptions.total,
+      };
     } catch (err) {
       console.log(err)
       ctx.status = 400
@@ -292,12 +340,19 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
-      const verifications = await account.$relatedQuery('verifications').where('active', true)
-      for await (let verification of verifications) {
+      const verifications = await account.$relatedQuery('verifications')
+        .where('active', true)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let verification of verifications.results) {
         await verification.format();
       }
-      ctx.body = { verifications };
+      ctx.body = {
+        verifications: verifications.results,
+        total: verifications.total,
+      };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
@@ -510,16 +565,19 @@ export default (router) => {
   router.get('/releases', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc' } = ctx.query;
-      const total = await Release.query().count();
-      const releases = await Release.query().orderBy('datetime', sort).limit(limit).offset(offset);
+      const releases = await Release
+        .query()
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      for await (let release of releases) {
+
+      for await (let release of releases.results) {
         await release.format();
       }
 
       ctx.body = {
-        releases,
-        total: total.count,
+        releases: releases.results,
+        total: releases.total,
       };
     } catch(err) {
       console.log(err)
@@ -551,13 +609,20 @@ export default (router) => {
 
   router.get('/releases/:publicKey/exchanges', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const exchanges = await release.$relatedQuery('exchanges')
-      for await (let exchange of exchanges) {
+        .orderBy('createdAt', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let exchange of exchanges.results) {
         await exchange.format();
       }
 
-      ctx.body = { exchanges };
+      ctx.body = {
+        exchanges: exchanges.results,
+        total: exchanges.total, 
+      };
     } catch (err) {
       console.log(err)
       ctx.status = 404
@@ -569,10 +634,13 @@ export default (router) => {
 
   router.get('/releases/:publicKey/collectors', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT } = ctx.query;
+
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      for await (let account of collectors) {
+      for await (let account of collectors.results) {
         if (ctx.request.query.withCollection) {
           const collectedReleases = await account.$relatedQuery('collected')
           const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
@@ -581,7 +649,10 @@ export default (router) => {
         account.collectedDate = await getCollectedDate(release, account)
         await account.format();
       }
-      ctx.body = { collectors };
+      ctx.body = {
+        collectors: collectors.results,
+        total: collectors.total,
+      };
     } catch (err) {
       console.log(err)
       ctx.status = 404
@@ -593,12 +664,19 @@ export default (router) => {
 
   router.get('/releases/:publicKey/hubs', async (ctx) => {
     try {
-    const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const hubs = await release.$relatedQuery('hubs')
-      for await (let hub of hubs) {
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let hub of hubs.results) {
         await hub.format();
       }
-      ctx.body = { hubs };
+      ctx.body = {
+        hubs: hubs.results,
+        total: hubs.total,
+      };
     } catch (error) {
       console.log(error)
       ctx.status = 404
@@ -610,12 +688,17 @@ export default (router) => {
 
   router.get('/releases/:publicKey/revenueShareRecipients', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT } = ctx.query;
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const revenueShareRecipients = await release.$relatedQuery('revenueShareRecipients')
-      for await (let account of revenueShareRecipients) {
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let account of revenueShareRecipients.results) {
         await account.format();
       }
-      ctx.body = { revenueShareRecipients };
+      ctx.body = {
+        revenueShareRecipients: revenueShareRecipients.results,
+        total: revenueShareRecipients.total,
+      };
     } catch (error) {
       console.log(error)
       ctx.status = 404
@@ -628,19 +711,19 @@ export default (router) => {
   router.get('/hubs', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const total = await Hub.query().count();
       const hubs = await Hub.query()
         .whereExists(Hub.relatedQuery('releases'))
         .orWhereExists(Hub.relatedQuery('posts'))
         .orderBy('datetime', sort)
-        .limit(limit)
-        .offset(offset);
-      for await (let hub of hubs) {
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let hub of hubs.results) {
         await hub.format();
       }
+
       ctx.body = {
-        hubs,
-        total: total.count
+        hubs: hubs.results,
+        total: hubs.total
       };
     } catch (err) {
       ctx.status = 400
@@ -745,13 +828,17 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/collaborators', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
       const collaborators = await hub.$relatedQuery('collaborators')
-      for await (let account of collaborators) {
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let account of collaborators.results) {
         await account.format();
       }
       ctx.body = {
-        collaborators,
+        collaborators: collaborators.results,
+        total: collaborators.total,
         publicKey: hub.publicKey,
       };
     } catch (err) {
@@ -762,21 +849,15 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
-      const { offset=0, limit, sort='desc' } = ctx.query;
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases
-      if (limit) {
-        releases = await hub.$relatedQuery('releases')
-          .orderBy('datetime', sort)
-          .limit(limit)
-          .offset(offset);
-      } else {
-        releases = await hub.$relatedQuery('releases')
-      }
-      releases = await getVisibleReleases(releases)
-
+      let releases = await hub.$relatedQuery('releases')
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      const releasesVisible = await getVisibleReleases(releases.results)
       ctx.body = { 
-        releases,
+        releases: releasesVisible,
+        total: releases.total,
         publicKey: hub.publicKey,
       };
     } catch (err) {
@@ -787,13 +868,17 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
       const posts = await hub.$relatedQuery('posts')
-      for await (let post of posts) {
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let post of posts.results) {
         await post.format();
       }
       ctx.body = {
-        posts,
+        posts: posts.results,
+        total: posts.total,
         publicKey: hub.publicKey,
       };
     } catch (err) {
@@ -959,17 +1044,19 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
+      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-
       const subscriptions = await Subscription.query()
         .where('subscriptions.to', hub.publicKey)
         .where('subscriptions.subscriptionType', 'hub')
-
-      for await (let subscription of subscriptions) {
+        .orderBy('subscriptions.datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let subscription of subscriptions.results) {
         await subscription.format();
       }
       ctx.body = { 
-        subscriptions,
+        subscriptions: subscriptions.results,
+        total: subscriptions.total,
         publicKey: hub.publicKey,
       };
     } catch (err) {
@@ -982,14 +1069,16 @@ export default (router) => {
   router.get('/posts', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const total = await Post.query().count();
-      const posts = await Post.query().orderBy('datetime', sort).limit(limit).offset(offset);
-      for await (let post of posts) {
+      const posts = await Post
+        .query()
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let post of posts.results) {
         await post.format();
       }
       ctx.body = {
-        posts,
-        total: total.count,
+        posts: posts.results,
+        total: posts.total,
       };
     } catch (err) {
       console.log(err)
@@ -1026,14 +1115,16 @@ export default (router) => {
   router.get('/exchanges', async (ctx) => {
     try {
       const { offset=0, limit=20, sort='desc'} = ctx.query;
-      const total = await Exchange.query().count();
-      const exchanges = await Exchange.query().orderBy('createdAt', sort).limit(limit).offset(offset);
-      for await (let exchange of exchanges) {
+      const exchanges = await Exchange
+        .query()
+        .orderBy('createdAt', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let exchange of exchanges.results) {
         await exchange.format();
       }
       ctx.body = {
-        exchanges,
-        total: total.count,
+        exchanges: exchanges.results,
+        total: exchanges.total,
       };
     } catch (err) {
       console.log(err)
@@ -1045,7 +1136,6 @@ export default (router) => {
   })
 
   router.get('/exchanges/:publicKey', async (ctx) => {
-    console.log('/exchanges/:publicKey', ctx.params.publicKey)
     try {
       await NinaProcessor.init()
       let transaction
