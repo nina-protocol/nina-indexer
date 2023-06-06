@@ -55,7 +55,7 @@ export default (router) => {
       const accounts = await Account
         .query()
         .orderBy('publicKey', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
         
       for await (let account of accounts.results) {
         await account.format();
@@ -192,7 +192,7 @@ export default (router) => {
       
       const collected = await account.$relatedQuery('collected')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let release of collected.results) {
         release.collectedDate = await getCollectedDate(release, account)
         await release.format();
@@ -214,12 +214,12 @@ export default (router) => {
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let hub of hubs.results) {
         await hub.format();
       }
       ctx.body = {
-        hubs,
+        hubs: hubs.results,
         total: hubs.total,
       };
     } catch (err) {
@@ -234,7 +234,7 @@ export default (router) => {
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
       }
@@ -254,7 +254,7 @@ export default (router) => {
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       const publishedVisible = await getVisibleReleases(published.results)
 
       ctx.body = {
@@ -270,27 +270,20 @@ export default (router) => {
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      console.log('limit', limit)
       const account = await Account.findOrCreate(ctx.params.publicKey);
-      // TODO: should do this in a single query
-      // const exchanges = await Exchange.query().where('completedById', account.id).orWhere('initializerId', account.id)
-      const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
+      const exchanges = await Exchange.query()
+        .where('completedById', account.id)
+        .orWhere('initializerId', account.id)
         .orderBy('createdAt', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
-      for await (let exchange of exchangesInitialized.results) {
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let exchange of exchanges.results) {
         await exchange.format();
-        exchanges.push(exchange)
-      }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-        .orderBy('createdAt', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
-      for await (let exchange of exchangesCompleted.results) {
-        await exchange.format();
-        exchanges.push(exchange)
       }
       ctx.body = {
-        exchanges,
-        total: exchanges.length,
+        exchanges: exchanges.results,
+        total: exchanges.total,
       };
     } catch (err) {
       console.log(err)
@@ -304,7 +297,7 @@ export default (router) => {
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
         console.log(revenueShares)
       const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
 
@@ -326,7 +319,7 @@ export default (router) => {
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       
       for await (let subscription of subscriptions.results) {
         await subscription.format();
@@ -351,7 +344,7 @@ export default (router) => {
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const verifications = await account.$relatedQuery('verifications')
         .where('active', true)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let verification of verifications.results) {
         await verification.format();
@@ -575,7 +568,7 @@ export default (router) => {
       const releases = await Release
         .query()
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
 
       for await (let release of releases.results) {
@@ -620,7 +613,7 @@ export default (router) => {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const exchanges = await release.$relatedQuery('exchanges')
         .orderBy('createdAt', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let exchange of exchanges.results) {
         await exchange.format();
@@ -641,11 +634,11 @@ export default (router) => {
 
   router.get('/releases/:publicKey/collectors', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      const { offset=0, limit=BIG_LIMIT } = ctx.query;
 
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const collectors = await release.$relatedQuery('collectors')
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let account of collectors.results) {
         if (ctx.request.query.withCollection) {
@@ -675,7 +668,7 @@ export default (router) => {
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const hubs = await release.$relatedQuery('hubs')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let hub of hubs.results) {
         await hub.format();
@@ -698,7 +691,7 @@ export default (router) => {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const revenueShareRecipients = await release.$relatedQuery('revenueShareRecipients')
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let account of revenueShareRecipients.results) {
         await account.format();
       }
@@ -722,7 +715,7 @@ export default (router) => {
         .whereExists(Hub.relatedQuery('releases'))
         .orWhereExists(Hub.relatedQuery('posts'))
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let hub of hubs.results) {
         await hub.format();
@@ -838,7 +831,7 @@ export default (router) => {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
       const collaborators = await hub.$relatedQuery('collaborators')
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let account of collaborators.results) {
         await account.format();
@@ -859,12 +852,11 @@ export default (router) => {
       const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
-          .orderBy('datetime', sort)
-          .range(Number(offset), Number(offset) + Number(limit));
-      releases = await getVisibleReleases(releases.results)
-
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      const releasesVisible = await getVisibleReleases(releases.results)
       ctx.body = { 
-        releases: releases.results,
+        releases: releasesVisible,
         total: releases.total,
         publicKey: hub.publicKey,
       };
@@ -880,7 +872,7 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       const posts = await hub.$relatedQuery('posts')
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
       }
@@ -1058,7 +1050,7 @@ export default (router) => {
         .where('subscriptions.to', hub.publicKey)
         .where('subscriptions.subscriptionType', 'hub')
         .orderBy('subscriptions.datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let subscription of subscriptions.results) {
         await subscription.format();
       }
@@ -1080,7 +1072,7 @@ export default (router) => {
       const posts = await Post
         .query()
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
       }
@@ -1126,7 +1118,7 @@ export default (router) => {
       const exchanges = await Exchange
         .query()
         .orderBy('createdAt', sort)
-        .range(Number(offset), Number(offset) + Number(limit));
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let exchange of exchanges.results) {
         await exchange.format();
       }
