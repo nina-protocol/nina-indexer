@@ -16,7 +16,7 @@ import NinaProcessor from '../indexer/processor.js';
 import { decode } from '../indexer/utils.js';
 
 // NOTE: originally many endpoints were lacking pagination
-// BIG_LIMNIT is a temporary solution to allow us to still return all 
+// BIG_LIMIT is a temporary solution to allow us to still return all 
 // results in applications that haven't implemented pagination yet
 const BIG_LIMIT = 5000;
 
@@ -298,7 +298,7 @@ export default (router) => {
       let revenueShares = await account.$relatedQuery('revenueShares')
         .orderBy('datetime', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-        console.log(revenueShares)
+
       const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
 
       ctx.body = {
