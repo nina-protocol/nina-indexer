@@ -8,9 +8,10 @@ import { connectDb } from '@nina-protocol/nina-db';
 
 import registerApi from './api.js';
 import { environmentIsSetup } from "../scripts/env_check.js";
+import { logger } from '../indexer/utils.js';
 
 const router = new KoaRouter({
-  prefix: '/v1'
+  prefix: '/'
 })
 const app = new Koa()
 app.use(cors())
@@ -48,9 +49,8 @@ try {
   environmentIsSetup()
   app.listen(process.env.PORT, async () => {
     await connectDb()
-    console.log(`Nina Api listening on port ${process.env.PORT}!`)
+    logger(`Nina Api listening on port ${process.env.PORT}!`)
   })
 } catch (error) {
-  console.error('Environment is not properly setup.  Check .env file and try again.')
-  console.error(error)
+  logger(`Environment is not properly setup.  Check .env file and try again. ${error}`)
 }
