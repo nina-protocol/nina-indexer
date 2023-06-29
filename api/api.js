@@ -13,7 +13,7 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
-import { decode } from '../indexer/utils.js';
+import { decode, logger } from '../indexer/utils.js';
 
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -66,7 +66,7 @@ export default (router) => {
       };
 
     } catch (err) {
-      console.log(err)
+      logger(`GET /accounts ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching accounts'
@@ -166,7 +166,7 @@ export default (router) => {
 
       ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -202,7 +202,7 @@ export default (router) => {
         total: collected.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/collected' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -223,7 +223,7 @@ export default (router) => {
         total: hubs.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/hubs' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -243,7 +243,7 @@ export default (router) => {
         total: posts.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/posts' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -262,7 +262,7 @@ export default (router) => {
         total: published.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/published' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -270,7 +270,6 @@ export default (router) => {
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
-      console.log('limit', limit)
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const exchanges = await Exchange.query()
         .where('completedById', account.id)
@@ -286,7 +285,7 @@ export default (router) => {
         total: exchanges.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/exchanges' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -306,7 +305,7 @@ export default (router) => {
         total: revenueShares.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/revenueShares' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -330,7 +329,7 @@ export default (router) => {
         total: subscriptions.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/subscriptions' ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching subscriptions'
@@ -354,7 +353,7 @@ export default (router) => {
         total: verifications.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET '/accounts/:publicKey/verifications' ${err}`)
       accountNotFound(ctx)
     }
   });
@@ -401,6 +400,7 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
+      logger(`GET '/accounts/:publicKey/feed' ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -434,6 +434,7 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
+      logger(`GET '/accounts/:publicKey/activity' ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -555,6 +556,7 @@ export default (router) => {
       const sortedHubs = Object.values(suggestions).sort((a, b) => ((b.hubReleaseCount + b.collectedCount + b.publishedCount + b.collectorHubCount + b.hubSubscriptionCount) - (a.hubReleaseCount + a.collectedCount + a.publishedCount + a.collectorHubCount + a.hubSubscriptionCount)))
       ctx.body = { suggestions: sortedHubs };    
     } catch (err) {
+      logger(`GET /accounts/:publicKey/hubSuggestions`, err)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -580,7 +582,7 @@ export default (router) => {
         total: releases.total,
       };
     } catch(err) {
-      console.log(err)
+      logger(`GET /releases Error: ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching releases'
@@ -599,7 +601,7 @@ export default (router) => {
         release,
       }
   } catch (err) {
-      console.log(`/releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
+      logger(`GET /releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -624,7 +626,7 @@ export default (router) => {
         total: exchanges.total, 
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /releases/:publicKey/exchanges Error: publicKey: ${ctx.params.publicKey} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -654,7 +656,7 @@ export default (router) => {
         total: collectors.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /releases/:publicKey/collectors Error: publicKey: ${ctx.params.publicKey} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -678,7 +680,7 @@ export default (router) => {
         total: hubs.total,
       };
     } catch (error) {
-      console.log(error)
+      logger(`GET /releases/:publicKey/hubs Error: publicKey: ${ctx.params.publicKey} ${error}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -700,7 +702,7 @@ export default (router) => {
         total: revenueShareRecipients.total,
       };
     } catch (error) {
-      console.log(error)
+      logger(`GET /releases/:publicKey/revenueShareRecipients Error: publicKey: ${ctx.params.publicKey} ${error}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -726,6 +728,7 @@ export default (router) => {
         total: hubs.total
       };
     } catch (err) {
+      logger(`GET /hubs Error: ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching hubs'
@@ -793,7 +796,7 @@ export default (router) => {
         posts 
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
@@ -819,6 +822,7 @@ export default (router) => {
         hub,
       };
     } catch (error) {
+      logger(`GET /hubs/:publicKeyOrHandle/tx/:txid Error: publicKey: ${ctx.params.publicKeyOrHandle} ${error}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching hub'
@@ -842,7 +846,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/collaborators Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       hubNotFound(ctx)
     }
   })
@@ -861,7 +865,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/releases Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       hubNotFound(ctx)
     }
   })
@@ -882,7 +886,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/posts Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       hubNotFound(ctx)
     }
   })
@@ -935,7 +939,7 @@ export default (router) => {
         }
       }
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
@@ -968,6 +972,7 @@ export default (router) => {
         ctx.body = { success: true}
       }
     } catch (error) {
+      logger(`GET /hubs/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${error}`)
       ctx.body = { success: true }
     }
   })
@@ -1025,7 +1030,7 @@ export default (router) => {
             const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
             if (!relatedRelease) {
               await Post.relatedQuery('releases').for(post.id).relate(release.id);
-              console.log('Related Release to Post:', release.publicKey, post.publicKey);
+              logger(`Related Release to Post: ${release.publicKey} ${post.publicKey}`);
             }
           }
         }
@@ -1037,7 +1042,7 @@ export default (router) => {
         hub,
       }
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       hubPostNotFound(ctx)
     }   
   })
@@ -1060,7 +1065,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /hubs/:publicKeyOrHandle/subscriptions Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
       hubNotFound(ctx)
     }
   })
@@ -1081,7 +1086,7 @@ export default (router) => {
         total: posts.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /posts Error: ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching posts'
@@ -1107,7 +1112,7 @@ export default (router) => {
         publishedThroughHub
     };
     } catch (err) {
-      console.log(err)
+      logger(`GET /posts/:publicKey Error: publicKey: ${ctx.params.publicKey} ${err}`)
       postNotFound(ctx)
     }
   })
@@ -1127,7 +1132,7 @@ export default (router) => {
         total: exchanges.total,
       };
     } catch (err) {
-      console.log(err)
+      logger(`GET /exchanges Error: ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching exchanges'
@@ -1141,22 +1146,18 @@ export default (router) => {
       let transaction
       if (ctx.query.transactionId) {
         transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
-        console.log('transaction', transaction)
+        logger(`GET /exchanges/:publicKey ${ctx.query.transactionId}`)
       }
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
       if (exchange && transaction) {
-        console.log('exchange found', exchange)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
-          console.log('accounts.length', accounts.length)
           if (transaction.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
-            console.log('found a cancel')
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
           } else if (transaction.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
-            console.log('found an accept')
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             const completedBy = await Account.findOrCreate(completedByPublicKey)
@@ -1164,7 +1165,6 @@ export default (router) => {
           }
         } 
       } else if (!exchange && transaction) {     
-        console.log('found an init')
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
@@ -1185,7 +1185,7 @@ export default (router) => {
         ctx.body = { exchange }
       }  
     } catch (err) {
-      console.log(err)
+      logger(`GET /exchanges/:publicKey Error: publicKey: ${ctx.params.publicKey} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Exchange not found with publicKey: ${ctx.params.publicKey}`
@@ -1284,6 +1284,7 @@ export default (router) => {
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
     } catch (err) {
+      logger(`POST /search Error: ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -1385,6 +1386,7 @@ export default (router) => {
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
     } catch (err) {
+      logger(`POST /suggestions Error: ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -1436,7 +1438,7 @@ export default (router) => {
         subscription,
       }
     } catch (err) {
-      console.log(err)
+      logger(`GET /subscriptions/:publicKey Error: ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
@@ -1454,7 +1456,7 @@ export default (router) => {
         release: release ? release : null
       }
     } catch (error) {
-      console.warn('hash verify error: ', error)
+      logger(`hash verify error: ${error}`)
       ctx.body = {
         release: null
       }
@@ -1483,7 +1485,7 @@ export default (router) => {
       }
       return verification
     } catch (err) {
-      console.warn(err)
+      logger(`getVerification ${err}`)
     }
   }
 
@@ -1499,7 +1501,7 @@ export default (router) => {
         verification,
       }
     } catch (error) {
-      console.warn(error)
+      logger(`GET '/verifications/:publicKey' ${error}`)
     }
   })
 }
