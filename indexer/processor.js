@@ -18,14 +18,11 @@ import {
   NINA_ID,
   NINA_ID_ETH_TLD,
   NINA_ID_SC_TLD,
-  NINA_ID_TW_TLD,
   NINA_ID_IG_TLD,
   ReverseEthAddressRegistryState,
   ReverseSoundcloudRegistryState,
-  ReverseTwitterRegistryState,
   ReverseInstagramRegistryState,
   getEnsForEthAddress,
-  getTwitterProfile,
   getSoundcloudProfile,
 } from './names.js';
 
@@ -146,27 +143,7 @@ class NinaProcessor {
       
       for await (let nameRegistry of existingNameRegistries) {
         try {
-          if (nameRegistry.type === 'twitter') {
-            try {
-              await axios.get(nameRegistry.image)
-            } catch (e){
-              const profile = await getTwitterProfile(nameRegistry.value);
-              if (profile) {
-                await Verification.query().patch({
-                  displayName: profile.name,
-                  image: profile.profile_image_url.replace('_normal', ''),
-                  description: profile.description,
-                  active: true,
-                }).where({ publicKey: nameRegistry.publicKey });
-              } else {
-                if (nameRegistry.active) {
-                  await Verification.query().patch({
-                    active: false,
-                  }).where({ publicKey: nameRegistry.publicKey });  
-                }
-              }
-            }
-          } else if (nameRegistry.type === 'soundcloud') {
+          if (nameRegistry.type === 'soundcloud') {
             try {
               await axios.get(nameRegistry.image)
             } catch (e) {
@@ -239,20 +216,7 @@ class NinaProcessor {
             // verification.description = soundcloudProfile.description
           }
         }
-      } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
-        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
-        const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
-        const account = await Account.findOrCreate(registry.owner.toBase58());
-        verification.accountId = account.id;
-        verification.value = name.twitterHandle
-        verification.type = 'twitter'
-        const twitterProfile = await getTwitterProfile(name.twitterHandle);
-        if (twitterProfile) {
-          verification.displayName = twitterProfile.name
-          verification.image = twitterProfile.profile_image_url?.replace('_normal', '')
-          verification.description = twitterProfile.description
-        }
-      }
+      } 
       if (verification.value && verification.type) {
         await Verification.query().insertGraph(verification)
         const v = await Verification.query().findOne({ publicKey: verification.publicKey })
