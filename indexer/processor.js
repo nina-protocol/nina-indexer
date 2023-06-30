@@ -12,17 +12,20 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
-import { decode, uriExtractor, logger } from './utils.js';
+import { decode, uriExtractor } from './utils.js';
 import {
   NAME_PROGRAM_ID,
   NINA_ID,
   NINA_ID_ETH_TLD,
   NINA_ID_SC_TLD,
+  NINA_ID_TW_TLD,
   NINA_ID_IG_TLD,
   ReverseEthAddressRegistryState,
   ReverseSoundcloudRegistryState,
+  ReverseTwitterRegistryState,
   ReverseInstagramRegistryState,
   getEnsForEthAddress,
+  getTwitterProfile,
   getSoundcloudProfile,
 } from './names.js';
 
@@ -66,43 +69,43 @@ class NinaProcessor {
     )
     this.metaplex = new Metaplex(connection);
   }
-  
+
   async runDbProcesses(isInitialRun = false) {
     if (!this.isProcessing) {
-      logger(`Running DB processes`)
+      console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
 
       try {
-        logger(`Running processReleases()`)
+        console.log(`${new Date()} Running processReleases()`)
         await this.processReleases();
-        logger(`Completed processReleases()`)
+        console.log(`${new Date()} Completed processReleases()`)
 
-        logger(`Running processPosts()`)
+        console.log(`${new Date()} Running processPosts()`)
         await this.processPosts();
-        logger(`Completed processPosts()`)
+        console.log(`${new Date()} Completed processPosts()`)
 
-        logger(`Running processHubs()`)
+        console.log(`${new Date()} Running processHubs()`)
         await this.processHubs();
-        logger(`Completed processHubs()`)
+        console.log(`${new Date()} Completed processHubs()`)
 
-        logger(`Running processSubscriptions()`)
+        console.log(`${new Date()} Running processSubscriptions()`)
         await this.processSubscriptions();
-        logger(`Completed processSubscriptions()`)
+        console.log(`${new Date()} Completed processSubscriptions()`)
 
-        logger(`Running processVerifications()`)
+        console.log(`${new Date()} Running processVerifications()`)
         await this.processVerifications();
-        logger(`Completed processVerifications()`)
+        console.log(`${new Date()} Completed processVerifications()`)
 
-        logger(`Running processExchangesAndTransactions()`)
+        console.log(`${new Date()} Running processExchangesAndTransactions()`)
         await this.processExchangesAndTransactions(isInitialRun);
-        logger(`Completed processExchangesAndTransactions()`)
+        console.log(`${new Date()} Completed processExchangesAndTransactions()`)
       } catch (error) {
-        logger(`Error running DB processes: ${error}`)
+        console.log(`${new Date()} Error running DB processes: ${error}`)
       }
 
       this.isProcessing = false;
     } else {
-      logger(`DB processes already running`)
+      console.log(`${new Date()} DB processes already running`)
     }
   }
 
@@ -130,20 +133,40 @@ class NinaProcessor {
             await this.processVerification(nameRegistry.pubkey);
           }
         } catch (e) {
-          logger(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
+          console.warn(`error loading name account: ${nameRegistry.pubkey.toBase58()} ---- ${e}`)
         }
       }
       for await (let nameRegistry of deletedNameRegistries) {
         try {
           await Verification.query().delete().where({ publicKey: nameRegistry.publicKey });
         } catch (e) {
-          logger(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
+          console.warn(`error deleting name account: ${nameRegistry.publicKey} ---- ${e}`)
         }
       }
       
       for await (let nameRegistry of existingNameRegistries) {
         try {
-          if (nameRegistry.type === 'soundcloud') {
+          if (nameRegistry.type === 'twitter') {
+            try {
+              await axios.get(nameRegistry.image)
+            } catch (e){
+              const profile = await getTwitterProfile(nameRegistry.value);
+              if (profile) {
+                await Verification.query().patch({
+                  displayName: profile.name,
+                  image: profile.profile_image_url.replace('_normal', ''),
+                  description: profile.description,
+                  active: true,
+                }).where({ publicKey: nameRegistry.publicKey });
+              } else {
+                if (nameRegistry.active) {
+                  await Verification.query().patch({
+                    active: false,
+                  }).where({ publicKey: nameRegistry.publicKey });  
+                }
+              }
+            }
+          } else if (nameRegistry.type === 'soundcloud') {
             try {
               await axios.get(nameRegistry.image)
             } catch (e) {
@@ -164,12 +187,12 @@ class NinaProcessor {
             }
           }
         } catch (e) {
-          logger(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
+          console.warn(`error loading name account: ${nameRegistry.publicKey} ---- ${e}`)
         }
       }
       return true
     } catch (error) {
-      logger(`Error processing verifications: ${error}`)
+      console.log(`${new Date()} Error processing verifications: ${error}`)
     }
   }
 
@@ -192,7 +215,7 @@ class NinaProcessor {
             verification.displayName = displayName
           }
         } catch (error) {
-          logger(`processVerification ${error}`)
+          console.warn(error)
         }
       } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
         const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
@@ -216,14 +239,27 @@ class NinaProcessor {
             // verification.description = soundcloudProfile.description
           }
         }
-      } 
+      } else if (registry.parentName.toBase58() === NINA_ID_TW_TLD.toBase58()) {
+        const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_TW_TLD);
+        const name = await ReverseTwitterRegistryState.retrieve(this.provider.connection, nameAccountKey)
+        const account = await Account.findOrCreate(registry.owner.toBase58());
+        verification.accountId = account.id;
+        verification.value = name.twitterHandle
+        verification.type = 'twitter'
+        const twitterProfile = await getTwitterProfile(name.twitterHandle);
+        if (twitterProfile) {
+          verification.displayName = twitterProfile.name
+          verification.image = twitterProfile.profile_image_url?.replace('_normal', '')
+          verification.description = twitterProfile.description
+        }
+      }
       if (verification.value && verification.type) {
         await Verification.query().insertGraph(verification)
         const v = await Verification.query().findOne({ publicKey: verification.publicKey })
         return v;
       }
     } catch (error) {
-      logger(`error processing verification ${error}`)
+      console.log('error processing verification', error)
     }
   }
 
@@ -235,11 +271,11 @@ class NinaProcessor {
         const collectors = await release.$relatedQuery('collectors')
         if (!collectors.find(c => c.id === account.id)) {
           await release.$relatedQuery('collectors').relate(account.id);
-          logger('added collector to release')
+          console.log('added collector to release')
         }
       }
     } catch (error) {
-      logger(`error addCollectorForRelease: ${error}`)
+      console.log('error addCollectorForRelease: ', error)
     }
   }
 
@@ -267,7 +303,7 @@ class NinaProcessor {
               const blocktime = tx.blockTime
               const datetime = new Date(blocktime * 1000).toISOString()
               const txid = txIds[i]
-              logger(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
+              console.log(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
               let transactionRecord = await Transaction.query().findOne({ txid })
               if (!transactionRecord || isInitialRun) {
                 await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord)
@@ -288,9 +324,9 @@ class NinaProcessor {
                         initializer: accounts[0].toBase58(),
                         createdAt: datetime
                       })
-                      logger(`found an exchange init ${accounts[5].toBase58()}`)
+                      console.log('found an exchange init', accounts[5].toBase58())
                     } catch (error) {
-                      logger(`error not a token mint: ${txid} ${error}`)
+                      console.log('error not a token mint: ', txid, error)
                     }
                   }
                 } else if (accounts.length === 6 || tx.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
@@ -298,7 +334,7 @@ class NinaProcessor {
                     publicKey: accounts[2].toBase58(),
                     updatedAt: datetime
                   })
-                  logger(`found an exchange cancel ${accounts[2].toBase58()}`)
+                  console.log('found an exchange cancel', accounts[2].toBase58())
                 } else if (accounts.length === 16 || tx.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
                   completedExchanges.push({
                     publicKey: accounts[2].toBase58(),
@@ -306,12 +342,12 @@ class NinaProcessor {
                     completedBy: accounts[0].toBase58(),
                     updatedAt: datetime
                   })
-                  logger(`found an exchange completed ${accounts[2].toBase58()}`)
+                  console.log('found an exchange completed', accounts[2].toBase58())
                 }
               }
             }
           } catch (error) {
-            logger(`error processing tx ${error}`)
+            console.log('error processing tx', error)
           }
 
           this.latestSignature = page[i]
@@ -334,10 +370,10 @@ class NinaProcessor {
               releaseId: release.id,
               createdAt: exchangeInit.createdAt,
             })
-            logger(`Inserted Exchange: ${exchangeInit.publicKey}`);
+            console.log('Inserted Exchange:', exchangeInit.publicKey);
           }
         } catch (error) {
-          logger(`error processing exchangeInits: ${error}`)
+          console.log('error processing exchangeInits: ', error)
         }
       }
 
@@ -350,10 +386,10 @@ class NinaProcessor {
               cancelled: true,
               updatedAt: exchangeCancel.updatedAt,
             }).findById(exchange.id);
-            logger(`Cancelled Exchange: ${exchangeCancel.publicKey}`);
+            console.log('Cancelled Exchange:', exchangeCancel.publicKey);
           }
         } catch (error) {
-          logger(`error processing exchangeCancels: ${error}`)
+          console.log('error processing exchangeCancels: ', error)
         }
       }
 
@@ -375,16 +411,16 @@ class NinaProcessor {
               accountPublicKey = account.publicKey;
             }
             await this.addCollectorForRelease(release.publicKey, accountPublicKey)
-            logger(`Completed Exchange: ${completedExchange.publicKey}`);
+            console.log('Completed Exchange:', completedExchange.publicKey);
           } else {
-            logger(`could not find exchange: ${completedExchange.publicKey}`)
+            console.log('could not find exchange: ', completedExchange.publicKey)
           }
         } catch (error) {
-          logger(`error processing completedExchanges: ${error}`)
+          console.log('error processing completedExchanges: ', error)
         }
       }
     } catch (error) {
-      logger(`error processing transactions: ${error}`)
+      console.log('error processing transactions: ', error)
     }
   }
 
@@ -415,7 +451,7 @@ class NinaProcessor {
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
       transactionObject.type = 'ReleasePurchaseViaHub'
       releasePublicKey = accounts[2].toBase58()
-      accountPublicKey = accounts[1].toBase58()
+      accountPublicKey = accounts[0].toBase58()
       hubPublicKey = accounts[8].toBase58()
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
@@ -552,7 +588,7 @@ class NinaProcessor {
             accountPublicKey = accounts[0].toBase58()
           }
         } catch (error) {
-          logger(`processTransaction ReleasePurchase account accounts[0].toBase58() === accounts[1].toBase58() ${error}`)
+          console.log(error)
         }
       } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
         try {
@@ -563,7 +599,7 @@ class NinaProcessor {
             accountPublicKey = accounts[3].toBase58()
           }
         } catch (error) {
-          logger(`processTransaction ReleasePurchase accounts[3].toBase58() === accounts[4].toBase58() ${error}`)
+          console.log(error)
         }
       }
     } else {
@@ -629,7 +665,7 @@ class NinaProcessor {
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
       const existingReleases = await Release.query();
 
-      logger(`processReleases - ${releases.length}`)
+      console.log(`${new Date()} processReleases - ${releases.length}`)
 
       const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
       const newMints = allMints.filter(x => !existingReleases.find(y => y.mint === x));
@@ -642,11 +678,11 @@ class NinaProcessor {
           newMetadata.map(metadata => axios.get(metadata.uri))
         ).then(axios.spread((...responses) => responses))
       } catch (error) {
-        logger(`processReleases - error fetching metadata from arweave.net, trying ar-io.net`)
+        console.log(`${new Date()} processReleases - error fetching metadata from arweave.net, trying ar-io.net`)
         newMetadataJson = await axios.all(
           newMetadata.map(metadata => axios.get(metadata.uri.replace('arweave.net', 'ar-io.net')))
         ).then(axios.spread((...responses) => responses))
-        logger(`processReleases - success fetching metadata from ar-io.net ${newMetadataJson.length}`)
+        console.log(`${new Date()} processReleases - success fetching metadata from ar-io.net ${newMetadataJson.length}`)
       }
   
       for await (let release of newReleasesWithMetadata) {
@@ -664,9 +700,9 @@ class NinaProcessor {
             publisherId: publisher.id,
             releaseAccount: release
           })
-          logger(`Inserted Relase: ${release.publicKey.toBase58()}`)
+          console.log(`Instered Relase: ${release.publicKey.toBase58()}`)
         } catch (err) {
-          logger(`processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
+          console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
       }
   
@@ -681,11 +717,11 @@ class NinaProcessor {
             this.warmCache(releaseRecord.metadata.image);
           }
         } catch (error) {
-          logger(`processReleases - error Release.processRevenueShares existingReleases ${releaseRecord.publicKey.toBase58()}: ${err}`);
+          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord.publicKey.toBase58()}: ${err}`);
         }
       }
     } catch (error) {
-      logger(`error processing releases: ${error}`)
+      console.log(`${new Date()} error processing releases: ${error}`)
     }
   }
   
@@ -721,14 +757,14 @@ class NinaProcessor {
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
             })
-            logger(`Inserted Post: ${newPost.publicKey.toBase58()}`);
+            console.log('Inserted Post:', newPost.publicKey.toBase58());
           }
         } catch (err) {
-          logger(`processPosts - error creating post ${newPost.publicKey.toBase58()}: ${err}`);
+          console.log(err);
         }
       }
     } catch (error) {
-      logger(`error processing posts: ${error}`)
+      console.log('error processing posts: ', error)
     }
   }
 
@@ -809,7 +845,7 @@ class NinaProcessor {
             updatedAt: new Date(newHub.account.datetime.toNumber() * 1000).toISOString(),
             authorityId: authority.id,
           });
-          logger(`Inserted Hub: ${newHub.publicKey.toBase58()}`);
+          console.log('Inserted Hub:', newHub.publicKey.toBase58());
           
           const hubReleasesForHubOnChain = hubReleases.filter(x => x.account.hub.toBase58() === hub.publicKey);
           const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(hub)).map(x => x.publicKey);
@@ -845,11 +881,11 @@ class NinaProcessor {
               newHubPostsForHub
             });
         } catch (err) {
-          logger(`error inserting hub: ${err}`);
+          console.log(err);
         }
       }
     } catch (error) {
-      logger(`Error processing hubs: ${error}`)
+      console.log(`${new Date()} - Error processing hubs: ${error}`)
     }
   }
 
@@ -869,9 +905,9 @@ class NinaProcessor {
             to: newSubscription.account.to.toBase58(),
             subscriptionType: Object.keys(newSubscription.account.subscriptionType)[0],
           });
-          logger(`Inserted Subscription: ${newSubscription.publicKey.toBase58()}`);
+          console.log('Inserted Subscription:', newSubscription.publicKey.toBase58());
         } catch (err) {
-          logger(`error inserting subscription:  ${newSubscription.publicKey.toBase58()} ${err}`);
+          console.log(err);
         }
       }
   
@@ -879,13 +915,13 @@ class NinaProcessor {
       for await (let unsubscribe of unsubscribes) {
         try {
           await Subscription.query().delete().where('publicKey', unsubscribe.publicKey)
-          logger(`Deleted Subscription: ${unsubscribe.publicKey}`);
+          console.log('Deleted Subscription:', unsubscribe.publicKey);
         } catch (err) {
-          logger(`error deleting subscription:  ${unsubscribe.publicKey} ${err}`);
+          console.log(err);
         }
       }
     } catch (error) {
-      logger(`Error processing subscriptions: ${error}`)
+      console.log(`${new Date()} - Error processing subscriptions: ${error}`)
     }
   }
 
@@ -934,14 +970,14 @@ class NinaProcessor {
                   const account = await Account.findOrCreate(collectorPubkey);
                   try {
                     await releaseInDb.$relatedQuery('collectors').relate(account.id);
-                    logger(`Inserted Collector For Release: ${collectorPubkey} ${release.publicKey.toBase58()}`);
+                    console.log('Inserted Collector For Release:', collectorPubkey, release.publicKey.toBase58());
                   } catch (error) {
-                    logger(`Error inserting collector !existingCollectorsInDb.map(x => x.publicKey).includes(collectorPubkey): ${collectorPubkey} ${release.publicKey.toBase58()} ${error}`)
+                    console.warn(error)
                   }
                 }
               }
             } catch (err) {
-              logger(`Inserted Collector For Release: ${collectorPubkey} ${release.publicKey.toBase58()}`);
+              console.log(err)
             }
           }
     
@@ -949,17 +985,17 @@ class NinaProcessor {
           for await (let collectorToRemove of collectorsToRemoveFromDb) {
             try {
               await releaseInDb.$relatedQuery('collectors').unrelate().where('accountId', collectorToRemove.accountId);
-              logger(`Removed Collector From Release: ${collectorToRemove.publicKey} ${release.publicKey.toBase58()}`);
+              console.log('Removed Collector From Release:', collectorToRemove.publicKey, release.publicKey.toBase58());
             } catch (err) {
-              logger(`Error removing collector from release: ${collectorToRemove.publicKey} ${release.publicKey.toBase58()} ${err}`);
+              console.log(err);
             }
           }      
         } catch (err) {
-          logger(`error processing collectors for release ${release.publicKey.toBase58()} ${err}`)
+          console.log(err)
         }
       }
     } catch (error) {
-      logger(`Error processing collectors: ${error}`)
+      console.log(`${new Date()} - Error processing collectors: ${error}`)
     }
   }
 
@@ -986,7 +1022,7 @@ class NinaProcessor {
       }
       return existingSignatures
     } catch (error) {
-      logger (`Error getting signatures: ${error}`)
+      console.warn (error)
     }
   }
 
@@ -1016,7 +1052,7 @@ class NinaProcessor {
         }
       }
     } catch (error) {
-      logger(`Error updating hub image cache ${error}`)
+      console.log('Error updating hub image cache', error)
     }
 
     // Update Hub Releases
@@ -1036,7 +1072,7 @@ class NinaProcessor {
           }
         }
       } catch (err) {
-        logger(`Error updating hub release for visibility: ${hubRelease.publicKey.toBase58()} ${err}`);
+        console.log(err);
       }
     }
     for await (let hubRelease of newHubReleasesForHub) {
@@ -1052,10 +1088,10 @@ class NinaProcessor {
           if (hubContent.account.publishedThroughHub) {
             await release.$query().patch({hubId: hub.id});
           }
-          logger(`Related Release to Hub: ${release.publicKey} ${hub.publicKey}`);  
+          console.log('Related Release to Hub:', release.publicKey, hub.publicKey);  
         }
       } catch (err) {
-        logger(`Error relating release to hub: ${hubRelease.publicKey.toBase58()} ${err}`);
+        console.log(err);
       }
     }
     
@@ -1071,10 +1107,10 @@ class NinaProcessor {
             id: collaboratorRecord.id,
             hubCollaboratorPublicKey: hubCollaborator.publicKey.toBase58(),
           })
-          logger(`Related Collaborator to Hub: ${collaboratorRecord.publicKey} ${hub.publicKey}`);
+          console.log('Related Collaborator to Hub:', collaboratorRecord.publicKey, hub.publicKey);
         }
       } catch (err) {
-        logger(`Error relating collaborator to hub: ${hubCollaborator.publicKey.toBase58()} ${err}`);
+        console.log(err);
       }
     }
   
@@ -1084,10 +1120,10 @@ class NinaProcessor {
         const collaboratorRecord = await Account.query().findOne({publicKey: removedCollaborator});
         if (collaboratorRecord) {
           await Hub.relatedQuery('collaborators').for(hub.id).unrelate().where('accountId', collaboratorRecord.id);
-          logger(`Removed Collaborator from Hub: ${collaboratorRecord.publicKey} ${hub.publicKey}`);
+          console.log('Removed Collaborator from Hub:', collaboratorRecord.publicKey, hub.publicKey);
         }
       } catch (err) {
-        logger(`Error removing collaborator from hub: ${removedCollaborator} ${err}`);
+        console.log(err);
       }
     }
   
@@ -1104,12 +1140,12 @@ class NinaProcessor {
             const post = await Post.query().findOne({publicKey: hubPost.account.post.toBase58()});
             if (post) {
               await Post.relatedQuery('releases').for(post.id).unrelate().where('hubId', hub.id);
-              logger(`Deleted Post: ${hubPost.publicKey}`);
+              console.log('Deleted Post:', hubPost.publicKey);
             }
           }  
         }
       } catch (err) {
-        logger(`Error deleting post: ${hubPost.publicKey.toBase58()} ${err}`);
+        console.log(err);
       }
     }
 
@@ -1126,7 +1162,7 @@ class NinaProcessor {
             if (hubContent.account.publishedThroughHub) {
               await post.$query().patch({hubId: hub.id});
             }
-            logger(`Related Post to Hub: ${post.publicKey} ${hub.publicKey}`);
+            console.log('Related Post to Hub:', post.publicKey, hub.publicKey);
           }
           
           if (hubPost.account.referenceContent) {
@@ -1135,19 +1171,19 @@ class NinaProcessor {
               const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
               if (!relatedRelease) {
                 await Post.relatedQuery('releases').for(post.id).relate(release.id);
-                logger(`Related Release to Post: ${release.publicKey} ${post.publicKey}`);
+                console.log('Related Release to Post:', release.publicKey, post.publicKey);
               }
             }
           }
         } else if (post) {
           if (hubContent.account.publishedThroughHub) {
             await Post.query().deleteById(post.id);
-            logger(`deleted Post: ${post.publicKey}`);
+            console.log('deleted Post:', post.publicKey);
           }
   
         }
       } catch (err) {
-        logger(`Error relating post to hub: ${hubPost.publicKey.toBase58()} ${err}`);
+        console.log(err);
       }
     }
   }
@@ -1168,10 +1204,10 @@ class NinaProcessor {
             'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
           }
         })
-        logger(`Warmed Cache On Image: ${image}`)
+        console.log('Warmed Cache On Image:', image)
       }
     } catch (err) {
-      logger(`Error warming cache: ${err.toString()}`);
+      console.log('Error warming cache:', err.toString());
     }
   }
 }

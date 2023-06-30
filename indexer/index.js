@@ -6,7 +6,6 @@ import v8 from 'node:v8';
 import { initDb, config } from '@nina-protocol/nina-db';
 import NinaProcessor from './processor.js';
 import { environmentIsSetup } from "../scripts/env_check.js";
-import { logger } from "./utils.js";
 
 const arg = process.argv.slice()
 
@@ -19,48 +18,48 @@ function getUsedHeapSize() {
 
 const runInitialSync = async () => {
   try {
-    logger('Initial Sync starting')
+    console.log('Initial Sync starting')
     await NinaProcessor.runDbProcesses(true)
     if (process.env.RUN_INITIAL_SYNC === 'true') {
       await NinaProcessor.processCollectors()
     }
-    logger('Initial Sync complete')
+    console.log('Initial Sync complete')
     return true
   } catch (error) {
-    logger(`Initial Sync error: ${error}`)
+    console.log('Initial Sync error: ', error)
     return false
   }
 }
 
 const startProcessing = async () => {
-  logger(`Indexer Starting Up`)
+  console.log(`${new Date()} Indexer Starting Up`)
   await initDb(config)
   await NinaProcessor.init()
-  logger('Indexer Started - DB and Processor Initialized')
+  console.log('Indexer Started - DB and Processor Initialized')
   
   let initialSyncComplete = false
   while (!initialSyncComplete) {
     initialSyncComplete = await runInitialSync()
     if (!initialSyncComplete) {
-      logger('Initial Sync failed.  Retrying in 5 seconds.')
+      console.log('Initial Sync failed.  Retrying in 5 seconds.')
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
   }
 
   cron.schedule('* * * * *', async() => {
-    logger(`Cron job starting: Sync Hubs + Releases`);
+    console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
     if (arg[2]=="--heap-stats") {
       runHeapDiagnostics() // Verbose heap diagnostics if option enabled
     }
-    logger(`Indexer heap size (MB): ${getUsedHeapSize()}`);
+    console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
     await NinaProcessor.runDbProcesses()
-    logger(`Cron job ended: Sync Hubs + Releases`);
+    console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
   });
   
   cron.schedule('0 * * * *', async() => {
-    logger(`Cron job starting: Sync Collectors`);
+    console.log(`${new Date()} Cron job starting: Sync Collectors`);
     await NinaProcessor.processCollectors()
-    logger(`Cron job ended: Sync Collectors`);
+    console.log(`${new Date()} Cron job ended: Sync Collectors`);
   })
 }
 
@@ -68,7 +67,8 @@ try {
   environmentIsSetup()  
   startProcessing()
 } catch (error) {
-  logger(`Environment is not properly setup.  Check .env file and try again. - ${error}`)
+  console.error('Environment is not properly setup.  Check .env file and try again.')
+  console.error(error)
 }
 
 const runHeapDiagnostics = () => {
