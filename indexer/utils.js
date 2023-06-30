@@ -5,7 +5,3 @@ export const decode = (byteArray) => {
 export const uriExtractor = (uri) => {
   return uri.replace('https://www.arweave.net/', '').replace('https://arweave.net/', '');
 }
-
-export const logger = (message) => {
-  console.log(`${new Date()} - ${message}`)
-}
