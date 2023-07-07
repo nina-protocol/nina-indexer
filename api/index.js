@@ -11,7 +11,7 @@ import { environmentIsSetup } from "../scripts/env_check.js";
 import { logger } from '../indexer/utils.js';
 
 const router = new KoaRouter({
-  prefix: '/'
+  prefix: '/v1'
 })
 const app = new Koa()
 app.use(cors())
