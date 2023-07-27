@@ -175,7 +175,7 @@ export default (router) => {
     try {
       const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
       const account = await Account.findOrCreate(ctx.params.publicKey);
-      const { txId } = ctx.query;
+      const { txId, releasePublicKey } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, 'confirmed')
@@ -186,6 +186,31 @@ export default (router) => {
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[1].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          }
+        }
+      } else if (releasePublicKey) {
+        await NinaProcessor.init();
+        const release = await NinaProcessor.program.account.release.fetch(new anchor.web3.PublicKey(releasePublicKey))
+        if (release) {
+          let tokenAccountsForRelease = await NinaProcessor.tokenIndexProvider.connection.getParsedProgramAccounts(
+            new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
+            commitment: NinaProcessor.provider.connection.commitment,
+            filters: [{
+                dataSize: 165
+              }, {
+                memcmp: {
+                  offset: 0,
+                  bytes: release.account.releaseMint.toBase58()
+                }
+              }
+            ]
+          })
+          const tokenAccounts = tokenAccountsForRelease.filter(ta => ta.account.data.parsed.info.owner === ctx.params.publicKey)
+          if (tokenAccounts.length > 0) {
+            let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, NinaProcessor.provider.connection.commitment)
+            if (response.value.uiAmount > 0) {
+              await NinaProcessor.addCollectorForRelease(releasePublicKey, ctx.params.publicKey)
+            }
           }
         }
       }
