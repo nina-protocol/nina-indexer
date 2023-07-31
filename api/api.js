@@ -200,7 +200,7 @@ export default (router) => {
               }, {
                 memcmp: {
                   offset: 0,
-                  bytes: release.account.releaseMint.toBase58()
+                  bytes: release.releaseMint.toBase58()
                 }
               }
             ]
