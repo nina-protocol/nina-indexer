@@ -39,5 +39,6 @@ export default {
     migrations: {
       directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
+    debug: true,
   }
 };
