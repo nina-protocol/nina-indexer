@@ -178,7 +178,10 @@ export default (router) => {
       const { txId, releasePublicKey } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
-        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, 'confirmed')
+        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
         
         if (tx) {
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
@@ -1170,7 +1173,10 @@ export default (router) => {
       await NinaProcessor.init()
       let transaction
       if (ctx.query.transactionId) {
-        transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, 'confirmed')
+        transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
         logger(`GET /exchanges/:publicKey ${ctx.query.transactionId}`)
       }
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
@@ -1426,8 +1432,10 @@ export default (router) => {
       if (ctx.query.transactionId) {
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
-            ctx.query.transactionId,
-            "confirmed"
+            ctx.query.transactionId, {
+              commitment: 'confirmed',
+              maxSupportedTransactionVersion: 0
+            }
           );
       }
 
