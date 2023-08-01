@@ -293,7 +293,9 @@ class NinaProcessor {
       const coder = new anchor.BorshInstructionCoder(this.program.idl)
       for await (let page of pages) {
         const txIds = page.map(signature => signature.signature)
-        const txs = await this.provider.connection.getParsedTransactions(txIds)
+        const txs = await this.provider.connection.getParsedTransactions(txIds, {
+          maxSupportedTransactionVersion: 0
+        })
         let i = 0
         for await (let tx of txs) {
           try {
