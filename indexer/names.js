@@ -4,7 +4,6 @@ import { deserializeUnchecked, serialize } from 'borsh';
 import Web3 from 'web3';
 import ENS from 'ethereum-ens';
 import formUrlEncoded from 'form-urlencoded';
-import { logger } from './utils.js';  
 
 export const NINA_ID = new anchor.web3.PublicKey("idHukURpSwMbvcRER9pN97tBSsH4pdLSUhnHYwHftd5")
 export const NINA_ID_ETH_TLD = new anchor.web3.PublicKey("9yQ5NdLpFdALfRjjfBLCQiddvMekwRbCtuSYDCi4mpFc")
@@ -353,7 +352,7 @@ export const getEnsForEthAddress = async (ethAddress) => {
     }
     return ensName
   } catch (error) {
-    logger(error)
+    console.warn(error)
     return null
   }
 }
@@ -378,7 +377,7 @@ export const getTwitterProfile = async (twitterHandle) => {
     }
     return twitterProfile
   } catch (error) {
-    logger(`Twitter handle doesn't exist: ${twitterHandle}`)
+    console.warn(`Twitter handle doesn't exist: ${twitterHandle}`)
     return undefined
   }
 }
@@ -419,7 +418,7 @@ export const getSoundcloudProfile = async (soundcloudHandle) => {
       return soundcloudProfile
     }
   } catch (error) {
-    logger(error)
+    console.warn(error)
     return null
   }
 }
