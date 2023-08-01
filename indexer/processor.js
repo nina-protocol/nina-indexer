@@ -26,7 +26,7 @@ import {
   getSoundcloudProfile,
 } from './names.js';
 
-const MAX_PARSED_TRANSACTIONS = 150
+const MAX_PARSED_TRANSACTIONS = 50
 const MAX_TRANSACTION_SIGNATURES = 1000
 
 const CACHE_RESET_TIME = 1200000 // 20 minutes
