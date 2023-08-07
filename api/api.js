@@ -13,7 +13,7 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
-import { decode, logger } from '../indexer/utils.js';
+import { decode } from '../indexer/utils.js';
 
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -66,7 +66,7 @@ export default (router) => {
       };
 
     } catch (err) {
-      logger(`GET /accounts ${err}`)
+      console.log(err)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching accounts'
@@ -166,14 +166,15 @@ export default (router) => {
 
       ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
 
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const { txId, releasePublicKey } = ctx.query;
       if (txId) {
@@ -219,7 +220,8 @@ export default (router) => {
       }
       
       const collected = await account.$relatedQuery('collected')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let release of collected.results) {
         release.collectedDate = await getCollectedDate(release, account)
@@ -230,7 +232,7 @@ export default (router) => {
         total: collected.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/collected' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
@@ -238,10 +240,12 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let hub of hubs.results) {
         await hub.format();
@@ -251,18 +255,21 @@ export default (router) => {
         total: hubs.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/hubs' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
 
   router.get('/accounts/:publicKey/posts', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
+        
       for await (let post of posts.results) {
         await post.format();
       }
@@ -271,17 +278,19 @@ export default (router) => {
         total: posts.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/posts' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
   
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const publishedVisible = await getVisibleReleases(published.results)
 
@@ -290,19 +299,20 @@ export default (router) => {
         total: published.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/published' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
 
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const exchanges = await Exchange.query()
         .where('completedById', account.id)
         .orWhere('initializerId', account.id)
-        .orderBy('createdAt', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let exchange of exchanges.results) {
@@ -313,17 +323,19 @@ export default (router) => {
         total: exchanges.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/exchanges' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
 
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
@@ -333,19 +345,20 @@ export default (router) => {
         total: revenueShares.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/revenueShares' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
 
   router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
       for await (let subscription of subscriptions.results) {
@@ -357,7 +370,7 @@ export default (router) => {
         total: subscriptions.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/subscriptions' ${err}`)
+      console.log(err)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching subscriptions'
@@ -381,7 +394,7 @@ export default (router) => {
         total: verifications.total,
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/verifications' ${err}`)
+      console.log(err)
       accountNotFound(ctx)
     }
   });
@@ -428,7 +441,6 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/feed' ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -462,7 +474,6 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
-      logger(`GET '/accounts/:publicKey/activity' ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -584,7 +595,6 @@ export default (router) => {
       const sortedHubs = Object.values(suggestions).sort((a, b) => ((b.hubReleaseCount + b.collectedCount + b.publishedCount + b.collectorHubCount + b.hubSubscriptionCount) - (a.hubReleaseCount + a.collectedCount + a.publishedCount + a.collectorHubCount + a.hubSubscriptionCount)))
       ctx.body = { suggestions: sortedHubs };    
     } catch (err) {
-      logger(`GET /accounts/:publicKey/hubSuggestions`, err)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -594,10 +604,11 @@ export default (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const releases = await Release
         .query()
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
 
@@ -610,7 +621,7 @@ export default (router) => {
         total: releases.total,
       };
     } catch(err) {
-      logger(`GET /releases Error: ${err}`)
+      console.log(err)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching releases'
@@ -629,7 +640,7 @@ export default (router) => {
         release,
       }
   } catch (err) {
-      logger(`GET /releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
+      console.log(`/releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -639,10 +650,11 @@ export default (router) => {
 
   router.get('/releases/:publicKey/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const exchanges = await release.$relatedQuery('exchanges')
-        .orderBy('createdAt', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let exchange of exchanges.results) {
@@ -654,7 +666,7 @@ export default (router) => {
         total: exchanges.total, 
       };
     } catch (err) {
-      logger(`GET /releases/:publicKey/exchanges Error: publicKey: ${ctx.params.publicKey} ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -684,7 +696,7 @@ export default (router) => {
         total: collectors.total,
       };
     } catch (err) {
-      logger(`GET /releases/:publicKey/collectors Error: publicKey: ${ctx.params.publicKey} ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -694,10 +706,11 @@ export default (router) => {
 
   router.get('/releases/:publicKey/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const hubs = await release.$relatedQuery('hubs')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let hub of hubs.results) {
@@ -708,7 +721,7 @@ export default (router) => {
         total: hubs.total,
       };
     } catch (error) {
-      logger(`GET /releases/:publicKey/hubs Error: publicKey: ${ctx.params.publicKey} ${error}`)
+      console.log(error)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -730,7 +743,7 @@ export default (router) => {
         total: revenueShareRecipients.total,
       };
     } catch (error) {
-      logger(`GET /releases/:publicKey/revenueShareRecipients Error: publicKey: ${ctx.params.publicKey} ${error}`)
+      console.log(error)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKey: ${ctx.params.publicKey}`
@@ -740,11 +753,12 @@ export default (router) => {
 
   router.get('/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const hubs = await Hub.query()
         .whereExists(Hub.relatedQuery('releases'))
         .orWhereExists(Hub.relatedQuery('posts'))
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       for await (let hub of hubs.results) {
@@ -756,7 +770,6 @@ export default (router) => {
         total: hubs.total
       };
     } catch (err) {
-      logger(`GET /hubs Error: ${err}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching hubs'
@@ -824,7 +837,7 @@ export default (router) => {
         posts 
       };
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
@@ -850,7 +863,6 @@ export default (router) => {
         hub,
       };
     } catch (error) {
-      logger(`GET /hubs/:publicKeyOrHandle/tx/:txid Error: publicKey: ${ctx.params.publicKeyOrHandle} ${error}`)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching hub'
@@ -874,17 +886,19 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/collaborators Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       hubNotFound(ctx)
     }
   })
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where('metadata:name', 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const releasesVisible = await getVisibleReleases(releases.results)
       ctx.body = { 
@@ -893,17 +907,19 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/releases Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       hubNotFound(ctx)
     }
   })
 
   router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       const posts = await hub.$relatedQuery('posts')
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
+        .where('data:title', 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
@@ -914,7 +930,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/posts Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       hubNotFound(ctx)
     }
   })
@@ -967,7 +983,7 @@ export default (router) => {
         }
       }
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `HubRelease not found with hub: ${ctx.params.publicKeyOrHandle} and HubRelease publicKey: ${ctx.params.hubReleasePublicKey}`
@@ -1000,7 +1016,6 @@ export default (router) => {
         ctx.body = { success: true}
       }
     } catch (error) {
-      logger(`GET /hubs/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${error}`)
       ctx.body = { success: true }
     }
   })
@@ -1058,7 +1073,7 @@ export default (router) => {
             const relatedRelease = await Post.relatedQuery('releases').for(post.id).where('releaseId', release.id).first();
             if (!relatedRelease) {
               await Post.relatedQuery('releases').for(post.id).relate(release.id);
-              logger(`Related Release to Post: ${release.publicKey} ${post.publicKey}`);
+              console.log('Related Release to Post:', release.publicKey, post.publicKey);
             }
           }
         }
@@ -1070,19 +1085,20 @@ export default (router) => {
         hub,
       }
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/hubPosts/:hubPostPublicKey Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       hubPostNotFound(ctx)
     }   
   })
 
   router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       const subscriptions = await Subscription.query()
-        .where('subscriptions.to', hub.publicKey)
-        .where('subscriptions.subscriptionType', 'hub')
-        .orderBy('subscriptions.datetime', sort)
+        .where('to', hub.publicKey)
+        .where('subscriptionType', 'hub')
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let subscription of subscriptions.results) {
         await subscription.format();
@@ -1093,7 +1109,7 @@ export default (router) => {
         publicKey: hub.publicKey,
       };
     } catch (err) {
-      logger(`GET /hubs/:publicKeyOrHandle/subscriptions Error: publicKey: ${ctx.params.publicKeyOrHandle} ${err}`)
+      console.log(err)
       hubNotFound(ctx)
     }
   })
@@ -1101,10 +1117,10 @@ export default (router) => {
 
   router.get('/posts', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const { offset=0, limit=20, sort='desc', column='datetime'} = ctx.query;
       const posts = await Post
         .query()
-        .orderBy('datetime', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
@@ -1114,7 +1130,7 @@ export default (router) => {
         total: posts.total,
       };
     } catch (err) {
-      logger(`GET /posts Error: ${err}`)
+      console.log(err)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching posts'
@@ -1140,17 +1156,18 @@ export default (router) => {
         publishedThroughHub
     };
     } catch (err) {
-      logger(`GET /posts/:publicKey Error: publicKey: ${ctx.params.publicKey} ${err}`)
+      console.log(err)
       postNotFound(ctx)
     }
   })
   
   router.get('/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='createdAt' } = ctx.query;
+      column = formatColumnForJsonFields(column);
       const exchanges = await Exchange
         .query()
-        .orderBy('createdAt', sort)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let exchange of exchanges.results) {
         await exchange.format();
@@ -1160,7 +1177,7 @@ export default (router) => {
         total: exchanges.total,
       };
     } catch (err) {
-      logger(`GET /exchanges Error: ${err}`)
+      console.log(err)
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching exchanges'
@@ -1182,13 +1199,17 @@ export default (router) => {
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
       if (exchange && transaction) {
+        console.log('exchange found', exchange)
         const length = transaction.transaction.message.instructions.length
         const accounts = transaction.transaction.message.instructions[length - 1].accounts
         if (accounts) {
+          console.log('accounts.length', accounts.length)
           if (transaction.meta.logMessages.some(log => log.includes('ExchangeCancel'))) {
+            console.log('found a cancel')
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             await Exchange.query().patch({cancelled: true, updatedAt}).findById(exchange.id)
           } else if (transaction.meta.logMessages.some(log => log.includes('ExchangeAccept'))) {
+            console.log('found an accept')
             const completedByPublicKey = transaction.transaction.message.instructions[length - 1].accounts[0].toBase58()
             const updatedAt = new Date(transaction.blockTime * 1000).toISOString()
             const completedBy = await Account.findOrCreate(completedByPublicKey)
@@ -1196,6 +1217,7 @@ export default (router) => {
           }
         } 
       } else if (!exchange && transaction) {     
+        console.log('found an init')
         const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
@@ -1216,7 +1238,7 @@ export default (router) => {
         ctx.body = { exchange }
       }  
     } catch (err) {
-      logger(`GET /exchanges/:publicKey Error: publicKey: ${ctx.params.publicKey} ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `Exchange not found with publicKey: ${ctx.params.publicKey}`
@@ -1315,7 +1337,6 @@ export default (router) => {
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
     } catch (err) {
-      logger(`POST /search Error: ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -1417,7 +1438,6 @@ export default (router) => {
         hubs: _.uniqBy(formattedHubsResponse, x => x.publicKey),
       }
     } catch (err) {
-      logger(`POST /suggestions Error: ${err}`)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -1471,7 +1491,7 @@ export default (router) => {
         subscription,
       }
     } catch (err) {
-      logger(`GET /subscriptions/:publicKey Error: ${err}`)
+      console.log(err)
       ctx.status = 404
       ctx.body = {
         message: `Subscription not found with publicKey: ${ctx.params.publicKey}`
@@ -1489,7 +1509,7 @@ export default (router) => {
         release: release ? release : null
       }
     } catch (error) {
-      logger(`hash verify error: ${error}`)
+      console.warn('hash verify error: ', error)
       ctx.body = {
         release: null
       }
@@ -1518,7 +1538,7 @@ export default (router) => {
       }
       return verification
     } catch (err) {
-      logger(`getVerification ${err}`)
+      console.warn(err)
     }
   }
 
@@ -1534,7 +1554,7 @@ export default (router) => {
         verification,
       }
     } catch (error) {
-      logger(`GET '/verifications/:publicKey' ${error}`)
+      console.warn(error)
     }
   })
 }
@@ -1573,4 +1593,11 @@ const hubForPublicKeyOrHandle = async (ctx) => {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
   }
   return hub
+}
+
+const formatColumnForJsonFields = (column) => {
+  if (column.includes(':')) {
+    column = ref(column).castText()
+  }
+  return column
 }
