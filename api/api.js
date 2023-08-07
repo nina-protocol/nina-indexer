@@ -173,7 +173,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
-      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const { txId, releasePublicKey } = ctx.query;
@@ -221,6 +221,7 @@ export default (router) => {
       
       const collected = await account.$relatedQuery('collected')
         .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let release of collected.results) {
         release.collectedDate = await getCollectedDate(release, account)
@@ -239,11 +240,12 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const hubs = await account.$relatedQuery('hubs')
         .orderBy(column, sort)
+        .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let hub of hubs.results) {
         await hub.format();
@@ -260,12 +262,14 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/posts', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const posts = await account.$relatedQuery('posts')
         .orderBy(column, sort)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
+        
       for await (let post of posts.results) {
         await post.format();
       }
@@ -281,11 +285,12 @@ export default (router) => {
   
   router.get('/accounts/:publicKey/published', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let published = await account.$relatedQuery('published')
         .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const publishedVisible = await getVisibleReleases(published.results)
 
@@ -301,7 +306,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const exchanges = await Exchange.query()
@@ -325,11 +330,12 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       let revenueShares = await account.$relatedQuery('revenueShares')
         .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
       const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
@@ -346,7 +352,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
@@ -598,7 +604,7 @@ export default (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const releases = await Release
         .query()
@@ -644,7 +650,7 @@ export default (router) => {
 
   router.get('/releases/:publicKey/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const exchanges = await release.$relatedQuery('exchanges')
@@ -700,7 +706,7 @@ export default (router) => {
 
   router.get('/releases/:publicKey/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
       const hubs = await release.$relatedQuery('hubs')
@@ -747,7 +753,7 @@ export default (router) => {
 
   router.get('/hubs', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hubs = await Hub.query()
         .whereExists(Hub.relatedQuery('releases'))
@@ -887,11 +893,12 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
         .orderBy(column, sort)
+        .where('metadata:name', 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const releasesVisible = await getVisibleReleases(releases.results)
       ctx.body = { 
@@ -907,11 +914,12 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       const posts = await hub.$relatedQuery('posts')
         .orderBy(column, sort)
+        .where('data:title', 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
@@ -1084,7 +1092,7 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
-      const { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       const subscriptions = await Subscription.query()
@@ -1155,7 +1163,7 @@ export default (router) => {
   
   router.get('/exchanges', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc', column='createdAt' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const exchanges = await Exchange
         .query()
