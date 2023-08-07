@@ -177,7 +177,6 @@ export default (router) => {
       column = formatColumnForJsonFields(column);
 
       const account = await Account.findOrCreate(ctx.params.publicKey);
-
       const collected = await account.$relatedQuery('collected')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -202,7 +201,6 @@ export default (router) => {
         await post.format();
         post.type = 'post'
       }
-
 
       let published = await account.$relatedQuery('published')
         .orderBy(column, sort)
