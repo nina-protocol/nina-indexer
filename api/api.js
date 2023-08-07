@@ -891,6 +891,48 @@ export default (router) => {
     }
   })
 
+  router.get('/hubs/:publicKeyOrHandle/all', async (ctx) => {
+    try {
+      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      let releases = await hub.$relatedQuery('releases')
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      
+      let posts = await hub.$relatedQuery('posts')
+        .orderBy(column, sort)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+
+      for await(let post of posts) {
+        post.type = 'post'
+        await post.format();
+      }
+  
+      const releasesVisible = await getVisibleReleases(releases)
+      for (let release of releasesVisible) {
+        release.type = 'release'
+      }
+
+      const all = [...releasesVisible, ...posts]
+      if (sort === 'desc') {
+        all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = { 
+        all: all.slice(Number(offset), Number(offset) + Number(limit) - 1),
+        total: all.length,
+        publicKey: hub.publicKey,
+      };
+    } catch (err) {
+      console.log(err)
+      hubNotFound(ctx)
+    }
+  })
+
+
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
