@@ -378,7 +378,7 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/subscriptionsFrom', async (ctx) => {
+  router.get('/accounts/:publicKey/followers', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
@@ -405,7 +405,7 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/subscriptionsTo', async (ctx) => {
+  router.get('/accounts/:publicKey/following', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
