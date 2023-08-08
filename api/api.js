@@ -898,7 +898,7 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
         .orderBy(column, sort)
-        .where('metadata:name', 'ilike', `%${query}%`)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const releasesVisible = await getVisibleReleases(releases.results)
       ctx.body = { 
@@ -919,7 +919,7 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       const posts = await hub.$relatedQuery('posts')
         .orderBy(column, sort)
-        .where('data:title', 'ilike', `%${query}%`)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
