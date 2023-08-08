@@ -378,6 +378,61 @@ export default (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/followers', async (ctx) => {
+    try {
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const account = await Account.findOrCreate(ctx.params.publicKey);
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let subscription of subscriptions.results) {
+        await subscription.format();
+      }
+
+      ctx.body = {
+        subscriptions: subscriptions.results,
+        total: subscriptions.total,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching subscriptions'
+      }
+    }
+  });
+
+  router.get('/accounts/:publicKey/following', async (ctx) => {
+    try {
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const account = await Account.findOrCreate(ctx.params.publicKey);
+      const subscriptions = await Subscription.query()
+        .where('to', account.publicKey)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let subscription of subscriptions.results) {
+        await subscription.format();
+      }
+
+      ctx.body = {
+        subscriptions: subscriptions.results,
+        total: subscriptions.total,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching subscriptions'
+      }
+    }
+  });
+
+
   router.get('/accounts/:publicKey/verifications', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
