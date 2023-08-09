@@ -444,13 +444,16 @@ export default (router) => {
         .where('from', account.publicKey)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-      
+
+      const followers = []
       for await (let subscription of subscriptions.results) {
-        await subscription.format();
+        const toAccount = await Account.findOrCreate(subscription.to);
+        await toAccount.format();
+        followers.push(toAccount)
       }
 
       ctx.body = {
-        subscriptions: subscriptions.results,
+        followers,
         total: subscriptions.total,
       };
     } catch (err) {
@@ -472,12 +475,15 @@ export default (router) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
+      const following = []
       for await (let subscription of subscriptions.results) {
-        await subscription.format();
+        const fromAccount = await Account.findOrCreate(subscription.from);
+        await fromAccount.format();
+        following.push(fromAccount)
       }
 
       ctx.body = {
-        subscriptions: subscriptions.results,
+        following,
         total: subscriptions.total,
       };
     } catch (err) {
