@@ -171,6 +171,62 @@ export default (router) => {
     }
   });
 
+  router.get('/accounts/:publicKey/all', async (ctx) => {
+    try {
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+
+      const account = await Account.findOrCreate(ctx.params.publicKey);
+      const collected = await account.$relatedQuery('collected')
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      for await (let release of collected) {
+        release.datetime = await getCollectedDate(release, account)
+        await release.format();
+        release.type = 'release'
+      }
+
+      const hubs = await account.$relatedQuery('hubs')
+        .orderBy(column, sort)
+        .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      for await (let hub of hubs) {
+        await hub.format();
+        hub.type = 'hub'
+      }
+
+      const posts = await account.$relatedQuery('posts')
+        .orderBy(column, sort)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      for await (let post of posts) {
+        await post.format();
+        post.type = 'post'
+      }
+
+      let published = await account.$relatedQuery('published')
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      const publishedVisible = await getVisibleReleases(published)
+      for (let release of publishedVisible) {
+        release.type = 'release'
+      }
+
+      const all = [...collected, ...hubs, ...posts, ...publishedVisible]
+      if (sort === 'desc') {
+        all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = { 
+        all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        total: all.length,
+      };
+    } catch (err) {
+      console.log(err)
+      accountNotFound(ctx)
+    }
+  });
+
   router.get('/accounts/:publicKey/collected', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
@@ -236,6 +292,7 @@ export default (router) => {
       accountNotFound(ctx)
     }
   });
+
 
 
   router.get('/accounts/:publicKey/hubs', async (ctx) => {
@@ -945,6 +1002,48 @@ export default (router) => {
       hubNotFound(ctx)
     }
   })
+
+  router.get('/hubs/:publicKeyOrHandle/all', async (ctx) => {
+    try {
+      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      let releases = await hub.$relatedQuery('releases')
+        .orderBy(column, sort)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      
+      let posts = await hub.$relatedQuery('posts')
+        .orderBy(column, sort)
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+
+      for await(let post of posts) {
+        post.type = 'post'
+        await post.format();
+      }
+  
+      const releasesVisible = await getVisibleReleases(releases)
+      for (let release of releasesVisible) {
+        release.type = 'release'
+      }
+
+      const all = [...releasesVisible, ...posts]
+      if (sort === 'desc') {
+        all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = { 
+        all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        total: all.length,
+        publicKey: hub.publicKey,
+      };
+    } catch (err) {
+      console.log(err)
+      hubNotFound(ctx)
+    }
+  })
+
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
