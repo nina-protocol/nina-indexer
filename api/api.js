@@ -435,25 +435,37 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/followers', async (ctx) => {
+  router.get('/accounts/:publicKey/following', async (ctx) => {
     try {
+      const { publicKey } = ctx.params;
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
-        .where('from', account.publicKey)
+        .where('from', publicKey)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      const followers = []
+      const following = []
       for await (let subscription of subscriptions.results) {
-        const toAccount = await Account.findOrCreate(subscription.to);
-        await toAccount.format();
-        followers.push(toAccount)
+        if (subscription.subscriptionType === 'account') {
+          const account = await Account.findOrCreate(subscription.to);
+          await account.format();
+          following.push({
+            account,
+            subscription,
+          })
+        } else if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.to });
+          await hub.format();
+          following.push({
+            hub,
+            subscription,
+          })
+        }
       }
 
       ctx.body = {
-        followers,
+        following,
         total: subscriptions.total,
       };
     } catch (err) {
@@ -465,21 +477,33 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/following', async (ctx) => {
+  router.get('/accounts/:publicKey/followers', async (ctx) => {
     try {
+      const { publicKey } = ctx.params;
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
       const subscriptions = await Subscription.query()
-        .where('to', account.publicKey)
+        .where('to', publicKey)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
       const following = []
       for await (let subscription of subscriptions.results) {
-        const fromAccount = await Account.findOrCreate(subscription.from);
-        await fromAccount.format();
-        following.push(fromAccount)
+        if (subscription.subscriptionType === 'account') {
+          const account = await Account.findOrCreate(subscription.from);
+          await account.format();
+          following.push({
+            account,
+            subscription,
+          })
+        } else if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.from });
+          await hub.format();
+          following.push({
+            hub,
+            subscription,
+          })
+        }
       }
 
       ctx.body = {
