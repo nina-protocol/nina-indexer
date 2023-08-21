@@ -937,7 +937,8 @@ export default (router) => {
             data: data.data,
             dataUri: uri,
             datetime: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
-            authorityId: authority.id,
+            updatedAt: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
+            authorityId: authority.id,            
           });
           const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
             [
