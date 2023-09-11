@@ -491,14 +491,14 @@ export default (router) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
-      const following = []
+      const followers = []
       for await (let subscription of subscriptions.results) {
         if (subscription.subscriptionType === 'account') {
           const account = await Account.findOrCreate(subscription.from);
           await account.format();
           delete subscription.id
 
-          following.push({
+          followers.push({
             account,
             subscription,
           })
@@ -507,7 +507,7 @@ export default (router) => {
           await hub.format();
           delete subscription.id
 
-          following.push({
+          followers.push({
             hub,
             subscription,
           })
@@ -515,7 +515,7 @@ export default (router) => {
       }
 
       ctx.body = {
-        following,
+        followers,
         total: subscriptions.total,
       };
     } catch (err) {
