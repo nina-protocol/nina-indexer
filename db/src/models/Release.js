@@ -110,6 +110,11 @@ export default class Release extends Model {
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
+      this.hub = publishedThroughHub;
+      delete this.hub.id;
+      const authority = await this.hub.$relatedQuery('authority').select('publicKey');
+      this.hub.authority = authority.publicKey;
+      delete this.hub.authorityId;
     }
     this.publisher = publisher.publicKey;
     delete this.publisherId
