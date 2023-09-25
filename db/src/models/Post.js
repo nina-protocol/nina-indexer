@@ -25,11 +25,14 @@ class Post extends Model {
 
   async format() {
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
-    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub').select('publicKey');
+    const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
 
     this.publisher = publisher.publicKey;
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
+      this.hub = publishedThroughHub;
+      delete this.hub.id;
+      delete this.hub.authorityId;
     }
     
     delete this.publisherId
