@@ -56,6 +56,7 @@ class NinaProcessor {
     this.metaplex = null;
     this.latestSignature = null;
     this.isProcessing = false;
+    this.isProcessingTransactions = false;
   }
 
   async init() {
@@ -70,7 +71,7 @@ class NinaProcessor {
     this.metaplex = new Metaplex(connection);
   }
 
-  async runDbProcesses(isInitialRun = false) {
+  async runDbProcesses() {
     if (!this.isProcessing) {
       console.log(`${new Date()} Running DB processes`)
       this.isProcessing = true;
@@ -95,10 +96,6 @@ class NinaProcessor {
         console.log(`${new Date()} Running processVerifications()`)
         await this.processVerifications();
         console.log(`${new Date()} Completed processVerifications()`)
-
-        console.log(`${new Date()} Running processExchangesAndTransactions()`)
-        await this.processExchangesAndTransactions(isInitialRun);
-        console.log(`${new Date()} Completed processExchangesAndTransactions()`)
       } catch (error) {
         console.log(`${new Date()} Error running DB processes: ${error}`)
       }
@@ -106,6 +103,23 @@ class NinaProcessor {
       this.isProcessing = false;
     } else {
       console.log(`${new Date()} DB processes already running`)
+    }
+  }
+
+  async runProcessExchangesAndTransactions (isInitialRun = false) {
+    try {
+      if (!this.isProcessingTransactions) {
+        this.isProcessingTransactions = true;
+        console.log(`${new Date()} Running processExchangesAndTransactions()`)
+        await this.processExchangesAndTransactions(isInitialRun);
+        this.isProcessingTransactions = false;
+        console.log(`${new Date()} Completed processExchangesAndTransactions()`) 
+      } else {
+        console.log(`${new Date()} processExchangesAndTransactions() already running`)
+      } 
+    } catch (error) {
+      console.log(`${new Date()} Error running processExchangesAndTransactions: ${error}`)
+      this.isProcessingTransactions = false;
     }
   }
 
