@@ -19,7 +19,8 @@ function getUsedHeapSize() {
 const runInitialSync = async () => {
   try {
     console.log('Initial Sync starting')
-    await NinaProcessor.runDbProcesses(true)
+    await NinaProcessor.runDbProcesses()
+    await NinaProcessor.runProcessExchangesAndTransactions(true)
     if (process.env.RUN_INITIAL_SYNC === 'true') {
       await NinaProcessor.processCollectors()
     }
@@ -53,6 +54,16 @@ const startProcessing = async () => {
     }
     console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
     await NinaProcessor.runDbProcesses()
+    console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
+  });
+
+  cron.schedule('* * * * *', async() => {
+    console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
+    if (arg[2]=="--heap-stats") {
+      runHeapDiagnostics() // Verbose heap diagnostics if option enabled
+    }
+    console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
+    await NinaProcessor.runProcessExchangesAndTransactions(false)
     console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
   });
   
