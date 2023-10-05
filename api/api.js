@@ -14,7 +14,7 @@ import {
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
 import { decode } from '../indexer/utils.js';
-
+import { blacklist } from '../indexer/processor.js';
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
 // results in applications that haven't implemented pagination yet
@@ -782,7 +782,7 @@ export default (router) => {
   router.get('/releases/:publicKey', async (ctx) => {
     try {
       let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
-      if (!release) {
+      if (!release && blacklist.indexOf(ctx.params.publicKey) === -1) {
         release = await Release.findOrCreate(ctx.params.publicKey)
       }  
       await release.format();
