@@ -57,7 +57,8 @@ const startProcessing = async () => {
     console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
   });
 
-  cron.schedule('* * * * *', async() => {
+  cron.schedule('*/10 * * * * *', async() => {
+    
     console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
     if (arg[2]=="--heap-stats") {
       runHeapDiagnostics() // Verbose heap diagnostics if option enabled
