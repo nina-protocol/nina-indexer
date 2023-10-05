@@ -39,6 +39,7 @@ const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
 const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
+  'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx'
 ]
 
 const nameAccountSkipList = [
