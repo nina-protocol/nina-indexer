@@ -754,10 +754,13 @@ export default (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const releases = await Release
         .query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -903,11 +906,11 @@ export default (router) => {
 
   router.get('/hubs', async (ctx) => {
     try {
-      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hubs = await Hub.query()
-        .whereExists(Hub.relatedQuery('releases'))
-        .orWhereExists(Hub.relatedQuery('posts'))
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
