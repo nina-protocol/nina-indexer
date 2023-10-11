@@ -782,21 +782,24 @@ export default (router) => {
     }
   });
 
-  router.get('/releases/:publicKey', async (ctx) => {
+  router.get('/releases/:publicKeyOrSlug', async (ctx) => {
     try {
-      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
-      if (!release && blacklist.indexOf(ctx.params.publicKey) === -1) {
-        release = await Release.findOrCreate(ctx.params.publicKey)
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
+      }
+      if (!release && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+        release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
       }  
       await release.format();
       ctx.body = {
         release,
       }
   } catch (err) {
-      console.log(`/releases/:publicKey Error: publicKey: ${ctx.params.publicKey}${err}`)
+      console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}${err}`)
       ctx.status = 404
       ctx.body = {
-        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+        message: `Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`
       }
     }
   });
