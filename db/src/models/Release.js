@@ -7,6 +7,10 @@ import Exchange from './Exchange.js';
 import Hub from './Hub.js';
 import Post from './Post.js';
 import axios from 'axios';
+import { customAlphabet } from 'nanoid';
+
+const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+const randomStringGenerator = customAlphabet(alphabet, 12);
 
 export default class Release extends Model {
   static tableName = 'releases';
@@ -14,13 +18,14 @@ export default class Release extends Model {
   static idColumn = 'id';
   static jsonSchema = {
     type: 'object',
-    required: ['publicKey', 'mint', 'metadata', 'datetime'],
+    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug'],
     properties: {
       publicKey: { type: 'string' },
       mint: { type: 'string' },
+      slug: { type: 'string' },
       metadata: {
         type: 'object',
-        required: ['name', 'symbol', 'description', 'image', 'properties'],
+        required: ['name', 'symbol', 'description', 'image', 'properties',],
         properties: {
           name: { type: 'string' },
           symbol: { type: 'string' },
@@ -63,12 +68,14 @@ export default class Release extends Model {
       json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
     }
 
+    const slug = await this.generateSlug(json);
     let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
     release = await this.createRelease({
       publicKey,
       mint: releaseAccount.releaseMint.toBase58(),
       metadata: json,
       datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+      slug,
       publisherId: publisher.id,
       releaseAccount
     });
@@ -76,10 +83,13 @@ export default class Release extends Model {
   }
 
   static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
+    const slug = await this.generateSlug(metadata);
+
     const release = await Release.query().insertGraph({
       publicKey,
       mint,
       metadata,
+      slug,
       datetime,
       publisherId,
     })
@@ -103,6 +113,20 @@ export default class Release extends Model {
         console.log('error processing royaltyRecipients: ', error)
       }
     }
+  }
+
+  static generateSlug = async (metadata) => {
+    let string = metadata.name
+    if (string.length > 200) {
+      string = string.substring(0, 200);
+    }
+    const slug = string.toLowerCase().replace('-', '').replace(/  +/g, ' ').replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
+    const existingRelease = await Release.query().findOne({ slug });
+    if (existingRelease) {
+      return `${slug}-${randomStringGenerator()}`;
+    }
+    return slug;
+    
   }
 
   format = async () => {
