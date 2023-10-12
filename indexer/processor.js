@@ -713,12 +713,12 @@ class NinaProcessor {
           const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
           if (release) {
             await Release.processRevenueShares(release, releaseRecord);
-            // if (!releaseRecord.slug) {
+            if (!releaseRecord.slug) {
               const slug = await Release.generateSlug(releaseRecord.metadata)
               releaseRecord = await releaseRecord.$query().patch({
                 slug
               })
-            // }
+            }
           }
           // If release.createdAt is newer than 20 minutes, reset the image cache
           if (Date.parse(releaseRecord.datetime) > (Date.now() - CACHE_RESET_TIME)) {
