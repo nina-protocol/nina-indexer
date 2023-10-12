@@ -12,7 +12,7 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
-import { decode, uriExtractor } from './utils.js';
+import { decode, uriExtractor, fetchFromArweave } from './utils.js';
 import {
   NAME_PROGRAM_ID,
   NINA_ID,
@@ -686,28 +686,12 @@ class NinaProcessor {
 
       const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
       const newMints = allMints.filter(x => !existingReleases.find(y => y.mint === x));
-      const newMetadata = metadataAccounts.filter(x => newMints.includes(x.mintAddress.toBase58()));
       const newReleasesWithMetadata = releases.filter(x => newMints.includes(x.account.releaseMint.toBase58()));
-
-      let newMetadataJson
-      try {
-        newMetadataJson = await axios.all(
-          newMetadata.map(metadata => axios.get(metadata.uri))
-        ).then(axios.spread((...responses) => responses))
-      } catch (error) {
-      console.log('error', error)
-        console.log(`${new Date()} processReleases - error fetching metadata from arweave.net, trying ar-io.net`)
-        newMetadataJson = await axios.all(
-          newMetadata.map(metadata => axios.get(metadata.uri.replace('arweave.net', 'ar-io.net')))
-        ).then(axios.spread((...responses) => responses))
-        console.log(`${new Date()} processReleases - success fetching metadata from ar-io.net ${newMetadataJson.length}`)
-      }
   
       for await (let release of newReleasesWithMetadata) {
         try {
           const metadata = metadataAccounts.find(x => x.mintAddress.toBase58() === release.account.releaseMint.toBase58());
-          const metadataJson = newMetadataJson.find(x => x.config.url.includes(uriExtractor(metadata.uri))).data;
-    
+          const metadataJson = await fetchFromArweave(metadata.uri);
           let publisher = await Account.findOrCreate(release.account.authority.toBase58());
     
           await Release.createRelease({
@@ -718,7 +702,7 @@ class NinaProcessor {
             publisherId: publisher.id,
             releaseAccount: release
           })
-          console.log(`Instered Relase: ${release.publicKey.toBase58()}`)
+          console.log(`Instered Release: ${release.publicKey.toBase58()}`)
         } catch (err) {
           console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
@@ -756,28 +740,17 @@ class NinaProcessor {
       const posts = await this.program.account.post.all();
       const existingPosts = await Post.query();
       const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
-  
-      let newPostsJson
-      try {
-        newPostsJson = await axios.all(
-          newPosts.map(post => axios.get(decode(post.account.uri)))
-        ).then(axios.spread((...responses) => responses))
-      } catch (error) {
-        newPostsJson = await axios.all(
-          newPosts.map(post => axios.get(decode(post.account.uri).replace('arweave.net', 'ar-io.net')))
-        ).then(axios.spread((...responses) => responses))
-      }
-  
+    
       for await (let newPost of newPosts) {
         try {
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
+          const data = await fetchFromArweave(decode(newPost.account.uri));
           if (hubContent.account.visible) {
             const publisher = await Account.findOrCreate(newPost.account.author.toBase58());
-            const decodedUri = decode(newPost.account.uri);
             await Post.query().insertGraph({
               publicKey: newPost.publicKey.toBase58(),
-              data: newPostsJson.find(x => x.config.url.includes(uriExtractor(decodedUri))).data,
+              data: data.data,
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
             })
@@ -844,21 +817,10 @@ class NinaProcessor {
         hub.account.uri = decode(hub.account.uri);
       })
       newHubs = newHubs.filter(hub => hub.account.uri.indexOf("arweave.net") > -1)
-  
-      let newHubsJson
-      try {
-        newHubsJson = await axios.all(
-          newHubs.map(hub => axios.get(hub.account.uri))
-        ).then(axios.spread((...responses) => responses))
-      } catch (error) {
-        newHubsJson = await axios.all(
-          newHubs.map(hub => axios.get(hub.account.uri.replace('arweave.net', 'ar-io.net')))
-        ).then(axios.spread((...responses) => responses))
-      }
-  
+    
       for await (let newHub of newHubs) {
         try {
-          const data = newHubsJson.find(x => x.config.url.includes(uriExtractor(newHub.account.uri))).data
+          const data = await fetchFromArweave(decode(newHub.account.uri));
           let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
           const hub = await Hub.query().insertGraph({
             publicKey: newHub.publicKey.toBase58(),
