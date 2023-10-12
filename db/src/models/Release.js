@@ -120,7 +120,14 @@ export default class Release extends Model {
     if (string.length > 200) {
       string = string.substring(0, 200);
     }
-    const slug = string.toLowerCase().replace('-', '').replace(/  +/g, ' ').replace(/ /g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = string
+      .normalize('NFKD').replace(/[\u0300-\u036F]/g, '') // remove accents and convert to closest ascii equivalent
+      .toLowerCase() // convert to lowercase
+      .replace('-', '') // remove hyphens
+      .replace(/  +/g, '-') // remove spaces 
+      .replace(/ /g, '-') // replace spaces with hyphens
+      .replace(/![^\W_0-9-]/g, ''); // remove non-alphanumeric characters
+      
     const existingRelease = await Release.query().findOne({ slug });
     if (existingRelease) {
       return `${slug}-${randomStringGenerator()}`;
