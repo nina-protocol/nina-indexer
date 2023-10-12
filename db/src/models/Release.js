@@ -124,10 +124,10 @@ export default class Release extends Model {
       .normalize('NFKD').replace(/[\u0300-\u036F]/g, '') // remove accents and convert to closest ascii equivalent
       .toLowerCase() // convert to lowercase
       .replace('-', '') // remove hyphens
-      .replace(/  +/g, '-') // remove spaces 
+      .replace(/  +/g, ' ') // remove spaces 
       .replace(/ /g, '-') // replace spaces with hyphens
-      .replace(/![^\W_0-9-]/g, ''); // remove non-alphanumeric characters
-      
+      .replace(/[^a-zA-Z0-9-]/g, '') // remove non-alphanumeric characters
+      .replace(/--+/g, '') // remove spaces 
     const existingRelease = await Release.query().findOne({ slug });
     if (existingRelease) {
       return `${slug}-${randomStringGenerator()}`;

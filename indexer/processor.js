@@ -695,6 +695,7 @@ class NinaProcessor {
           newMetadata.map(metadata => axios.get(metadata.uri))
         ).then(axios.spread((...responses) => responses))
       } catch (error) {
+      console.log('error', error)
         console.log(`${new Date()} processReleases - error fetching metadata from arweave.net, trying ar-io.net`)
         newMetadataJson = await axios.all(
           newMetadata.map(metadata => axios.get(metadata.uri.replace('arweave.net', 'ar-io.net')))
@@ -728,12 +729,12 @@ class NinaProcessor {
           const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
           if (release) {
             await Release.processRevenueShares(release, releaseRecord);
-            if (!releaseRecord.slug) {
+            // if (!releaseRecord.slug) {
               const slug = await Release.generateSlug(releaseRecord.metadata)
               releaseRecord = await releaseRecord.$query().patch({
                 slug
               })
-            }
+            // }
           }
           // If release.createdAt is newer than 20 minutes, reset the image cache
           if (Date.parse(releaseRecord.datetime) > (Date.now() - CACHE_RESET_TIME)) {
