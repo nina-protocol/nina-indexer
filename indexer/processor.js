@@ -750,7 +750,7 @@ class NinaProcessor {
             const publisher = await Account.findOrCreate(newPost.account.author.toBase58());
             await Post.query().insertGraph({
               publicKey: newPost.publicKey.toBase58(),
-              data: data.data,
+              data: data,
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
             })
@@ -820,7 +820,7 @@ class NinaProcessor {
     
       for await (let newHub of newHubs) {
         try {
-          const data = await fetchFromArweave(decode(newHub.account.uri));
+          const data = await fetchFromArweave(newHub.account.uri);
           let authority = await Account.findOrCreate(newHub.account.authority.toBase58());
           const hub = await Hub.query().insertGraph({
             publicKey: newHub.publicKey.toBase58(),
