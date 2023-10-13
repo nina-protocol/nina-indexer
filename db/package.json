@@ -1,6 +1,6 @@
 {
   "name": "@nina-protocol/nina-db",
-  "version": "0.0.31",
+  "version": "0.0.37",
   "description": "",
   "source": "src/index.js",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
     "@project-serum/anchor": "^0.25.0",
     "axios": "^0.27.2",
     "knex": "^2.2.0",
+    "nanoid": "^4.0.2",
     "objection": "2.2.15",
     "pg": "^8.7.3",
     "striptags": "^3.2.0",
