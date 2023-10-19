@@ -1387,10 +1387,42 @@ export default (router) => {
 
       await post.format();
 
+      const releases = []
+      const hubs = []
+      if (post.data.blocks) {
+        for await (block of post.data.blocks) {
+          switch (block.type) {
+            case 'release':
+              for await (let release of block.data.releases) {
+                const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                await releaseRecord.format();
+                releases.push(releaseRecord)
+              }
+              break;
+            case 'featuredRelease':
+              const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+              await releaseRecord.format();
+              break;
+            
+            case 'hub':
+              for await (let hub of block.data.hubs) {
+                const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
+                await hubRecord.format();
+                hubs.push(hubRecord)
+              }
+              break;
+            default:
+              break;
+          }
+        }
+      }
+
       ctx.body = {
         post,
         publisher,
-        publishedThroughHub
+        publishedThroughHub,
+        releases,
+        hubs,
     };
     } catch (err) {
       console.log(err)
