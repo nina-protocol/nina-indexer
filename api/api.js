@@ -1378,7 +1378,6 @@ export default (router) => {
   router.get('/posts/:publicKey', async (ctx) => {
     try {
       const post = await Post.query().findOne({publicKey: ctx.params.publicKey})
-
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
@@ -1387,29 +1386,38 @@ export default (router) => {
 
       await post.format();
 
-      const releases = []
-      const hubs = []
       if (post.data.blocks) {
-        for await (block of post.data.blocks) {
+        for await (let block of post.data.blocks) {
           switch (block.type) {
             case 'release':
+              const releases = []
               for await (let release of block.data.releases) {
                 const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
-                await releaseRecord.format();
-                releases.push(releaseRecord)
+                if (releaseRecord) {
+                  await releaseRecord.format();
+                  releases.push(releaseRecord)
+                }
               }
+              block.data.release = releases
               break;
             case 'featuredRelease':
               const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-              await releaseRecord.format();
+              if (releaseRecord) {
+                await releaseRecord.format();
+                block.data = releaseRecord
+              }
               break;
             
             case 'hub':
+              const hubs = []
               for await (let hub of block.data.hubs) {
                 const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
-                await hubRecord.format();
-                hubs.push(hubRecord)
+                if (hubRecord) {
+                  await hubRecord.format();
+                  hubs.push(hubRecord)
+                }
               }
+              block.data.hubs = hubs
               break;
             default:
               break;
