@@ -745,15 +745,40 @@ class NinaProcessor {
         try {
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
-          const data = await fetchFromArweave(decode(newPost.account.uri));
+          const data = await fetchFromArweave(decode(newPost.account.uri).replace('}', ''));
           if (hubContent.account.visible) {
             const publisher = await Account.findOrCreate(newPost.account.author.toBase58());
-            await Post.query().insertGraph({
+            const post = await Post.query().insertGraph({
               publicKey: newPost.publicKey.toBase58(),
               data: data,
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
             })
+            if (data.blocks) {
+              for await (let block of data.blocks) {
+                switch (block.type) {
+                  case 'image':
+                    this.warmCache(block.data.image);
+                    break;
+
+                  case 'release':
+                    for await (let release of block.data.releases) {
+                      const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                      await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    }
+                    break;
+
+                  case 'featuredRelease':
+                    console.log('featuredRelease', block.data)
+                    const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                    await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    break
+                    
+                  default:
+                    break
+                }
+              }
+            }
             console.log('Inserted Post:', newPost.publicKey.toBase58());
           }
         } catch (err) {
