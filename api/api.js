@@ -1375,9 +1375,12 @@ export default (router) => {
     }
   })
 
-  router.get('/posts/:publicKey', async (ctx) => {
+  router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
-      const post = await Post.query().findOne({publicKey: ctx.params.publicKey})
+      let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!post) {
+        post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
+      }
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
@@ -1429,8 +1432,6 @@ export default (router) => {
         post,
         publisher,
         publishedThroughHub,
-        releases,
-        hubs,
     };
     } catch (err) {
       console.log(err)
