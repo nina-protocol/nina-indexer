@@ -13,7 +13,7 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
-import { decode } from '../indexer/utils.js';
+import { decode, fetchFromArweave } from '../indexer/utils.js';
 import { blacklist } from '../indexer/processor.js';
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -1375,9 +1375,85 @@ export default (router) => {
     }
   })
 
-  router.get('/posts/:publicKey', async (ctx) => {
+  router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
-      const post = await Post.query().findOne({publicKey: ctx.params.publicKey})
+      await NinaProcessor.init()
+      let postAccount
+      const { txId } = ctx.query
+      let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!post) {
+        post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
+      }
+      if (!post) {
+        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug));
+        if (!postAccount) {
+          throw ('Post not found')
+        }
+        
+        let hub
+        let hubPublicKey
+        if (txId) {
+          const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0
+          })
+  
+          const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+          hubPublicKey = accounts[1].toBase58()
+        }
+        if (hubPublicKey) {
+          const [hubContentPublicKey] =
+          await anchor.web3.PublicKey.findProgramAddress(
+            [
+              Buffer.from(anchor.utils.bytes.utf8.encode(`nina-hub-content`)),
+              new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
+              new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug).toBuffer(),
+            ],
+            NinaProcessor.program.programId,
+          )
+          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey));
+          if (hubContentAccount) {
+            hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
+          }
+
+        }
+        const data = await fetchFromArweave(decode(postAccount.uri));
+        const publisher = await Account.findOrCreate(postAccount.author.toBase58());
+        const postData = {
+          publicKey: ctx.params.publicKeyOrSlug,
+          data: data,
+          datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+          publisherId: publisher.id,
+        }
+        if (hub) {
+          postData.hubId = hub.id
+        }
+        post = await Post.query().insertGraph(postData)
+        if (data.blocks) {
+          for await (let block of data.blocks) {
+            switch (block.type) {
+              case 'image':
+                NinaProcessor.warmCache(block.data.image);
+                break;
+
+              case 'release':
+                for await (let release of block.data.releases) {
+                  const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                  await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                }
+                break;
+
+              case 'featuredRelease':
+                const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                break
+                
+              default:
+                break
+            }
+          }
+        }
+      }
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
@@ -1387,10 +1463,10 @@ export default (router) => {
       await post.format();
 
       if (post.data.blocks) {
+        const releases = []
         for await (let block of post.data.blocks) {
           switch (block.type) {
             case 'release':
-              const releases = []
               for await (let release of block.data.releases) {
                 const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
                 if (releaseRecord) {
@@ -1429,8 +1505,6 @@ export default (router) => {
         post,
         publisher,
         publishedThroughHub,
-        releases,
-        hubs,
     };
     } catch (err) {
       console.log(err)
