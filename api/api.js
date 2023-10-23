@@ -1377,29 +1377,33 @@ export default (router) => {
 
   router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
+      console.log('GET /posts/:publicKeyOrSlug', ctx.params.publicKeyOrSlug)
       await NinaProcessor.init()
       let postAccount
+      console.log('ctx.query', ctx.query)
       const { txId } = ctx.query
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
       }
       if (!post) {
-        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug));
+        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
         if (!postAccount) {
           throw ('Post not found')
         }
         
         let hub
         let hubPublicKey
+        console.log('txId', txId)
         if (txId) {
           const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
             commitment: 'confirmed',
             maxSupportedTransactionVersion: 0
           })
-  
+          console.log('tx', tx)
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           hubPublicKey = accounts[1].toBase58()
+          console.log('hubPublicKey', hubPublicKey)
         }
         if (hubPublicKey) {
           const [hubContentPublicKey] =
@@ -1411,11 +1415,10 @@ export default (router) => {
             ],
             NinaProcessor.program.programId,
           )
-          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey));
+          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'confirmed');
           if (hubContentAccount) {
             hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
           }
-
         }
         const data = await fetchFromArweave(decode(postAccount.uri));
         const publisher = await Account.findOrCreate(postAccount.author.toBase58());
@@ -1433,19 +1436,31 @@ export default (router) => {
           for await (let block of data.blocks) {
             switch (block.type) {
               case 'image':
-                NinaProcessor.warmCache(block.data.image);
+                try {
+                  NinaProcessor.warmCache(block.data.image);
+                } catch (error) {
+                  console.log(error)
+                }
                 break;
 
               case 'release':
-                for await (let release of block.data.releases) {
-                  const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
-                  await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                for await (let release of block.data) {
+                  try {
+                    const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                    await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                  } catch (err) {
+                    console.log('error', err)
+                  }
                 }
                 break;
 
               case 'featuredRelease':
-                const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-                await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                try {
+                  const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                  await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                } catch (err) {
+                  console.log('error', err)
+                }
                 break
                 
               default:
@@ -1454,11 +1469,14 @@ export default (router) => {
           }
         }
       }
+
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
       const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
-      await publishedThroughHub.format();
+      if (publishedThroughHub) {
+        await publishedThroughHub.format();
+      }
 
       await post.format();
 
@@ -1467,7 +1485,7 @@ export default (router) => {
         for await (let block of post.data.blocks) {
           switch (block.type) {
             case 'release':
-              for await (let release of block.data.releases) {
+              for await (let release of block.data) {
                 const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
                 if (releaseRecord) {
                   await releaseRecord.format();
@@ -1486,7 +1504,7 @@ export default (router) => {
             
             case 'hub':
               const hubs = []
-              for await (let hub of block.data.hubs) {
+              for await (let hub of block.data) {
                 const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
                 if (hubRecord) {
                   await hubRecord.format();
