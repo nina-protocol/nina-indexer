@@ -46,7 +46,7 @@ app.use(router.allowedMethods())
 
 try {
   environmentIsSetup()
-  app.listen(process.env.PORT, async () => {
+  app.listen(4001, async () => {
     await connectDb()
     console.log(`Nina Api listening on port ${process.env.PORT}!`)
   })
