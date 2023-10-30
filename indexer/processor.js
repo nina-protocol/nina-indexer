@@ -35,7 +35,7 @@ const MAX_TRANSACTION_SIGNATURES = 1000
 const CACHE_RESET_TIME = 1200000 // 20 minutes
 
 const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
-
+const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd'
 export const blacklist = [
   'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
@@ -441,6 +441,10 @@ class NinaProcessor {
     }
   }
 
+  isFileServicePayer(accounts) {
+    return accounts[0].toBase58() === FILE_SERVICE_ADDRESS
+  }
+
   async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null) {
     let transactionObject = {
       txid,
@@ -478,14 +482,26 @@ class NinaProcessor {
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
       transactionObject.type = 'HubAddCollaborator'
-      hubPublicKey = accounts[2].toBase58()
-      accountPublicKey = accounts[0].toBase58()
-      toAccountPublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        hubPublicKey = accounts[3].toBase58()
+        accountPublicKey = accounts[1].toBase58()
+        toAccountPublicKey = accounts[5].toBase58()
+      } else {
+        hubPublicKey = accounts[2].toBase58()
+        accountPublicKey = accounts[0].toBase58()
+        toAccountPublicKey = accounts[4].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('HubAddRelease'))) {
       transactionObject.type = 'HubAddRelease'
-      releasePublicKey = accounts[5].toBase58()
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        releasePublicKey = accounts[6].toBase58()
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+      } else {
+        releasePublicKey = accounts[5].toBase58()
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHubWithReferenceRelease'))) {
       transactionObject.type = 'PostInitViaHubWithReferenceRelease'
       postPublicKey = accounts[2].toBase58()
@@ -495,8 +511,17 @@ class NinaProcessor {
     } else if (tx.meta.logMessages.some(log => log.includes('PostInitViaHub'))) {
       transactionObject.type = 'PostInitViaHub'
       postPublicKey = accounts[2].toBase58()
-      accountPublicKey = accounts[0].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[8].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+      }
       hubPublicKey = accounts[1].toBase58()
+    } else if (tx.meta.logMessages.some(log => log.includes('PostUpdateViaHubPost'))) {
+      transactionObject.type = 'PostUpdateViaHubPost'
+      postPublicKey = accounts[3].toBase58()
+      accountPublicKey = accounts[1].toBase58()
+      hubPublicKey = accounts[2].toBase58()
     } else if (tx.meta.logMessages.some(log => log.includes('SubscriptionSubscribeAccount'))) {
       transactionObject.type = 'SubscriptionSubscribeAccount'
       // By adding a PAYER account to the subscription to accomodate delegated subscriptions, 
@@ -539,43 +564,91 @@ class NinaProcessor {
       releasePublicKey = accounts[0].toBase58()
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseCloseEdition'))) {
       transactionObject.type = 'ReleaseCloseEdition'
-      accountPublicKey = accounts[0].toBase58()
-      releasePublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        releasePublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('HubContentToggleVisibility'))) {
       transactionObject.type = 'HubContentToggleVisibility'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('HubRemoveCollaborator'))) {
       transactionObject.type = 'HubRemoveCollaborator'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
-      toAccountPublicKey = accounts[3].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+        toAccountPublicKey = accounts[4].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+        toAccountPublicKey = accounts[3].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('HubUpdateCollaboratorPermissions'))) {
       transactionObject.type = 'HubUpdateCollaboratorPermissions'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[2].toBase58()
-      toAccountPublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[3].toBase58()
+        toAccountPublicKey = accounts[5].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+        toAccountPublicKey = accounts[4].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('HubUpdateConfig'))) {
       transactionObject.type = 'HubUpdateConfig'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareCollectViaHub'))) {
       transactionObject.type = 'ReleaseRevenueShareCollectViaHub'
-      accountPublicKey = accounts[0].toBase58()
-      releasePublicKey = accounts[2].toBase58()
-      hubPublicKey = accounts[5].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[3].toBase58()
+        hubPublicKey = accounts[6].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        releasePublicKey = accounts[2].toBase58()
+        hubPublicKey = accounts[5].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareCollect'))) {
       transactionObject.type = 'ReleaseRevenueShareCollect'
-      accountPublicKey = accounts[0].toBase58()
-      releasePublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[5].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        releasePublicKey = accounts[4].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseRevenueShareTransfer'))) {
       transactionObject.type = 'ReleaseRevenueShareTransfer'
-      accountPublicKey = accounts[0].toBase58()
-      releasePublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[5].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        releasePublicKey = accounts[4].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) {
       transactionObject.type = 'ReleaseUpdateMetadata'
-      accountPublicKey = accounts[0].toBase58()
-      releasePublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        releasePublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
       transactionObject.type = 'ExchangeInit'
       accountPublicKey = accounts[0].toBase58()
@@ -593,8 +666,13 @@ class NinaProcessor {
       }
     } else if (tx.meta.logMessages.some(log => log.includes('HubWithdraw'))) {
       transactionObject.type = 'HubWithdraw'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+      }
     } else if (accounts?.length === 10) {
       if (accounts[0].toBase58() === accounts[1].toBase58()) {
         try {
