@@ -15,6 +15,10 @@ export default class Account extends Model {
     required: ['publicKey'],
     properties: {
       publicKey: { type: 'string' },
+      image: { type: 'string' },
+      description: { type: 'string' },
+      displayName: { type: 'string' },
+      handle: { type: 'string' },
     },
   }
 
