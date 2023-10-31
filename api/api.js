@@ -110,12 +110,15 @@ export default (router) => {
     return release.datetime
   }
 
-  router.get('/accounts/:publicKey', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle', async (ctx) => {
     try {
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
-        accountNotFound(ctx);
-        return;
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
       }
 
       const exchanges = []
@@ -171,12 +174,20 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/all', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/all', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
 
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+
       const collected = await account.$relatedQuery('collected')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -227,11 +238,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/collected', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/collected', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const { txId, releasePublicKey } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
@@ -295,11 +313,18 @@ export default (router) => {
 
 
 
-  router.get('/accounts/:publicKey/hubs', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/hubs', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const hubs = await account.$relatedQuery('hubs')
         .orderBy(column, sort)
         .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
@@ -317,11 +342,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/posts', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/posts', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const posts = await account.$relatedQuery('posts')
         .orderBy(column, sort)
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
@@ -340,11 +372,18 @@ export default (router) => {
     }
   });
   
-  router.get('/accounts/:publicKey/published', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/published', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       let published = await account.$relatedQuery('published')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -361,11 +400,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/exchanges', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/exchanges', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const exchanges = await Exchange.query()
         .where('completedById', account.id)
         .orWhere('initializerId', account.id)
@@ -385,11 +431,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/revenueShares', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       let revenueShares = await account.$relatedQuery('revenueShares')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -407,11 +460,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
@@ -435,9 +495,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/following', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/following', async (ctx) => {
     try {
-      const { publicKey } = ctx.params;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const publicKey = account.publicKey
+
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const subscriptions = await Subscription.query()
@@ -481,9 +550,17 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/followers', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/followers', async (ctx) => {
     try {
-      const { publicKey } = ctx.params;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const publicKey = account.publicKey
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const subscriptions = await Subscription.query()
@@ -528,10 +605,17 @@ export default (router) => {
   });
 
 
-  router.get('/accounts/:publicKey/verifications', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/verifications', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const verifications = await account.$relatedQuery('verifications')
         .where('active', true)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
