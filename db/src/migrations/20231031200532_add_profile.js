@@ -3,7 +3,7 @@
  * @returns { Promise<void> }
  */
 export const up = function(knex) {
-  return knex.schema.table('account' , table => {
+  return knex.schema.table('accounts' , table => {
     table.string('image');
     table.string('description');
     table.string('displayName');
