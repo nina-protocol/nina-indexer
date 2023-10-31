@@ -112,6 +112,7 @@ export default (router) => {
 
   router.get('/accounts/:publicKeyOrHandle', async (ctx) => {
     try {
+      const { v2 } = ctx.query;
       let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
         account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
@@ -122,52 +123,65 @@ export default (router) => {
       }
 
       const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
-      for await (let exchange of exchangesInitialized) {
-        await exchange.format();
-        exchanges.push(exchange)
-      }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-      for await (let exchange of exchangesCompleted) {
-        await exchange.format();
-        exchanges.push(exchange)
+      let collected = []
+      let published = []
+      let hubs = []
+      let posts = []
+      let revenueShares = []
+      let subscriptions = []
+      let verifications = []
+      if (!v2) {
+        const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
+        for await (let exchange of exchangesInitialized) {
+          await exchange.format();
+          exchanges.push(exchange)
+        }
+        const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
+        for await (let exchange of exchangesCompleted) {
+          await exchange.format();
+          exchanges.push(exchange)
+        }
+  
+        collected = await account.$relatedQuery('collected')
+        for await (let release of collected) {
+          release.collectedDate = await getCollectedDate(release, account)
+          await release.format();
+        }
+  
+        published = await account.$relatedQuery('published')
+        published = await getVisibleReleases(published)
+  
+        hubs = await account.$relatedQuery('hubs')
+        for await (let hub of hubs) {
+          await hub.format();
+        }
+        posts = await account.$relatedQuery('posts')
+        for await (let post of posts) {
+          await post.format();
+        }
+  
+        revenueShares = await account.$relatedQuery('revenueShares')
+        revenueShares = await getVisibleReleases(revenueShares)
+  
+        subscriptions = await Subscription.query()
+          .where('from', account.publicKey)
+          .orWhere('to', account.publicKey)
+        
+        for await (let subscription of subscriptions) {
+          await subscription.format();
+        }  
       }
 
-      const collected = await account.$relatedQuery('collected')
-      for await (let release of collected) {
-        release.collectedDate = await getCollectedDate(release, account)
-        await release.format();
-      }
-
-      let published = await account.$relatedQuery('published')
-      published = await getVisibleReleases(published)
-
-      const hubs = await account.$relatedQuery('hubs')
-      for await (let hub of hubs) {
-        await hub.format();
-      }
-      const posts = await account.$relatedQuery('posts')
-      for await (let post of posts) {
-        await post.format();
-      }
-
-      let revenueShares = await account.$relatedQuery('revenueShares')
-      revenueShares = await getVisibleReleases(revenueShares)
-
-      const subscriptions = await Subscription.query()
-        .where('from', account.publicKey)
-        .orWhere('to', account.publicKey)
-      
-      for await (let subscription of subscriptions) {
-        await subscription.format();
-      }
-
-      const verifications = await account.$relatedQuery('verifications').where('active', true)
+      verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
-
-      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
+      await account.format();
+      if (v2) {
+        ctx.body = { ...account, verifications };
+        return;
+      }
+      ctx.body = { ...account, collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
