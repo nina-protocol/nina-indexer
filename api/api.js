@@ -13,7 +13,7 @@ import {
   Verification,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
-import { decode } from '../indexer/utils.js';
+import { decode, fetchFromArweave } from '../indexer/utils.js';
 import { blacklist } from '../indexer/processor.js';
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -110,73 +110,98 @@ export default (router) => {
     return release.datetime
   }
 
-  router.get('/accounts/:publicKey', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle', async (ctx) => {
     try {
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      const { v2 } = ctx.query;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
-        accountNotFound(ctx);
-        return;
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
       }
 
       const exchanges = []
-      const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
-      for await (let exchange of exchangesInitialized) {
-        await exchange.format();
-        exchanges.push(exchange)
-      }
-      const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
-      for await (let exchange of exchangesCompleted) {
-        await exchange.format();
-        exchanges.push(exchange)
+      let collected = []
+      let published = []
+      let hubs = []
+      let posts = []
+      let revenueShares = []
+      let subscriptions = []
+      let verifications = []
+      if (!v2) {
+        const exchangesInitialized = await account.$relatedQuery('exchangesInitialized')
+        for await (let exchange of exchangesInitialized) {
+          await exchange.format();
+          exchanges.push(exchange)
+        }
+        const exchangesCompleted = await account.$relatedQuery('exchangesCompleted')
+        for await (let exchange of exchangesCompleted) {
+          await exchange.format();
+          exchanges.push(exchange)
+        }
+  
+        collected = await account.$relatedQuery('collected')
+        for await (let release of collected) {
+          release.collectedDate = await getCollectedDate(release, account)
+          await release.format();
+        }
+  
+        published = await account.$relatedQuery('published')
+        published = await getVisibleReleases(published)
+  
+        hubs = await account.$relatedQuery('hubs')
+        for await (let hub of hubs) {
+          await hub.format();
+        }
+        posts = await account.$relatedQuery('posts')
+        for await (let post of posts) {
+          await post.format();
+        }
+  
+        revenueShares = await account.$relatedQuery('revenueShares')
+        revenueShares = await getVisibleReleases(revenueShares)
+  
+        subscriptions = await Subscription.query()
+          .where('from', account.publicKey)
+          .orWhere('to', account.publicKey)
+        
+        for await (let subscription of subscriptions) {
+          await subscription.format();
+        }  
       }
 
-      const collected = await account.$relatedQuery('collected')
-      for await (let release of collected) {
-        release.collectedDate = await getCollectedDate(release, account)
-        await release.format();
-      }
-
-      let published = await account.$relatedQuery('published')
-      published = await getVisibleReleases(published)
-
-      const hubs = await account.$relatedQuery('hubs')
-      for await (let hub of hubs) {
-        await hub.format();
-      }
-      const posts = await account.$relatedQuery('posts')
-      for await (let post of posts) {
-        await post.format();
-      }
-
-      let revenueShares = await account.$relatedQuery('revenueShares')
-      revenueShares = await getVisibleReleases(revenueShares)
-
-      const subscriptions = await Subscription.query()
-        .where('from', account.publicKey)
-        .orWhere('to', account.publicKey)
-      
-      for await (let subscription of subscriptions) {
-        await subscription.format();
-      }
-
-      const verifications = await account.$relatedQuery('verifications').where('active', true)
+      verifications = await account.$relatedQuery('verifications').where('active', true)
       for await (let verification of verifications) {
         await verification.format();
       }
-
-      ctx.body = { collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
+      await account.format();
+      if (v2) {
+        ctx.body = { ...account, verifications };
+        return;
+      }
+      ctx.body = { ...account, collected, published, hubs, posts, exchanges, revenueShares, subscriptions, verifications };
     } catch (err) {
       console.log(err)
       accountNotFound(ctx)
     }
   });
 
-  router.get('/accounts/:publicKey/all', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/all', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
 
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+
       const collected = await account.$relatedQuery('collected')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -227,11 +252,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/collected', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/collected', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const { txId, releasePublicKey } = ctx.query;
       if (txId) {
         await NinaProcessor.init();
@@ -295,11 +327,18 @@ export default (router) => {
 
 
 
-  router.get('/accounts/:publicKey/hubs', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/hubs', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const hubs = await account.$relatedQuery('hubs')
         .orderBy(column, sort)
         .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
@@ -317,11 +356,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/posts', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/posts', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const posts = await account.$relatedQuery('posts')
         .orderBy(column, sort)
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
@@ -340,11 +386,18 @@ export default (router) => {
     }
   });
   
-  router.get('/accounts/:publicKey/published', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/published', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       let published = await account.$relatedQuery('published')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -361,11 +414,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/exchanges', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/exchanges', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const exchanges = await Exchange.query()
         .where('completedById', account.id)
         .orWhere('initializerId', account.id)
@@ -385,11 +445,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/revenueShares', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/revenueShares', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       let revenueShares = await account.$relatedQuery('revenueShares')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -407,11 +474,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/subscriptions', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/subscriptions', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const subscriptions = await Subscription.query()
         .where('from', account.publicKey)
         .orWhere('to', account.publicKey)
@@ -435,9 +509,18 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/following', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/following', async (ctx) => {
     try {
-      const { publicKey } = ctx.params;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const publicKey = account.publicKey
+
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const subscriptions = await Subscription.query()
@@ -481,9 +564,17 @@ export default (router) => {
     }
   });
 
-  router.get('/accounts/:publicKey/followers', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/followers', async (ctx) => {
     try {
-      const { publicKey } = ctx.params;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const publicKey = account.publicKey
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const subscriptions = await Subscription.query()
@@ -528,10 +619,17 @@ export default (router) => {
   });
 
 
-  router.get('/accounts/:publicKey/verifications', async (ctx) => {
+  router.get('/accounts/:publicKeyOrHandle/verifications', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
-      const account = await Account.findOrCreate(ctx.params.publicKey);
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
       const verifications = await account.$relatedQuery('verifications')
         .where('active', true)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -1375,22 +1473,154 @@ export default (router) => {
     }
   })
 
-  router.get('/posts/:publicKey', async (ctx) => {
+  router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
-      const post = await Post.query().findOne({publicKey: ctx.params.publicKey})
+      console.log('GET /posts/:publicKeyOrSlug', ctx.params.publicKeyOrSlug)
+      await NinaProcessor.init()
+      let postAccount
+      console.log('ctx.query', ctx.query)
+      const { txId } = ctx.query
+      let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!post) {
+        post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
+      }
+      if (!post) {
+        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
+        if (!postAccount) {
+          throw ('Post not found')
+        }
+        
+        let hub
+        let hubPublicKey
+        console.log('txId', txId)
+        if (txId) {
+          const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0
+          })
+          console.log('tx', tx)
+          const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+          hubPublicKey = accounts[1].toBase58()
+          console.log('hubPublicKey', hubPublicKey)
+        }
+        if (hubPublicKey) {
+          const [hubContentPublicKey] =
+          await anchor.web3.PublicKey.findProgramAddress(
+            [
+              Buffer.from(anchor.utils.bytes.utf8.encode(`nina-hub-content`)),
+              new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
+              new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug).toBuffer(),
+            ],
+            NinaProcessor.program.programId,
+          )
+          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'confirmed');
+          if (hubContentAccount) {
+            hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
+          }
+        }
+        const data = await fetchFromArweave(decode(postAccount.uri));
+        const publisher = await Account.findOrCreate(postAccount.author.toBase58());
+        const postData = {
+          publicKey: ctx.params.publicKeyOrSlug,
+          data: data,
+          datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+          publisherId: publisher.id,
+        }
+        if (hub) {
+          postData.hubId = hub.id
+        }
+        post = await Post.query().insertGraph(postData)
+        if (data.blocks) {
+          for await (let block of data.blocks) {
+            switch (block.type) {
+              case 'image':
+                try {
+                  NinaProcessor.warmCache(block.data.image);
+                } catch (error) {
+                  console.log(error)
+                }
+                break;
+
+              case 'release':
+                for await (let release of block.data) {
+                  try {
+                    const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                    await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                  } catch (err) {
+                    console.log('error', err)
+                  }
+                }
+                break;
+
+              case 'featuredRelease':
+                try {
+                  const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                  await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                } catch (err) {
+                  console.log('error', err)
+                }
+                break
+                
+              default:
+                break
+            }
+          }
+        }
+      }
 
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
       const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
-      await publishedThroughHub.format();
+      if (publishedThroughHub) {
+        await publishedThroughHub.format();
+      }
 
       await post.format();
+
+      if (post.data.blocks) {
+        const releases = []
+        for await (let block of post.data.blocks) {
+          switch (block.type) {
+            case 'release':
+              for await (let release of block.data) {
+                const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                if (releaseRecord) {
+                  await releaseRecord.format();
+                  releases.push(releaseRecord)
+                }
+              }
+              block.data.release = releases
+              break;
+            case 'featuredRelease':
+              const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+              if (releaseRecord) {
+                await releaseRecord.format();
+                block.data = releaseRecord
+              }
+              break;
+            
+            case 'hub':
+              const hubs = []
+              for await (let hub of block.data) {
+                const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
+                if (hubRecord) {
+                  await hubRecord.format();
+                  hubs.push(hubRecord)
+                }
+              }
+              block.data.hubs = hubs
+              break;
+            default:
+              break;
+          }
+        }
+      }
 
       ctx.body = {
         post,
         publisher,
-        publishedThroughHub
+        publishedThroughHub,
     };
     } catch (err) {
       console.log(err)
