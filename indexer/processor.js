@@ -556,8 +556,13 @@ class NinaProcessor {
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubInit'))) {
       transactionObject.type = 'HubInit'
-      accountPublicKey = accounts[0].toBase58()
-      hubPublicKey = accounts[1].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[1].toBase58()
+        hubPublicKey = accounts[2].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+        hubPublicKey = accounts[1].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInit'))) {
       transactionObject.type = 'ReleaseInit'
       accountPublicKey = accounts[4].toBase58()
