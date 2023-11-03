@@ -1731,6 +1731,7 @@ export default (router) => {
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
       const formattedReleasesResponse = []
       for await (let release of releases) {
