@@ -1714,6 +1714,103 @@ export default (router) => {
   });
 
 
+  router.post('/search/v2', async (ctx) => {
+    try { 
+      let { offset=0, limit=BIG_LIMIT, sort='desc', query='' } = ctx.query;
+      
+      const accounts = await Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+      
+        for await (let account of accounts) {
+          account.type = 'account'
+          await account.format()
+        }
+
+      const releases = await Release.query()
+        .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+      const formattedReleasesResponse = []
+      for await (let release of releases) {
+        release.type = 'release'
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
+          if (isVisible) {  
+            await release.format();
+            await publishedThroughHub.format();  
+            formattedReleasesResponse.push({
+              ...release,
+              hub: publishedThroughHub,
+            })
+          }
+        } else {
+          await release.format();
+          formattedReleasesResponse.push(release)
+        }
+      }
+
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      
+      for await (let hub of hubs) {
+        hub.type = 'hub'
+        await hub.format()
+      }
+
+      const posts = await Post.query()
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+
+      for await (let post of posts) {
+        post.type = 'post'
+        await post.format();
+      }
+
+      const all = [...accounts, ...formattedReleasesResponse, ...posts, ...hubs, ...accounts]
+      if (sort === 'desc') {
+        all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        accounts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        formattedReleasesResponse.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        hubs.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        posts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+        accounts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+        formattedReleasesResponse.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+        hubs.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+        posts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = {
+        all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        accounts: accounts.slice(Number(offset), Number(offset) + Number(limit)),
+        releases: formattedReleasesResponse.slice(Number(offset), Number(offset) + Number(limit)),
+        posts: posts.slice(Number(offset), Number(offset) + Number(limit)),
+        hubs: hubs.slice(Number(offset), Number(offset) + Number(limit)),
+      }
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.post('/search', async (ctx) => {
     try { 
       const { query } = ctx.request.body;
