@@ -1798,10 +1798,15 @@ export default (router) => {
 
       ctx.body = {
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        allTotal: all.length,
         accounts: accounts.slice(Number(offset), Number(offset) + Number(limit)),
+        accountsTotal: accounts.length,
         releases: formattedReleasesResponse.slice(Number(offset), Number(offset) + Number(limit)),
+        releasesTotal: formattedReleasesResponse.length,
         posts: posts.slice(Number(offset), Number(offset) + Number(limit)),
+        postsTotal: posts.length,
         hubs: hubs.slice(Number(offset), Number(offset) + Number(limit)),
+        hubsTotal: hubs.length,
       }
     } catch (err) {
       console.log(err)
