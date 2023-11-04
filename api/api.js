@@ -862,6 +862,7 @@ export default (router) => {
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -1462,6 +1463,7 @@ export default (router) => {
       const posts = await Post
         .query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
@@ -1736,8 +1738,7 @@ export default (router) => {
       }
 
       const releases = await Release.query()
-        .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
@@ -1773,7 +1774,6 @@ export default (router) => {
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
       
       for await (let hub of hubs) {
         hub.type = 'hub'
