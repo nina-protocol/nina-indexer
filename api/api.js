@@ -66,6 +66,7 @@ export default (router) => {
       ctx.body = {
         accounts: accounts.results,
         total: accounts.total,
+        query
       };
 
     } catch (err) {
@@ -248,6 +249,7 @@ export default (router) => {
       ctx.body = { 
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
         total: all.length,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -321,6 +323,7 @@ export default (router) => {
       ctx.body = {
         collected: collected.results,
         total: collected.total,
+        query
       };
     } catch (err) {
       console.log(err)
@@ -352,6 +355,7 @@ export default (router) => {
       ctx.body = {
         hubs: hubs.results,
         total: hubs.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -382,6 +386,7 @@ export default (router) => {
       ctx.body = {
         posts: posts.results,
         total: posts.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -410,6 +415,7 @@ export default (router) => {
       ctx.body = {
         published: publishedVisible,
         total: published.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -876,6 +882,7 @@ export default (router) => {
       ctx.body = {
         releases: releases.results,
         total: releases.total,
+        query
       };
     } catch(err) {
       console.log(err)
@@ -1028,7 +1035,8 @@ export default (router) => {
 
       ctx.body = {
         hubs: hubs.results,
-        total: hubs.total
+        total: hubs.total,
+        query
       };
     } catch (err) {
       ctx.status = 400
@@ -1226,6 +1234,7 @@ export default (router) => {
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
         total: all.length,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1248,6 +1257,7 @@ export default (router) => {
         releases: releasesVisible,
         total: releases.total,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1271,6 +1281,7 @@ export default (router) => {
         posts: posts.results,
         total: posts.total,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1474,6 +1485,7 @@ export default (router) => {
       ctx.body = {
         posts: posts.results,
         total: posts.total,
+        query
       };
     } catch (err) {
       console.log(err)
@@ -1737,7 +1749,6 @@ export default (router) => {
         account.type = 'account'
         await account.format()
       }
-      
       const releases = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
@@ -1801,6 +1812,7 @@ export default (router) => {
       ctx.body = {
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
         total: all.length,
+        query,
       }
     } catch (err) {
       console.log(err)
