@@ -1737,13 +1737,14 @@ export default (router) => {
         account.type = 'account'
         await account.format()
       }
-      console.log('accounts', accounts)
+      
       const releases = await Release.query()
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
-      const formattedReleasesResponse = []
+      
+        const formattedReleasesResponse = []
       for await (let release of releases) {
         release.type = 'release'
         const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
@@ -1771,7 +1772,7 @@ export default (router) => {
           formattedReleasesResponse.push(release)
         }
       }
-      console.log('formattedReleasesResponse', formattedReleasesResponse)
+      
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
@@ -1780,7 +1781,7 @@ export default (router) => {
         hub.type = 'hub'
         await hub.format()
       }
-      console.log('hubs', hubs)
+      
       const posts = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
@@ -1789,7 +1790,7 @@ export default (router) => {
         post.type = 'post'
         await post.format();
       }
-      console.log('posts', posts)
+
       const all = [...formattedReleasesResponse, ...hubs, ...posts, ...accounts]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
