@@ -51,14 +51,17 @@ const getVisibleReleases = async (published) => {
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const { offset=0, limit=20, sort='desc', query= '' } = ctx.query;
       const accounts = await Account
         .query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere('displayName', 'ilike', `%${query}%`)
         .orderBy('publicKey', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
         
       for await (let account of accounts.results) {
         await account.format();
+        account.type = 'account'
       }
       ctx.body = {
         accounts: accounts.results,
@@ -865,6 +868,7 @@ export default (router) => {
 
       for await (let release of releases.results) {
         await release.format();
+        release.type = 'release'
       }
 
       ctx.body = {
@@ -1017,6 +1021,7 @@ export default (router) => {
 
       for await (let hub of hubs.results) {
         await hub.format();
+        hub.type = 'hub'
       }
 
       ctx.body = {
@@ -1037,6 +1042,7 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
+        console.log('fetching hub', publicKey)
         const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
@@ -1452,13 +1458,15 @@ export default (router) => {
 
   router.get('/posts', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc', column='datetime'} = ctx.query;
+      const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
       const posts = await Post
         .query()
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
+        post.type = 'post'
       }
       ctx.body = {
         posts: posts.results,
@@ -1716,16 +1724,16 @@ export default (router) => {
 
   router.post('/search/v2', async (ctx) => {
     try { 
-      let { offset=0, limit=BIG_LIMIT, sort='desc', query='' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', query='' } = ctx.request.body;
       
       const accounts = await Account.query()
         .where('displayName', 'ilike', `%${query}%`)
         .orWhere('handle', 'ilike', `%${query}%`)
       
-        for await (let account of accounts) {
-          account.type = 'account'
-          await account.format()
-        }
+      for await (let account of accounts) {
+        account.type = 'account'
+        await account.format()
+      }
 
       const releases = await Release.query()
         .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
@@ -1784,29 +1792,13 @@ export default (router) => {
       const all = [...accounts, ...formattedReleasesResponse, ...posts, ...hubs, ...accounts]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-        accounts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-        formattedReleasesResponse.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-        hubs.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-        posts.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
         all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-        accounts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-        formattedReleasesResponse.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-        hubs.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-        posts.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
       }
 
       ctx.body = {
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
-        allTotal: all.length,
-        accounts: accounts.slice(Number(offset), Number(offset) + Number(limit)),
-        accountsTotal: accounts.length,
-        releases: formattedReleasesResponse.slice(Number(offset), Number(offset) + Number(limit)),
-        releasesTotal: formattedReleasesResponse.length,
-        posts: posts.slice(Number(offset), Number(offset) + Number(limit)),
-        postsTotal: posts.length,
-        hubs: hubs.slice(Number(offset), Number(offset) + Number(limit)),
-        hubsTotal: hubs.length,
+        total: all.length,
       }
     } catch (err) {
       console.log(err)
