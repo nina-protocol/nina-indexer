@@ -1789,7 +1789,7 @@ export default (router) => {
         await post.format();
       }
 
-      const all = [...accounts, ...formattedReleasesResponse, ...posts, ...hubs, ...accounts]
+      const all = [...formattedReleasesResponse, ...hubs, ...posts, ...accounts]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
