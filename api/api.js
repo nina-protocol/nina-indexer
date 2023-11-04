@@ -51,18 +51,22 @@ const getVisibleReleases = async (published) => {
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc'} = ctx.query;
+      const { offset=0, limit=20, sort='desc', query= '' } = ctx.query;
       const accounts = await Account
         .query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere('displayName', 'ilike', `%${query}%`)
         .orderBy('publicKey', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
         
       for await (let account of accounts.results) {
         await account.format();
+        account.type = 'account'
       }
       ctx.body = {
         accounts: accounts.results,
         total: accounts.total,
+        query
       };
 
     } catch (err) {
@@ -245,6 +249,7 @@ export default (router) => {
       ctx.body = { 
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
         total: all.length,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -318,6 +323,7 @@ export default (router) => {
       ctx.body = {
         collected: collected.results,
         total: collected.total,
+        query
       };
     } catch (err) {
       console.log(err)
@@ -349,6 +355,7 @@ export default (router) => {
       ctx.body = {
         hubs: hubs.results,
         total: hubs.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -379,6 +386,7 @@ export default (router) => {
       ctx.body = {
         posts: posts.results,
         total: posts.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -407,6 +415,7 @@ export default (router) => {
       ctx.body = {
         published: publishedVisible,
         total: published.total,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -859,17 +868,21 @@ export default (router) => {
         .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
 
       for await (let release of releases.results) {
         await release.format();
+        release.type = 'release'
       }
 
       ctx.body = {
         releases: releases.results,
         total: releases.total,
+        query
       };
     } catch(err) {
       console.log(err)
@@ -1017,11 +1030,13 @@ export default (router) => {
 
       for await (let hub of hubs.results) {
         await hub.format();
+        hub.type = 'hub'
       }
 
       ctx.body = {
         hubs: hubs.results,
-        total: hubs.total
+        total: hubs.total,
+        query
       };
     } catch (err) {
       ctx.status = 400
@@ -1037,6 +1052,7 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
+        console.log('fetching hub', publicKey)
         const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
@@ -1218,6 +1234,7 @@ export default (router) => {
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
         total: all.length,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1240,6 +1257,7 @@ export default (router) => {
         releases: releasesVisible,
         total: releases.total,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1263,6 +1281,7 @@ export default (router) => {
         posts: posts.results,
         total: posts.total,
         publicKey: hub.publicKey,
+        query,
       };
     } catch (err) {
       console.log(err)
@@ -1452,17 +1471,21 @@ export default (router) => {
 
   router.get('/posts', async (ctx) => {
     try {
-      const { offset=0, limit=20, sort='desc', column='datetime'} = ctx.query;
+      const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
       const posts = await Post
         .query()
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
         await post.format();
+        post.type = 'post'
       }
       ctx.body = {
         posts: posts.results,
         total: posts.total,
+        query
       };
     } catch (err) {
       console.log(err)
@@ -1713,6 +1736,92 @@ export default (router) => {
     }
   });
 
+
+  router.post('/search/v2', async (ctx) => {
+    try { 
+      let { offset=0, limit=20, sort='desc', query='' } = ctx.request.body;
+      console.log('query', ctx.request.body)
+      const accounts = await Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+      
+      for await (let account of accounts) {
+        account.type = 'account'
+        await account.format()
+      }
+      const releases = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+      
+        const formattedReleasesResponse = []
+      for await (let release of releases) {
+        release.type = 'release'
+        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
+
+        if (publishedThroughHub) {
+          // Don't show releases that have been archived from their originating Hub
+          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
+          const isVisible = await Release
+            .query()
+            .joinRelated('hubs')
+            .where('hubs_join.hubId', publishedThroughHub.id)
+            .where('hubs_join.releaseId', release.id)
+            .where('hubs_join.visible', true)
+            .first()
+          if (isVisible) {  
+            await release.format();
+            await publishedThroughHub.format();  
+            formattedReleasesResponse.push({
+              ...release,
+              hub: publishedThroughHub,
+            })
+          }
+        } else {
+          await release.format();
+          formattedReleasesResponse.push(release)
+        }
+      }
+      
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      
+      for await (let hub of hubs) {
+        hub.type = 'hub'
+        await hub.format()
+      }
+      
+      const posts = await Post.query()
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+
+      for await (let post of posts) {
+        post.type = 'post'
+        await post.format();
+      }
+
+      const all = [...formattedReleasesResponse, ...hubs, ...posts, ...accounts]
+      if (sort === 'desc') {
+        all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        all.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = {
+        all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        total: all.length,
+        query,
+      }
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
 
   router.post('/search', async (ctx) => {
     try { 
