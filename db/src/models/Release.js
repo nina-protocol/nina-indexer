@@ -137,7 +137,7 @@ export default class Release extends Model {
   }
 
   format = async () => {
-    const publisher = await this.$relatedQuery('publisher').select('publicKey');
+    const publisher = await this.$relatedQuery('publisher');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
@@ -148,6 +148,7 @@ export default class Release extends Model {
       delete this.hub.authorityId;
     }
     this.publisher = publisher.publicKey;
+    this.publisherAccount = publisher;
     delete this.publisherId
     delete this.hubId
     delete this.id
