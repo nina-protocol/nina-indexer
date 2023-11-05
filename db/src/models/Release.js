@@ -147,6 +147,7 @@ export default class Release extends Model {
       this.hub.authority = authority.publicKey;
       delete this.hub.authorityId;
     }
+    await publisher.format();
     this.publisher = publisher.publicKey;
     this.publisherAccount = publisher;
     delete this.publisherId
