@@ -128,6 +128,8 @@ export default class Release extends Model {
       .replace(/ /g, '-') // replace spaces with hyphens
       .replace(/[^a-zA-Z0-9-]/g, '') // remove non-alphanumeric characters
       .replace(/--+/g, '') // remove spaces 
+      .replace(/-$/, '')
+
     const existingRelease = await Release.query().findOne({ slug });
     if (existingRelease) {
       return `${slug}-${randomStringGenerator()}`;
