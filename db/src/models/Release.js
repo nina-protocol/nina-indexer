@@ -128,6 +128,8 @@ export default class Release extends Model {
       .replace(/ /g, '-') // replace spaces with hyphens
       .replace(/[^a-zA-Z0-9-]/g, '') // remove non-alphanumeric characters
       .replace(/--+/g, '') // remove spaces 
+      .replace(/-$/, '')
+
     const existingRelease = await Release.query().findOne({ slug });
     if (existingRelease) {
       return `${slug}-${randomStringGenerator()}`;
@@ -137,7 +139,7 @@ export default class Release extends Model {
   }
 
   format = async () => {
-    const publisher = await this.$relatedQuery('publisher').select('publicKey');
+    const publisher = await this.$relatedQuery('publisher');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
@@ -147,7 +149,9 @@ export default class Release extends Model {
       this.hub.authority = authority.publicKey;
       delete this.hub.authorityId;
     }
+    await publisher.format();
     this.publisher = publisher.publicKey;
+    this.publisherAccount = publisher;
     delete this.publisherId
     delete this.hubId
     delete this.id
