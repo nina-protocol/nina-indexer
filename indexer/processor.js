@@ -753,7 +753,7 @@ class NinaProcessor {
         console.log('deleting subscription')
         console.log('transactionObject', transactionObject)
         console.log('accounts', accounts)
-        await Subscription.query().delete().where('publicKey', accounts[1].toBase58())
+        await Subscription.query().delete().where('publicKey', accounts[2].toBase58())
       }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
