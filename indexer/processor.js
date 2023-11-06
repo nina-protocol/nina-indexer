@@ -750,9 +750,6 @@ class NinaProcessor {
         }
       }
       if (transactionObject.type === 'SubscriptionUnsubscribe') {
-        console.log('deleting subscription')
-        console.log('transactionObject', transactionObject)
-        console.log('accounts', accounts)
         await Subscription.query().delete().where('publicKey', accounts[2].toBase58())
       }
       if (transactionRecord) {
