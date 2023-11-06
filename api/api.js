@@ -273,7 +273,7 @@ export default (router) => {
       if (txId) {
         await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-          commitment: 'processed',
+          commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
         
@@ -291,7 +291,7 @@ export default (router) => {
         if (release) {
           let tokenAccountsForRelease = await NinaProcessor.tokenIndexProvider.connection.getParsedProgramAccounts(
             new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
-            commitment: 'processed',
+            commitment: 'confirmed',
             filters: [{
                 dataSize: 165
               }, {
@@ -304,7 +304,7 @@ export default (router) => {
           })
           const tokenAccounts = tokenAccountsForRelease.filter(ta => ta.account.data.parsed.info.owner === ctx.params.publicKey)
           if (tokenAccounts.length > 0) {
-            let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'processed')
+            let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'confirmed')
             if (response.value.uiAmount > 0) {
               await NinaProcessor.addCollectorForRelease(releasePublicKey, ctx.params.publicKey)
             }
@@ -1082,8 +1082,7 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
-        console.log('fetching hub', publicKey)
-        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'processed')
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
@@ -1188,7 +1187,7 @@ export default (router) => {
     try {
       const publicKey = ctx.params.publicKeyOrHandle
       let hub = await hubForPublicKeyOrHandle(ctx)
-      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'processed')
+      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
       if (hub && hubAccount) {
         const uri = decode(hubAccount.uri)
         const data = await axios.get(uri)
@@ -1330,7 +1329,7 @@ export default (router) => {
         .first()
       if (hub && !release) {
         await NinaProcessor.init()
-        const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'processed')
+        const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
           const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
@@ -1341,7 +1340,7 @@ export default (router) => {
             ],
             NinaProcessor.program.programId
           )
-          const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'processed')
+          const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
           await Hub.relatedQuery('releases').for(hub.id).relate({
             id: releaseRecord.id,
             hubReleasePublicKey: ctx.params.hubReleasePublicKey,
@@ -1406,7 +1405,7 @@ export default (router) => {
 
   const lookupCollaborator = async (hubCollaboratorPublicKey) => {
     try {
-      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'processed')
+      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed')
       return hubCollaborator
     } catch (error) {
       return undefined
@@ -1424,7 +1423,7 @@ export default (router) => {
         .first()
       if (!post) {
         await NinaProcessor.init()
-        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'processed')
+        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
@@ -1433,8 +1432,8 @@ export default (router) => {
           ],
           NinaProcessor.program.programId
         )
-        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'processed')
-        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'processed')
+        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
         const uri = decode(postAccount.uri)
         const data = await axios.get(uri)
         const publisher = await Account.findOrCreate(postAccount.author.toBase58());
@@ -1538,7 +1537,7 @@ export default (router) => {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
       }
       if (!post) {
-        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'processed');
+        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
         if (!postAccount) {
           throw ('Post not found')
         }
@@ -1548,7 +1547,7 @@ export default (router) => {
         console.log('txId', txId)
         if (txId) {
           const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-            commitment: 'processed',
+            commitment: 'confirmed',
             maxSupportedTransactionVersion: 0
           })
           console.log('tx', tx)
@@ -1566,7 +1565,7 @@ export default (router) => {
             ],
             NinaProcessor.program.programId,
           )
-          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'processed');
+          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'confirmed');
           if (hubContentAccount) {
             hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
           }
@@ -1711,7 +1710,7 @@ export default (router) => {
       let transaction
       if (ctx.query.transactionId) {
         transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, {
-          commitment: 'processed',
+          commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
         logger(`GET /exchanges/:publicKey ${ctx.query.transactionId}`)
@@ -1738,7 +1737,7 @@ export default (router) => {
         } 
       } else if (!exchange && transaction) {     
         console.log('found an init')
-        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'processed') 
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
         await Exchange.query().insertGraph({
@@ -2059,7 +2058,7 @@ export default (router) => {
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
             ctx.query.transactionId, {
-              commitment: 'processed',
+              commitment: 'confirmed',
               maxSupportedTransactionVersion: 0
             }
           );
@@ -2069,7 +2068,7 @@ export default (router) => {
       
       if (!subscription && !transaction) {
         await NinaProcessor.init()
-        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'processed')
+        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
         if (subscriptionAccount) {
           //CREATE ENTRY
           await Account.findOrCreate(subscriptionAccount.from.toBase58());
