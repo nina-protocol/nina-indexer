@@ -2065,14 +2065,15 @@ export default (router) => {
           );
         console.log('1', transaction)
         if (transaction) {
-          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+          const ninaInstruction = transaction.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
           const accounts = ninaInstruction?.accounts
           const blocktime = tx.blockTime
   
           await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts) 
           ctx.body = {
             message: 'Unfollow success',
-          }     
+          }
+          return     
         }
       }
       console.log('0', transaction)
