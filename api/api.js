@@ -1527,10 +1527,8 @@ export default (router) => {
 
   router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
-      console.log('GET /posts/:publicKeyOrSlug', ctx.params.publicKeyOrSlug)
       await NinaProcessor.init()
       let postAccount
-      console.log('ctx.query', ctx.query)
       const { txId } = ctx.query
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
@@ -2071,7 +2069,10 @@ export default (router) => {
           const accounts = ninaInstruction?.accounts
           const blocktime = tx.blockTime
   
-          await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts)  
+          await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts) 
+          ctx.body = {
+            message: 'Unfollow success',
+          }     
         }
       }
       console.log('0', transaction)
@@ -2096,16 +2097,6 @@ export default (router) => {
           throw("Subscription not found")
         }
       } 
-      let isUnsubscribe = false
-      if (subscription && transaction) {
-        //DELETE ENTRY
-        console.log(4)
-        isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
-        if (isUnsubscribe) {
-          await Subscription.query().delete().where('publicKey', subscription.publicKey)
-        }
-        console.log(5)
-      }
       if (!isUnsubscribe && subscription) {
         await subscription.format();
         ctx.body = {
@@ -2113,7 +2104,7 @@ export default (router) => {
         }  
       } else {
         ctx.body = {
-          message: isUnsubscribe ? 'Unfollow success' : 'Subscription not found',
+          message: 'Subscription not found',
         }  
       }
     } catch (err) {
