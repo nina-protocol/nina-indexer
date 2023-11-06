@@ -304,7 +304,7 @@ export default (router) => {
           })
           const tokenAccounts = tokenAccountsForRelease.filter(ta => ta.account.data.parsed.info.owner === ctx.params.publicKey)
           if (tokenAccounts.length > 0) {
-            let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'confirmed')
+            let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'processed')
             if (response.value.uiAmount > 0) {
               await NinaProcessor.addCollectorForRelease(releasePublicKey, ctx.params.publicKey)
             }
@@ -919,7 +919,14 @@ export default (router) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
       const exchanges = await release.$relatedQuery('exchanges')
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -945,7 +952,14 @@ export default (router) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
 
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
       const collectors = await release.$relatedQuery('collectors')
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -975,7 +989,15 @@ export default (router) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
+
       const hubs = await release.$relatedQuery('hubs')
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -991,7 +1013,7 @@ export default (router) => {
       console.log(error)
       ctx.status = 404
       ctx.body = {
-        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+        message: `Release not found with identifier: ${ctx.params.publicKey}`
       }
     }
   })
@@ -999,7 +1021,15 @@ export default (router) => {
   router.get('/releases/:publicKey/revenueShareRecipients', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
+      
       const revenueShareRecipients = await release.$relatedQuery('revenueShareRecipients')
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let account of revenueShareRecipients.results) {
@@ -1053,7 +1083,7 @@ export default (router) => {
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
         console.log('fetching hub', publicKey)
-        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+        const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'processed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
@@ -1158,7 +1188,7 @@ export default (router) => {
     try {
       const publicKey = ctx.params.publicKeyOrHandle
       let hub = await hubForPublicKeyOrHandle(ctx)
-      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'processed')
       if (hub && hubAccount) {
         const uri = decode(hubAccount.uri)
         const data = await axios.get(uri)
@@ -1300,7 +1330,7 @@ export default (router) => {
         .first()
       if (hub && !release) {
         await NinaProcessor.init()
-        const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+        const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'processed')
         if (hubRelease) {
           const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
           const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
@@ -1311,7 +1341,7 @@ export default (router) => {
             ],
             NinaProcessor.program.programId
           )
-          const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+          const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'processed')
           await Hub.relatedQuery('releases').for(hub.id).relate({
             id: releaseRecord.id,
             hubReleasePublicKey: ctx.params.hubReleasePublicKey,
@@ -1376,7 +1406,7 @@ export default (router) => {
 
   const lookupCollaborator = async (hubCollaboratorPublicKey) => {
     try {
-      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed')
+      const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'processed')
       return hubCollaborator
     } catch (error) {
       return undefined
@@ -1394,7 +1424,7 @@ export default (router) => {
         .first()
       if (!post) {
         await NinaProcessor.init()
-        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
+        const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'processed')
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
@@ -1403,8 +1433,8 @@ export default (router) => {
           ],
           NinaProcessor.program.programId
         )
-        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
+        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'processed')
+        const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'processed')
         const uri = decode(postAccount.uri)
         const data = await axios.get(uri)
         const publisher = await Account.findOrCreate(postAccount.author.toBase58());
@@ -1508,7 +1538,7 @@ export default (router) => {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
       }
       if (!post) {
-        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
+        postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'processed');
         if (!postAccount) {
           throw ('Post not found')
         }
@@ -1536,7 +1566,7 @@ export default (router) => {
             ],
             NinaProcessor.program.programId,
           )
-          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'confirmed');
+          const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'processed');
           if (hubContentAccount) {
             hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
           }
@@ -1708,7 +1738,7 @@ export default (router) => {
         } 
       } else if (!exchange && transaction) {     
         console.log('found an init')
-        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'confirmed') 
+        const exchangeAccount = await NinaProcessor.program.account.exchange.fetch(ctx.params.publicKey, 'processed') 
         const initializer = await Account.findOrCreate(exchangeAccount.initializer.toBase58());  
         const release = await Release.query().findOne({publicKey: exchangeAccount.release.toBase58()});
         await Exchange.query().insertGraph({
@@ -2039,7 +2069,7 @@ export default (router) => {
       
       if (!subscription && !transaction) {
         await NinaProcessor.init()
-        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'processed')
         if (subscriptionAccount) {
           //CREATE ENTRY
           await Account.findOrCreate(subscriptionAccount.from.toBase58());
