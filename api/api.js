@@ -2052,6 +2052,7 @@ export default (router) => {
 
   router.get('/subscriptions/:publicKey', async (ctx) => {
     try {
+      console.log('GET /subscriptions/:publicKey', ctx.params.publicKey, ctx.query)
       await NinaProcessor.init();
       let transaction
       if (ctx.query.transactionId) {
@@ -2066,7 +2067,7 @@ export default (router) => {
       }
       console.log('0', transaction)
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
-      console.log(1)
+      console.log(1, subscription)
       if (!subscription && !transaction) {
         const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
         console.log(2)
