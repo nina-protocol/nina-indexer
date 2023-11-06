@@ -2054,17 +2054,23 @@ export default (router) => {
           throw("Subscription not found")
         }
       } 
-      
+      let isUnsubscribe = false
       if (subscription && transaction) {
         //DELETE ENTRY
-        const isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
+        isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
         if (isUnsubscribe) {
           await Subscription.query().delete().where('publicKey', subscription.publicKey)
         }
       }
-      await subscription.format();
-      ctx.body = {
-        subscription,
+      if (!isUnsubscribe && subscription) {
+        await subscription.format();
+        ctx.body = {
+          subscription,
+        }  
+      } else {
+        ctx.body = {
+          message: isUnsubscribe ? 'Unfollow success' : 'Subscription not found',
+        }  
       }
     } catch (err) {
       console.log(err)
