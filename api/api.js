@@ -2055,6 +2055,7 @@ export default (router) => {
       await NinaProcessor.init();
       let transaction
       if (ctx.query.transactionId) {
+        console.log('0', ctx.query.transactionId)
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
             ctx.query.transactionId, {
@@ -2063,7 +2064,7 @@ export default (router) => {
             }
           );
       }
-      console.log('0',transactionId, transaction)
+      console.log('0', transaction)
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
       console.log(1)
       if (!subscription && !transaction) {
