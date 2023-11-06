@@ -273,7 +273,7 @@ export default (router) => {
       if (txId) {
         await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-          commitment: 'confirmed',
+          commitment: 'processed',
           maxSupportedTransactionVersion: 0
         })
         
@@ -291,7 +291,7 @@ export default (router) => {
         if (release) {
           let tokenAccountsForRelease = await NinaProcessor.tokenIndexProvider.connection.getParsedProgramAccounts(
             new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
-            commitment: 'confirmed',
+            commitment: 'processed',
             filters: [{
                 dataSize: 165
               }, {
@@ -1518,7 +1518,7 @@ export default (router) => {
         console.log('txId', txId)
         if (txId) {
           const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-            commitment: 'confirmed',
+            commitment: 'processed',
             maxSupportedTransactionVersion: 0
           })
           console.log('tx', tx)
@@ -1681,7 +1681,7 @@ export default (router) => {
       let transaction
       if (ctx.query.transactionId) {
         transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, {
-          commitment: 'confirmed',
+          commitment: 'processed',
           maxSupportedTransactionVersion: 0
         })
         logger(`GET /exchanges/:publicKey ${ctx.query.transactionId}`)
@@ -2029,7 +2029,7 @@ export default (router) => {
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
             ctx.query.transactionId, {
-              commitment: 'confirmed',
+              commitment: 'processed',
               maxSupportedTransactionVersion: 0
             }
           );
