@@ -2063,14 +2063,16 @@ export default (router) => {
             }
           );
       }
-
+      console.log('0',transactionId, transaction)
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
-      
+      console.log(1)
       if (!subscription && !transaction) {
-        await NinaProcessor.init()
         const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+        console.log(2)
+
         if (subscriptionAccount) {
           //CREATE ENTRY
+          console.log(3)
           await Account.findOrCreate(subscriptionAccount.from.toBase58());
           subscription = await Subscription.findOrCreate({
             publicKey: ctx.params.publicKey,
@@ -2086,10 +2088,12 @@ export default (router) => {
       let isUnsubscribe = false
       if (subscription && transaction) {
         //DELETE ENTRY
+        console.log(4)
         isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
         if (isUnsubscribe) {
           await Subscription.query().delete().where('publicKey', subscription.publicKey)
         }
+        console.log(5)
       }
       if (!isUnsubscribe && subscription) {
         await subscription.format();
