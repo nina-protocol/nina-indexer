@@ -2055,15 +2055,24 @@ export default (router) => {
       console.log('GET /subscriptions/:publicKey', ctx.params.publicKey, ctx.query)
       await NinaProcessor.init();
       let transaction
-      if (ctx.query.transactionId) {
-        console.log('0', ctx.query.transactionId)
+      const transactionId = ctx.query.transactionId
+      if (transactionId) {
+        console.log('0', transactionId)
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
-            ctx.query.transactionId, {
+            transactionId, {
               commitment: 'confirmed',
               maxSupportedTransactionVersion: 0
             }
           );
+        console.log('1', transaction)
+        if (transaction) {
+          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+          const accounts = ninaInstruction?.accounts
+          const blocktime = tx.blockTime
+  
+          await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts)  
+        }
       }
       console.log('0', transaction)
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
