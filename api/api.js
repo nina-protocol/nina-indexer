@@ -2097,7 +2097,7 @@ export default (router) => {
           throw("Subscription not found")
         }
       } 
-      if (!isUnsubscribe && subscription) {
+      if (subscription) {
         await subscription.format();
         ctx.body = {
           subscription,
