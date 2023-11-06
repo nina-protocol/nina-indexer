@@ -2072,7 +2072,8 @@ export default (router) => {
           await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts) 
           ctx.body = {
             message: 'Unfollow success',
-          }     
+          }
+          return     
         }
       }
       console.log('0', transaction)
