@@ -2067,7 +2067,7 @@ export default (router) => {
         if (transaction) {
           const ninaInstruction = transaction.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
           const accounts = ninaInstruction?.accounts
-          const blocktime = tx.blockTime
+          const blocktime = transaction.blockTime
   
           await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts) 
           ctx.body = {
