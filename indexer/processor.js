@@ -749,6 +749,9 @@ class NinaProcessor {
           transactionObject.toHubId = subscribeToHub.id
         }
       }
+      if (transactionObject.type === 'SubscriptionUnsubscribe') {
+        await Subscription.query().delete().where('publicKey', accounts[2].toBase58())
+      }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
       } else {

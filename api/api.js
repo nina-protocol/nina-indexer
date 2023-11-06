@@ -919,7 +919,14 @@ export default (router) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
       const exchanges = await release.$relatedQuery('exchanges')
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -945,7 +952,14 @@ export default (router) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
 
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
       const collectors = await release.$relatedQuery('collectors')
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -975,7 +989,15 @@ export default (router) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
       column = formatColumnForJsonFields(column);
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
+
       const hubs = await release.$relatedQuery('hubs')
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -991,7 +1013,7 @@ export default (router) => {
       console.log(error)
       ctx.status = 404
       ctx.body = {
-        message: `Release not found with publicKey: ${ctx.params.publicKey}`
+        message: `Release not found with identifier: ${ctx.params.publicKey}`
       }
     }
   })
@@ -999,7 +1021,15 @@ export default (router) => {
   router.get('/releases/:publicKey/revenueShareRecipients', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
-      const release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+      if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKey})
+        
+        if (!release) {
+          throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
+        }
+      }
+      
       const revenueShareRecipients = await release.$relatedQuery('revenueShareRecipients')
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let account of revenueShareRecipients.results) {
@@ -1052,7 +1082,6 @@ export default (router) => {
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
-        console.log('fetching hub', publicKey)
         const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
         if (hubAccount) {
           const authorityPublicKey = hubAccount.authority.toBase58()
@@ -1498,10 +1527,8 @@ export default (router) => {
 
   router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
-      console.log('GET /posts/:publicKeyOrSlug', ctx.params.publicKeyOrSlug)
       await NinaProcessor.init()
       let postAccount
-      console.log('ctx.query', ctx.query)
       const { txId } = ctx.query
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
@@ -2025,23 +2052,35 @@ export default (router) => {
     try {
       await NinaProcessor.init();
       let transaction
-      if (ctx.query.transactionId) {
+      const transactionId = ctx.query.transactionId
+      if (transactionId) {
         transaction =
           await NinaProcessor.provider.connection.getParsedTransaction(
-            ctx.query.transactionId, {
+            transactionId, {
               commitment: 'confirmed',
               maxSupportedTransactionVersion: 0
             }
           );
+        if (transaction) {
+          const ninaInstruction = transaction.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+          const accounts = ninaInstruction?.accounts
+          const blocktime = transaction.blockTime
+  
+          await NinaProcessor.processTransaction(transaction, transactionId, blocktime, accounts) 
+          ctx.body = {
+            message: 'Unfollow success',
+          }
+          return     
+        }
       }
-
       let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
-      
       if (!subscription && !transaction) {
-        await NinaProcessor.init()
         const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+        console.log(2)
+
         if (subscriptionAccount) {
           //CREATE ENTRY
+          console.log(3)
           await Account.findOrCreate(subscriptionAccount.from.toBase58());
           subscription = await Subscription.findOrCreate({
             publicKey: ctx.params.publicKey,
@@ -2054,17 +2093,15 @@ export default (router) => {
           throw("Subscription not found")
         }
       } 
-      
-      if (subscription && transaction) {
-        //DELETE ENTRY
-        const isUnsubscribe = transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))
-        if (isUnsubscribe) {
-          await Subscription.query().delete().where('publicKey', subscription.publicKey)
-        }
-      }
-      await subscription.format();
-      ctx.body = {
-        subscription,
+      if (subscription) {
+        await subscription.format();
+        ctx.body = {
+          subscription,
+        }  
+      } else {
+        ctx.body = {
+          message: 'Subscription not found',
+        }  
       }
     } catch (err) {
       console.log(err)
