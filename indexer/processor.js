@@ -442,7 +442,7 @@ class NinaProcessor {
   }
 
   isFileServicePayer(accounts) {
-    return accounts[0].toBase58() === FILE_SERVICE_ADDRESS
+    return accounts[0].toBase58() === FILE_SERVICE_ADDRESS || accounts[0].toBase58() === accounts[1].toBase58()
   }
 
   async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null) {
@@ -749,8 +749,27 @@ class NinaProcessor {
           transactionObject.toHubId = subscribeToHub.id
         }
       }
+
+      // The previous way we were handling callbacks for subscriptions was not properly handling
+      // deleteing unsubscribes, so we need to do that here
+      // if someone subscribes and unsubscribes a bunch this is still safe, bc it should 
+      // add and delete as needed until it lands on the final state
+      // and txs are processed in blocktime order, so we should always land on the final state
       if (transactionObject.type === 'SubscriptionUnsubscribe') {
         await Subscription.query().delete().where('publicKey', accounts[2].toBase58())
+      }
+
+      // Note: madjestic kasuals releases didnt have a hubId set in their db.Release record,
+      // looked into it and noticed that their hubContent.publishedThroughHub was set to false
+      // no idea why that was the case, via the api they all return the correct hub as publishedThroughHub
+      // don't know how that is getting set either - hunted around for reason for both and cant find any
+      // IT IS A MYSTERY
+      // but it is also TRUE that any tx.type === 'ReleaseInitViaHub' should have a hubId set
+      // so we can just set it here
+      if (transactionObject.type === 'ReleaseInitViaHub') {
+        const release = await Release.query().findOne({ publicKey: releasePublicKey })
+        const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+        await release.$query().patch({ hubId: hub.id })
       }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
@@ -1160,11 +1179,19 @@ class NinaProcessor {
     for await (let hubRelease of hubReleasesForHubOnChain) {
       try {
         if (hubReleasesForHubDb.includes(hubRelease.account.release.toBase58())) {
-          const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
+          const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())
           const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
           if (release) {
+            let visible = false;
+            hubContent.forEach(hc => {
+              if (!visible) {
+                if (hc.account.visible) {
+                  visible = true;
+                }
+              }
+            })
             await Hub.relatedQuery('releases').for(hub.id).patch({
-              visible: hubContent.account.visible,
+              visible,
             }).where( {id: release.id });
           }
         }
@@ -1174,7 +1201,7 @@ class NinaProcessor {
     }
     for await (let hubRelease of newHubReleasesForHub) {
       try {
-        const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
+        const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())
         const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
         if (release) {
           await Hub.relatedQuery('releases').for(hub.id).relate({
