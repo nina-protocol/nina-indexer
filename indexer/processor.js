@@ -1201,9 +1201,10 @@ class NinaProcessor {
     }
     for await (let hubRelease of newHubReleasesForHub) {
       try {
-        const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())
+        const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())[0]
         const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
         if (release) {
+
           await Hub.relatedQuery('releases').for(hub.id).relate({
             id: release.id,
             hubReleasePublicKey: hubRelease.publicKey.toBase58(),
