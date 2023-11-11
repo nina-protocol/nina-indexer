@@ -1119,6 +1119,11 @@ export default (router) => {
 
       const posts = await hub.$relatedQuery('posts')
 
+      // if hub is less than five minutes old warm the cache
+      if (hub.updatedAt && new Date(hub.updatedAt).getTime() > new Date().getTime() - 300000) {
+        NinaProcessor.warmCache(hub.data.image);
+      }
+      
       await hub.format();
 
       for (let collaborator of collaborators) {
