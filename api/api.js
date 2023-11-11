@@ -1094,6 +1094,8 @@ export default (router) => {
             updatedAt: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
             authorityId: authority.id,            
           });
+          NinaProcessor.warmCache(data.data.image);
+
           const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
             [
               Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
