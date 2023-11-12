@@ -14,11 +14,12 @@ class Post extends Model {
   static get jsonSchema() {
     return {
       type: 'object',
-      required: ['publicKey', 'data', 'datetime'],
+      required: ['publicKey', 'data', 'datetime', 'version'],
       properties: {
         publicKey: { type: 'string' },
         data: { type: 'object' },
         datetime: { type: 'string' },
+        version: { type: 'string' },
       },
     };
   }
