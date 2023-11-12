@@ -674,15 +674,22 @@ export default (router) => {
           accountIds.push(account.id)
         }
       }
+      const notUserSubquery = Transaction.query()
+        .select('id')
+        .where('authorityId', account.id)
 
       const transactions = await Transaction.query()
-        .whereIn('hubId', hubIds)
-        .orWhereIn('toHubId', hubIds)
-        .orWhereIn('authorityId', accountIds)
-        .orWhereIn('toAccountId', accountIds)
+        .where((builder) => 
+          builder
+            .whereIn('hubId', hubIds)
+            .orWhereIn('toHubId', hubIds)
+            .orWhereIn('authorityId', accountIds)
+            .orWhereIn('toAccountId', accountIds)
+        )
+        .whereNotIn('id', notUserSubquery)
         .orderBy('blocktime', 'desc')
         .range(Number(offset), Number(offset) + Number(limit))
-      
+
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
@@ -697,6 +704,7 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
+      console.log('err', err)
       ctx.status = 404
       ctx.body = {
         message: err
