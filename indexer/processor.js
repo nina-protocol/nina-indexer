@@ -828,6 +828,7 @@ class NinaProcessor {
       const existingPosts = await Post.query();
       const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
       for await (let existingPost of existingPosts) {
+        console.log('existingPost', existingPost.publicKey)
         await this.upgradePostsToV2(existingPost);
       }
       for await (let newPost of newPosts) {
@@ -883,7 +884,6 @@ class NinaProcessor {
     const data = { ...post.data }
     if (!post.data.slug) {
       let slug = post.data.title
-
       if (data.title.length > 200) {
         slug = data.title.substring(0, 200)
       }
@@ -901,6 +901,11 @@ class NinaProcessor {
       
       const checkIfSlugIsValid = async (slug) => {
         try {
+          console.log('slug.length', slug.length)
+          if (slug.length === 0) {
+            slug = `${Math.floor(Math.random() * 1000000)}`
+          }
+          console.log('slug after', slug)
           const postForSlug = await this.http.get(`/posts/${slug}`)
           if (postForSlug) {
             slug = `${slug}-${Math.floor(Math.random() * 1000000)}`
