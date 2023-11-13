@@ -468,8 +468,12 @@ class NinaProcessor {
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
       transactionObject.type = 'ReleaseInitViaHub'
       releasePublicKey = accounts[1].toBase58()
-      accountPublicKey = accounts[0].toBase58()
       hubPublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[18].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
       transactionObject.type = 'ReleasePurchaseViaHub'
       releasePublicKey = accounts[2].toBase58()
