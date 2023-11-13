@@ -1310,13 +1310,15 @@ export default (router) => {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column, 'data');
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const posts = await hub.$relatedQuery('posts')
-        .orderBy(column, sort)
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      let posts = await hub.$relatedQuery('posts')
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orderBy(column, sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+
       for await (let post of posts.results) {
         await post.format();
       }
+
       ctx.body = {
         posts: posts.results,
         total: posts.total,
@@ -1563,7 +1565,6 @@ export default (router) => {
           console.log('tx', tx)
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           hubPublicKey = accounts[1].toBase58()
-          console.log('hubPublicKey', hubPublicKey)
         }
         if (hubPublicKey) {
           const [hubContentPublicKey] =
@@ -1587,6 +1588,7 @@ export default (router) => {
           data: data,
           datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
+          version: data.blocks ? '0.0.2' : '0.0.1'
         }
         if (hub) {
           postData.hubId = hub.id
@@ -1629,7 +1631,6 @@ export default (router) => {
           }
         }
       }
-
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
@@ -1646,7 +1647,7 @@ export default (router) => {
           switch (block.type) {
             case 'release':
               for await (let release of block.data) {
-                const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                const releaseRecord = await Release.query().findOne({ publicKey: release });
                 if (releaseRecord) {
                   await releaseRecord.format();
                   releases.push(releaseRecord)
@@ -1665,7 +1666,7 @@ export default (router) => {
             case 'hub':
               const hubs = []
               for await (let hub of block.data) {
-                const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
+                const hubRecord = await Hub.query().findOne({ publicKey: hub });
                 if (hubRecord) {
                   await hubRecord.format();
                   hubs.push(hubRecord)

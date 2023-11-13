@@ -28,6 +28,7 @@ import {
   getTwitterProfile,
   getSoundcloudProfile,
 } from './names.js';
+import { parse } from 'dotenv';
 
 const MAX_PARSED_TRANSACTIONS = 50
 const MAX_TRANSACTION_SIGNATURES = 1000
@@ -467,8 +468,12 @@ class NinaProcessor {
     } else if (tx.meta.logMessages.some(log => log.includes('ReleaseInitViaHub'))) {
       transactionObject.type = 'ReleaseInitViaHub'
       releasePublicKey = accounts[1].toBase58()
-      accountPublicKey = accounts[0].toBase58()
       hubPublicKey = accounts[4].toBase58()
+      if (this.isFileServicePayer(accounts)) {
+        accountPublicKey = accounts[18].toBase58()
+      } else {
+        accountPublicKey = accounts[0].toBase58()
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) {
       transactionObject.type = 'ReleasePurchaseViaHub'
       releasePublicKey = accounts[2].toBase58()
@@ -845,7 +850,11 @@ class NinaProcessor {
       const posts = await this.program.account.post.all();
       const existingPosts = await Post.query();
       const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
-    
+      for await (let existingPost of existingPosts) {
+        if (existingPost.version === '0.0.1') {
+          await this.upgradePostsToV2(existingPost);
+        }
+      }
       for await (let newPost of newPosts) {
         try {
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
@@ -858,6 +867,7 @@ class NinaProcessor {
               data: data,
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
+              version: data.blocks ? '0.0.2' : '0.0.1'
             })
             if (data.blocks) {
               for await (let block of data.blocks) {
@@ -867,16 +877,23 @@ class NinaProcessor {
                     break;
 
                   case 'release':
-                    for await (let release of block.data.releases) {
-                      const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
-                      await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    for await (let release of block.data) {
+                      try {
+                        const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                        await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                      } catch (error) {
+                        console.log('error processing release: ', error)
+                      }
                     }
                     break;
 
                   case 'featuredRelease':
-                    console.log('featuredRelease', block.data)
-                    const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-                    await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    try {
+                      const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                      await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    } catch (error) {
+                      console.log('error processing featuredRelease: ', error)
+                    }
                     break
                     
                   default:
@@ -895,6 +912,79 @@ class NinaProcessor {
     }
   }
 
+  async upgradePostsToV2(post) {
+    const data = { ...post.data }
+    if (!post.data.slug) {
+      let slug = post.data.title
+      if (data.title.length > 200) {
+        slug = data.title.substring(0, 200)
+      }
+
+      slug = slug
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036F]/g, '') // remove accents and convert to closest ascii equivalent
+        .toLowerCase() // convert to lowercase
+        .replace('-', '') // remove hyphens
+        .replace(/  +/g, ' ') // remove spaces
+        .replace(/ /g, '-') // replace spaces with hyphens
+        .replace(/[^a-zA-Z0-9-]/g, '') // remove non-alphanumeric characters
+        .replace(/--+/g, '') // remove spaces
+        .replace(/-$/, '') // remove trailing hyphens
+      
+      const checkIfSlugIsValid = async (slug) => {
+        try {
+          console.log('slug.length', slug.length)
+          if (slug.length === 0) {
+            slug = `${Math.floor(Math.random() * 1000000)}`
+          }
+          console.log('slug after', slug)
+          const postForSlug = await this.http.get(`/posts/${slug}`)
+          if (postForSlug) {
+            slug = `${slug}-${Math.floor(Math.random() * 1000000)}`
+          }
+          const postForNewSlug = await this.http.get(`/posts/${slug}`)
+          if (postForNewSlug) {
+            await checkIfSlugIsValid(slug)
+          }
+          return slug
+        } catch (error) {
+          // console.log('error', error)
+          return slug
+        }
+      } 
+      
+      slug = await checkIfSlugIsValid(slug)
+      data.slug = slug
+    }
+    if (post.publishedThroughHub) {
+      data.hub = post.publishedThroughHub
+    }
+    if (!data.blocks) {
+      let blocks = []
+      const block = {
+        type: 'richText',
+        index: 0,
+        data: data.body
+      }
+      blocks.push(block)
+      if (data.reference) {
+        const releaseRecord = await Release.query().findOne({ publicKey: data.reference })
+        data.heroImage = releaseRecord.metadata.image
+        const releaseBlock = {
+          type: 'featuredRelease',
+          index: 1,
+          data: data.reference
+        }
+        blocks.push(releaseBlock)
+      } else {
+        data.heroImage = ''
+      }
+      data.blocks = blocks
+      data.date = Date.parse(post.datetime)
+    }
+    await Post.query().patchAndFetchById(post.id, { data })
+  }
+  
   async processHubs() {
     try {
       const hubs = await this.program.account.hub.all();
