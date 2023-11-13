@@ -1565,7 +1565,6 @@ export default (router) => {
           console.log('tx', tx)
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           hubPublicKey = accounts[1].toBase58()
-          console.log('hubPublicKey', hubPublicKey)
         }
         if (hubPublicKey) {
           const [hubContentPublicKey] =
@@ -1648,7 +1647,7 @@ export default (router) => {
           switch (block.type) {
             case 'release':
               for await (let release of block.data) {
-                const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                const releaseRecord = await Release.query().findOne({ publicKey: release });
                 if (releaseRecord) {
                   await releaseRecord.format();
                   releases.push(releaseRecord)
@@ -1667,7 +1666,7 @@ export default (router) => {
             case 'hub':
               const hubs = []
               for await (let hub of block.data) {
-                const hubRecord = await Release.query().findOne({ publicKey: hub.publicKey });
+                const hubRecord = await Hub.query().findOne({ publicKey: hub });
                 if (hubRecord) {
                   await hubRecord.format();
                   hubs.push(hubRecord)
