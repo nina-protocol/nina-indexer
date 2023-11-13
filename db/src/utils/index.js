@@ -29,7 +29,7 @@ export const tweetNewRelease = async (metadata, publisherId) => {
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       });
-      let text = (`${metadata.properties.artist} - "${metadata.properties.title}"`).substr(0, 250)
+      let text = (`${metadata.properties.artist ? `${metadata.properties.artist} - ` : ''}${metadata.properties.title}`).substr(0, 250)
       const publisher = await Account.query().findById(publisherId);
       if (publisher) {
         const twitterVerification = (await publisher.$relatedQuery('verifications').where('type', 'twitter').andWhere('active', true))[0]
