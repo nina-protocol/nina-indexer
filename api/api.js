@@ -1307,24 +1307,18 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
     try {
-      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', v2 } = ctx.query;
-      column = formatColumnForJsonFields(column);
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      column = formatColumnForJsonFields(column, 'data');
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let posts
-      if (v2) {
-        posts = await hub.$relatedQuery('posts')
+      let posts = await hub.$relatedQuery('posts')
           .where(ref('data:title').castText(), 'ilike', `%${query}%`)
           .orderBy(column, sort)
           .range(Number(offset), Number(offset) + Number(limit) - 1);
-      } else {
-        posts = await hub.$relatedQuery('posts')
-          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-          .orderBy(column, sort)
-          .range(Number(offset), Number(offset) + Number(limit) - 1);
-      }
+
       for await (let post of posts.results) {
         await post.format();
       }
+
       ctx.body = {
         posts: posts.results,
         total: posts.total,
