@@ -56,7 +56,7 @@ export default (router) => {
         .query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere('displayName', 'ilike', `%${query}%`)
-        .orderBy('publicKey', sort)
+        .orderBy('displayName', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
         
       for await (let account of accounts.results) {
