@@ -1310,13 +1310,15 @@ export default (router) => {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column, 'data');
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const posts = await hub.$relatedQuery('posts')
-        .orderBy(column, sort)
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      let posts = await hub.$relatedQuery('posts')
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orderBy(column, sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+
       for await (let post of posts.results) {
         await post.format();
       }
+
       ctx.body = {
         posts: posts.results,
         total: posts.total,
@@ -1587,6 +1589,7 @@ export default (router) => {
           data: data,
           datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
+          version: data.blocks ? '0.0.2' : '0.0.1'
         }
         if (hub) {
           postData.hubId = hub.id
@@ -1629,7 +1632,6 @@ export default (router) => {
           }
         }
       }
-
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
