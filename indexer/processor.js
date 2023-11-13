@@ -845,7 +845,15 @@ class NinaProcessor {
       const posts = await this.program.account.post.all();
       const existingPosts = await Post.query();
       const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
-    
+      
+      for await (let existingPost of existingPosts) {
+        if (existingPost.version === '0.0.0') {
+          await Post.query().patch({
+            version: existingPost.data.blocks ? '0.0.2' : '0.0.1'
+          }).findById(existingPost.id);
+        }
+      }
+
       for await (let newPost of newPosts) {
         try {
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
@@ -858,6 +866,7 @@ class NinaProcessor {
               data: data,
               datetime: new Date(newPost.account.createdAt.toNumber() * 1000).toISOString(),
               publisherId: publisher.id,
+              version: data.blocks ? '0.0.2' : '0.0.1'
             })
             if (data.blocks) {
               for await (let block of data.blocks) {
@@ -867,16 +876,23 @@ class NinaProcessor {
                     break;
 
                   case 'release':
-                    for await (let release of block.data.releases) {
-                      const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
-                      await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    for await (let release of block.data) {
+                      try {
+                        const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                        await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                      } catch (error) {
+                        console.log('error processing release: ', error)
+                      }
                     }
                     break;
 
                   case 'featuredRelease':
-                    console.log('featuredRelease', block.data)
-                    const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-                    await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    try {
+                      const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                      await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
+                    } catch (error) {
+                      console.log('error processing featuredRelease: ', error)
+                    }
                     break
                     
                   default:
