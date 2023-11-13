@@ -195,7 +195,6 @@ export default (router) => {
   router.get('/accounts/:publicKeyOrHandle/all', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
 
       let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
@@ -207,7 +206,7 @@ export default (router) => {
       }
 
       const collected = await account.$relatedQuery('collected')
-        .orderBy(column, sort)
+        .orderBy(formatColumnForJsonFields(column), sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
       for await (let release of collected) {
         release.datetime = await getCollectedDate(release, account)
@@ -216,7 +215,7 @@ export default (router) => {
       }
 
       const hubs = await account.$relatedQuery('hubs')
-        .orderBy(column, sort)
+        .orderBy(formatColumnForJsonFields(column, 'data'), sort)
         .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
       for await (let hub of hubs) {
         await hub.format();
@@ -224,7 +223,7 @@ export default (router) => {
       }
 
       const posts = await account.$relatedQuery('posts')
-        .orderBy(column, sort)
+        .orderBy(formatColumnForJsonFields(column, 'data'), sort)
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
       for await (let post of posts) {
         await post.format();
@@ -336,7 +335,7 @@ export default (router) => {
   router.get('/accounts/:publicKeyOrHandle/hubs', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
+      column = formatColumnForJsonFields(column, 'data');
       let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
         account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
@@ -366,7 +365,7 @@ export default (router) => {
   router.get('/accounts/:publicKeyOrHandle/posts', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
+      column = formatColumnForJsonFields(column, 'data');
       let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
       if (!account) {
         account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
@@ -675,15 +674,22 @@ export default (router) => {
           accountIds.push(account.id)
         }
       }
+      const notUserSubquery = Transaction.query()
+        .select('id')
+        .where('authorityId', account.id)
 
       const transactions = await Transaction.query()
-        .whereIn('hubId', hubIds)
-        .orWhereIn('toHubId', hubIds)
-        .orWhereIn('authorityId', accountIds)
-        .orWhereIn('toAccountId', accountIds)
+        .where((builder) => 
+          builder
+            .whereIn('hubId', hubIds)
+            .orWhereIn('toHubId', hubIds)
+            .orWhereIn('authorityId', accountIds)
+            .orWhereIn('toAccountId', accountIds)
+        )
+        .whereNotIn('id', notUserSubquery)
         .orderBy('blocktime', 'desc')
         .range(Number(offset), Number(offset) + Number(limit))
-      
+
       const feedItems = []
       const releaseIds = new Set()
       for await (let transaction of transactions.results) {
@@ -698,6 +704,7 @@ export default (router) => {
         total: transactions.total
       };
     } catch (err) {
+      console.log('err', err)
       ctx.status = 404
       ctx.body = {
         message: err
@@ -863,16 +870,14 @@ export default (router) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
+
       const releases = await Release
-        .query()
-        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .query()  
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-
 
       for await (let release of releases.results) {
         await release.format();
@@ -1051,7 +1056,7 @@ export default (router) => {
   router.get('/hubs', async (ctx) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
+      column = formatColumnForJsonFields(column, 'data');
       const hubs = await Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
@@ -1097,6 +1102,8 @@ export default (router) => {
             updatedAt: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
             authorityId: authority.id,            
           });
+          NinaProcessor.warmCache(data.data.image);
+
           const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
             [
               Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-collaborator')),
@@ -1120,6 +1127,11 @@ export default (router) => {
 
       const posts = await hub.$relatedQuery('posts')
 
+      // if hub is less than five minutes old warm the cache
+      if (hub.updatedAt && new Date(hub.updatedAt).getTime() > new Date().getTime() - 300000) {
+        NinaProcessor.warmCache(hub.data.image);
+      }
+      
       await hub.format();
 
       for (let collaborator of collaborators) {
@@ -1232,14 +1244,13 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle/all', async (ctx) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
-        .orderBy(column, sort)
+        .orderBy(formatColumnForJsonFields(column), sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
       
       let posts = await hub.$relatedQuery('posts')
-        .orderBy(column, sort)
+        .orderBy(formatColumnForJsonFields(column, 'data'), sort)
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
 
       for await(let post of posts) {
@@ -1297,15 +1308,17 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
-      column = formatColumnForJsonFields(column);
+      column = formatColumnForJsonFields(column, 'data');
       const hub = await hubForPublicKeyOrHandle(ctx)
-      const posts = await hub.$relatedQuery('posts')
-        .orderBy(column, sort)
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      let posts = await hub.$relatedQuery('posts')
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orderBy(column, sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+
       for await (let post of posts.results) {
         await post.format();
       }
+
       ctx.body = {
         posts: posts.results,
         total: posts.total,
@@ -1505,6 +1518,7 @@ export default (router) => {
         .query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       for await (let post of posts.results) {
@@ -1574,6 +1588,7 @@ export default (router) => {
           data: data,
           datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
           publisherId: publisher.id,
+          version: data.blocks ? '0.0.2' : '0.0.1'
         }
         if (hub) {
           postData.hubId = hub.id
@@ -1616,7 +1631,6 @@ export default (router) => {
           }
         }
       }
-
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
       
@@ -1780,8 +1794,9 @@ export default (router) => {
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       
-        const formattedReleasesResponse = []
+      const formattedReleasesResponse = []
       for await (let release of releases) {
         release.type = 'release'
         const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
@@ -1822,6 +1837,7 @@ export default (router) => {
       const posts = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
 
       for await (let post of posts) {
         post.type = 'post'
@@ -1883,6 +1899,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
 
       const formattedReleasesResponse = []
       for await (let release of releases) {
@@ -2207,9 +2224,19 @@ const hubForPublicKeyOrHandle = async (ctx) => {
   return hub
 }
 
-const formatColumnForJsonFields = (column) => {
+const formatColumnForJsonFields = (column, fieldName='metadata') => {
   if (column.includes(':')) {
+    column = fieldName + ':' + column.split(':')[1]
     column = ref(column).castText()
   }
   return column
+}
+
+const getPublishedThroughHubSubQuery = (query) => {
+  const publishedThroughHubSubQuery = Hub.query()
+    .select('id')
+    .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+    .orWhere('handle', 'ilike', `%${query}%`)
+
+  return publishedThroughHubSubQuery
 }

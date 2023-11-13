@@ -126,9 +126,9 @@ export default class Release extends Model {
       .replace('-', '') // remove hyphens
       .replace(/  +/g, ' ') // remove spaces 
       .replace(/ /g, '-') // replace spaces with hyphens
-      .replace(/[^a-zA-Z0-9-]/g, '') // remove non-alphanumeric characters
-      .replace(/--+/g, '') // remove spaces 
-      .replace(/-$/, '')
+      .replace(/[^a-zA-Z0-9-]/g, '-') // replace non-alphanumeric characters with hyphens
+      .replace(/-+/g,'-') // replace multiple hyphens with single hyphen
+      .replace(/-$/, '') // remove trailing hyphens
 
     const existingRelease = await Release.query().findOne({ slug });
     if (existingRelease) {
