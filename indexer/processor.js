@@ -851,10 +851,19 @@ class NinaProcessor {
       const existingPosts = await Post.query();
       const newPosts = posts.filter(x => !existingPosts.find(y => y.publicKey === x.publicKey.toBase58()));
       for await (let existingPost of existingPosts) {
-        if (existingPost.version === '0.0.1') {
+        if (existingPost.version === '0.0.1' || existingPost.version === '0.0.0') {
           await this.upgradePostsToV2(existingPost);
         }
-      }
+
+        if (Date.parse(existingPost.datetime ) > (Date.now() - CACHE_RESET_TIME)) {
+          this.warmCache(existingPost.data.heroImage);
+          existingPost.data.blocks.forEach(block => {
+            if (block.type === 'image') {
+              this.warmCache(block.data.image);
+            }
+          })
+        }
+    }
       for await (let newPost of newPosts) {
         try {
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
