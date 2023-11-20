@@ -999,7 +999,7 @@ class NinaProcessor {
   
   async processHubs() {
     try {
-      const hubs = (await this.program.account.hub.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));;
+      const hubs = await this.program.account.hub.all();
       const hubContent = await this.program.account.hubContent.all();
       const hubReleases = await this.program.account.hubRelease.all();
       const hubCollaborators = await this.program.account.hubCollaborator.all();
