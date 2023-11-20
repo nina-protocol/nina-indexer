@@ -42,6 +42,8 @@ export const blacklist = [
   'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
   'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx',
   '7pZffbxcgGFNW1oM5DJ7w7k3zNdHuQHzQC96srsFd14W',
+  '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
+  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw'
 ]
 
 const nameAccountSkipList = [
@@ -997,7 +999,7 @@ class NinaProcessor {
   
   async processHubs() {
     try {
-      const hubs = await this.program.account.hub.all();
+      const hubs = await this.program.account.hub.all().filter(x => !blacklist.includes(x.publicKey.toBase58()));
       const hubContent = await this.program.account.hubContent.all();
       const hubReleases = await this.program.account.hubRelease.all();
       const hubCollaborators = await this.program.account.hubCollaborator.all();
