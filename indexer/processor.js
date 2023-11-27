@@ -1441,7 +1441,7 @@ class NinaProcessor {
       }
       handleWarmCache();
       if (delay > 1000) {
-        const i = 0
+        let i = 0
         while (i < 10) {
           handleWarmCache();
           i++;
