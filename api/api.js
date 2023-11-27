@@ -655,6 +655,25 @@ export default (router) => {
     }
   });
 
+  router.get('/transactions/feed', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      const transactions = await Transaction.query()
+        .orderBy('blocktime', 'desc')
+        .range(Number(offset), Number(offset) + Number(limit))
+        ctx.body = {
+          feedItems: transactions.results,
+          total: transactions.total
+        };
+    } catch (error) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
@@ -900,19 +919,35 @@ export default (router) => {
 
   router.get('/releases/:publicKeyOrSlug', async (ctx) => {
     try {
+      const { txid } = ctx.query;
       let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!release) {
         release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
       }
       if (!release && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+        await NinaProcessor.init()
+        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
+        if (tx) {
+          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+          const accounts = ninaInstruction?.accounts
+          const blocktime = tx.blockTime
+          if (txid && accounts && blocktime) {
+            await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
+          }
+        }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
+        NinaProcessor.warmCache(release.metadata.image, 5000);
       }  
       await release.format();
       ctx.body = {
         release,
       }
   } catch (err) {
-      console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}${err}`)
+      console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`
@@ -1594,12 +1629,15 @@ export default (router) => {
           postData.hubId = hub.id
         }
         post = await Post.query().insertGraph(postData)
+        if (post.data.heroImage) {
+          NinaProcessor.warmCache(post.data.heroImage, 5000);
+        }
         if (data.blocks) {
           for await (let block of data.blocks) {
             switch (block.type) {
               case 'image':
                 try {
-                  NinaProcessor.warmCache(block.data.image);
+                  NinaProcessor.warmCache(block.data.image, 5000);
                 } catch (error) {
                   console.log(error)
                 }

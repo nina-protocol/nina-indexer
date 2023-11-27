@@ -778,6 +778,9 @@ class NinaProcessor {
         const release = await Release.query().findOne({ publicKey: releasePublicKey })
         const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
         await release.$query().patch({ hubId: hub.id })
+        await Hub.relatedQuery('releases').for(hub.id).patch({
+          visible: true,
+        }).where( {id: release.id });
       }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
@@ -807,6 +810,8 @@ class NinaProcessor {
           const metadataJson = await fetchFromArweave(metadata.uri);
           let publisher = await Account.findOrCreate(release.account.authority.toBase58());
     
+          this.warmCache(metadataJson.image);
+
           await Release.createRelease({
             publicKey: release.publicKey.toBase58(),
             mint: release.account.releaseMint.toBase58(),
@@ -1012,7 +1017,6 @@ class NinaProcessor {
         const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(existingHub)).map(x => x.publicKey);
         const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
     
-  
         const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
         const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(existingHub)).map(x => x.publicKey);
         const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
@@ -1020,7 +1024,6 @@ class NinaProcessor {
         const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
         const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(existingHub)).map(x => x.publicKey);
         const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
-        
   
         const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === existingHub.publicKey)
   
@@ -1415,23 +1418,39 @@ class NinaProcessor {
     }
   }
 
-  async warmCache(image) {
+  async warmCache(image, delay=1000) {
     try {
-      if (process.env.IMGIX_API_KEY) {
-        await axios.post('https://api.imgix.com/api/v1/purge', {
-          data: {
-            attributes: {
-              url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
-            },
-            type: 'purges'
+      const handleWarmCache = async (image) => {
+        if (process.env.IMGIX_API_KEY) {
+          await new Promise(r => setTimeout(r, delay));
+          try {
+            await axios.post('https://api.imgix.com/api/v1/purge', {
+              data: {
+                attributes: {
+                  url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
+                },
+                type: 'purges'
+              }
+            }, {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
+              }
+            })
+            console.log('Warmed Cache On Image:', image)
+          } catch (error) {
+            console.log('Error warming cache: ', image)          
           }
-        }, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.IMGIX_API_KEY}`
-          }
-        })
-        console.log('Warmed Cache On Image:', image)
+        }
+      }
+      handleWarmCache(image);
+      if (delay > 1000) {
+        let i = 0
+        while (i < 10) {
+          await new Promise(r => setTimeout(r, 10000));
+          handleWarmCache(image);
+          i++;
+        }
       }
     } catch (err) {
       console.log('Error warming cache:', err.toString());
