@@ -2,6 +2,8 @@ import striptags from 'striptags';
 import { TwitterApi } from 'twitter-api-v2';
 import Account from '../models/Account.js';
 
+const TWEET_DELAY = 180000; // 3 minutes
+
 const removeQuotesFromStartAndEndOfString = (string) => {
   return string.substring(1, string.length - 1).substring(-1, string.length - 1);
 }
@@ -22,7 +24,7 @@ export const decode = (byteArray) => {
 export const tweetNewRelease = async (metadata, publisherId) => {
   if (process.env.TWITTER_API_SECRET) {
     try {
-      await new Promise(resolve => setTimeout(resolve, 60000))
+      await new Promise(resolve => setTimeout(resolve, TWEET_DELAY))
       const client = new TwitterApi({
         appKey: process.env.TWITTER_API_KEY,
         appSecret: process.env.TWITTER_API_SECRET,
