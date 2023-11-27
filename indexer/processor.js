@@ -1443,6 +1443,7 @@ class NinaProcessor {
       if (delay > 1000) {
         let i = 0
         while (i < 10) {
+          await new Promise(r => setTimeout(r, 10000));
           handleWarmCache(image);
           i++;
         }
