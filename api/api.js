@@ -921,8 +921,11 @@ export default (router) => {
           }
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
+
+
       }  
       await release.format();
+      NinaProcessor.warmCache(release.metadata.image);
       ctx.body = {
         release,
       }
