@@ -900,11 +900,26 @@ export default (router) => {
 
   router.get('/releases/:publicKeyOrSlug', async (ctx) => {
     try {
+      const { txid } = ctx.query;
       let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!release) {
         release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
       }
       if (!release && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+        await NinaProcessor.init()
+        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
+        if (tx) {
+          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+          const accounts = ninaInstruction?.accounts
+          const blocktime = tx.blockTime
+          if (txid && accounts && blocktime) {
+            await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
+          }
+        }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
       }  
       await release.format();
@@ -912,7 +927,7 @@ export default (router) => {
         release,
       }
   } catch (err) {
-      console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}${err}`)
+      console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug} ${err}`)
       ctx.status = 404
       ctx.body = {
         message: `Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`
