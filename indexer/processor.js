@@ -1420,7 +1420,7 @@ class NinaProcessor {
 
   async warmCache(image, delay=1000) {
     try {
-      const handleWarmCache = async () => {
+      const handleWarmCache = async (image) => {
         if (process.env.IMGIX_API_KEY) {
           await new Promise(r => setTimeout(r, delay));
           await axios.post('https://api.imgix.com/api/v1/purge', {
@@ -1439,11 +1439,11 @@ class NinaProcessor {
           console.log('Warmed Cache On Image:', image)
         }
       }
-      handleWarmCache();
+      handleWarmCache(image);
       if (delay > 1000) {
         let i = 0
         while (i < 10) {
-          handleWarmCache();
+          handleWarmCache(image);
           i++;
         }
       }

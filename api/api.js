@@ -655,6 +655,25 @@ export default (router) => {
     }
   });
 
+  router.get('/transactions/feed', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      const transactions = await Transaction.query()
+        .orderBy('blocktime', 'desc')
+        .range(Number(offset), Number(offset) + Number(limit))
+        ctx.body = {
+          feedItems: transactions.results,
+          total: transactions.total
+        };
+    } catch (error) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/accounts/:publicKey/feed', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
