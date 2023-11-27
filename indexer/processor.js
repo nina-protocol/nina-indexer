@@ -1421,6 +1421,7 @@ class NinaProcessor {
   async warmCache(image) {
     try {
       if (process.env.IMGIX_API_KEY) {
+        await new Promise(r => setTimeout(r, 1000));
         await axios.post('https://api.imgix.com/api/v1/purge', {
           data: {
             attributes: {
