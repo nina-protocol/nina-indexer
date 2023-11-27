@@ -778,6 +778,9 @@ class NinaProcessor {
         const release = await Release.query().findOne({ publicKey: releasePublicKey })
         const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
         await release.$query().patch({ hubId: hub.id })
+        await Hub.relatedQuery('releases').for(hub.id).patch({
+          visible: true,
+        }).where( {id: release.id });
       }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
@@ -807,6 +810,8 @@ class NinaProcessor {
           const metadataJson = await fetchFromArweave(metadata.uri);
           let publisher = await Account.findOrCreate(release.account.authority.toBase58());
     
+          this.warmCache(metadataJson.image);
+
           await Release.createRelease({
             publicKey: release.publicKey.toBase58(),
             mint: release.account.releaseMint.toBase58(),
@@ -1012,7 +1017,6 @@ class NinaProcessor {
         const hubReleasesForHubDb = (await Hub.relatedQuery('releases').for(existingHub)).map(x => x.publicKey);
         const newHubReleasesForHub = hubReleasesForHubOnChain.filter(x => !hubReleasesForHubDb.includes(x.account.release.toBase58()));
     
-  
         const hubCollaboratorsForHubOnChain = hubCollaborators.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
         const hubCollaboratorsForHubDb = (await Hub.relatedQuery('collaborators').for(existingHub)).map(x => x.publicKey);
         const newHubCollaboratorsForHub = hubCollaboratorsForHubOnChain.filter(x => !hubCollaboratorsForHubDb.includes(x.account.collaborator.toBase58()));
@@ -1020,7 +1024,6 @@ class NinaProcessor {
         const hubPostsForHubOnChain = hubPosts.filter(x => x.account.hub.toBase58() === existingHub.publicKey);
         const hubPostsForHubDb = (await Hub.relatedQuery('posts').for(existingHub)).map(x => x.publicKey);
         const newHubPostsForHub = hubPostsForHubOnChain.filter(x => !hubPostsForHubDb.includes(x.account.post.toBase58()));
-        
   
         const hubContentsForHub = hubContent.filter(x => x.account.hub.toBase58() === existingHub.publicKey)
   
