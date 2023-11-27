@@ -661,10 +661,17 @@ export default (router) => {
       const transactions = await Transaction.query()
         .orderBy('blocktime', 'desc')
         .range(Number(offset), Number(offset) + Number(limit))
-        ctx.body = {
-          feedItems: transactions.results,
-          total: transactions.total
-        };
+
+      const feedItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        feedItems.push(transaction)
+      }
+      
+      ctx.body = {
+        feedItems,
+        total: transactions.total
+      };
     } catch (error) {
       console.log('err', err)
       ctx.status = 404
