@@ -921,7 +921,7 @@ export default (router) => {
           }
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
-        NinaProcessor.warmCache(release.metadata.image);
+        NinaProcessor.warmCache(release.metadata.image, 5000);
       }  
       await release.format();
       ctx.body = {
@@ -1610,12 +1610,15 @@ export default (router) => {
           postData.hubId = hub.id
         }
         post = await Post.query().insertGraph(postData)
+        if (post.data.heroImage) {
+          NinaProcessor.warmCache(post.data.heroImage, 5000);
+        }
         if (data.blocks) {
           for await (let block of data.blocks) {
             switch (block.type) {
               case 'image':
                 try {
-                  NinaProcessor.warmCache(block.data.image);
+                  NinaProcessor.warmCache(block.data.image, 5000);
                 } catch (error) {
                   console.log(error)
                 }
