@@ -290,7 +290,6 @@ class NinaProcessor {
         const collectors = await release.$relatedQuery('collectors')
         if (!collectors.find(c => c.id === account.id)) {
           await release.$relatedQuery('collectors').relate(account.id);
-          await account.$relatedQuery('collected').relate(release.id);
           console.log('added collector to release')
         }
       }
