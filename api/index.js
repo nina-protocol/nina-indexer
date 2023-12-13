@@ -20,8 +20,7 @@ app.use(ratelimit({
   duration: 60000,
   errorMessage:`Casey Jones you better watch your speed`,
   id: (ctx) => {
-    console.log(ctx.request.headers['x-id'])
-    return ctx.request.headers['x-id'] || ctx.ip
+    return ctx.request.headers['x-id'] || '1'
   },
   headers: {
     remaining: 'Rate-Limit-Remaining',
