@@ -19,7 +19,10 @@ app.use(ratelimit({
   db: new Map(),
   duration: 60000,
   errorMessage:`Casey Jones you better watch your speed`,
-  id: (ctx) => ctx.ip,
+  id: (ctx) => {
+    console.log(ctx.request.headers['x-id'])
+    return ctx.request.headers['x-id'] || ctx.ip
+  },
   headers: {
     remaining: 'Rate-Limit-Remaining',
     reset: 'Rate-Limit-Reset',
@@ -35,7 +38,7 @@ app.use(ratelimit({
 
     return false;
   },
-  max: 1000,
+  max: 2500,
   disableHeader: false,
 }));
 
