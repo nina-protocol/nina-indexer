@@ -282,6 +282,10 @@ export default (router) => {
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[1].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+            let releasePublicKey = accounts[1].toBase58()
+            let accountPublicKey = accounts[3].toBase58()
+            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
           }
         }
       } else if (releasePublicKey) {
