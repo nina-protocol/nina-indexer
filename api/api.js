@@ -268,14 +268,13 @@ export default (router) => {
           return;
         }
       }
-      const { txId, releasePublicKey } = ctx.query;
+      const { txId, releasePublicKey } = ctx.request.query;
       if (txId) {
         await NinaProcessor.init();
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
           commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
-        
         if (tx) {
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
