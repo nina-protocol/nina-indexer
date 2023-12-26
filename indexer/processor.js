@@ -489,6 +489,7 @@ class NinaProcessor {
       console.log('ninaInstruction', ninaInstruction)
       console.log('ninaInstruction.data', JSON.stringify(ninaInstruction))
       transactionObject.type = 'ReleasePurchase'
+      console.log('tx', tx)
       releasePublicKey = accounts[2].toBase58()
       accountPublicKey = accounts[1].toBase58()
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
