@@ -484,6 +484,10 @@ class NinaProcessor {
       hubPublicKey = accounts[8].toBase58()
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+      console.log('ReleasePurchase', accounts)
+      const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+      console.log('ninaInstruction', ninaInstruction)
+      console.log('ninaInstruction.data', JSON.stringify(ninaInstruction))
       transactionObject.type = 'ReleasePurchase'
       releasePublicKey = accounts[2].toBase58()
       accountPublicKey = accounts[1].toBase58()
