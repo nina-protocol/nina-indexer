@@ -276,7 +276,7 @@ export default (router) => {
           maxSupportedTransactionVersion: 0
         })
         if (tx) {
-          const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+          let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[1].toBase58()
