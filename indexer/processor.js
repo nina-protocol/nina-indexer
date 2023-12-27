@@ -484,14 +484,21 @@ class NinaProcessor {
       hubPublicKey = accounts[8].toBase58()
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-      console.log('ReleasePurchase', accounts)
-      const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
-      console.log('ninaInstruction', ninaInstruction)
-      console.log('ninaInstruction.data', JSON.stringify(ninaInstruction))
+      if (!accounts || accounts.length === 0) {
+        for (let innerInstruction of tx.meta.innerInstructions) {
+          for (let instruction of innerInstruction.instructions) {
+            if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
+              console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+              accounts = instruction.accounts
+            }
+          }
+        }
+      
+      }
       transactionObject.type = 'ReleasePurchase'
-      console.log('tx', tx)
       releasePublicKey = accounts[2].toBase58()
       accountPublicKey = accounts[1].toBase58()
+      
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
       transactionObject.type = 'HubAddCollaborator'
