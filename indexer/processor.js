@@ -493,7 +493,6 @@ class NinaProcessor {
             }
           }
         }
-      
       }
       transactionObject.type = 'ReleasePurchase'
       releasePublicKey = accounts[2].toBase58()
