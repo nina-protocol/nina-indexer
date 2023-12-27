@@ -285,6 +285,18 @@ export default (router) => {
             let releasePublicKey = accounts[1].toBase58()
             let accountPublicKey = accounts[3].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          } else if (!accounts || accounts.length === 0) {
+            for (let innerInstruction of tx.meta.innerInstructions) {
+              for (let instruction of innerInstruction.instructions) {
+                if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
+                  console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+                  accounts = instruction.accounts
+                }
+              }
+            }
+            let releasePublicKey = accounts[2].toBase58()
+            let accountPublicKey = accounts[1].toBase58()
+            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
           }
         }
       } else if (releasePublicKey) {
