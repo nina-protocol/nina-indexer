@@ -43,7 +43,9 @@ export const blacklist = [
   'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx',
   '7pZffbxcgGFNW1oM5DJ7w7k3zNdHuQHzQC96srsFd14W',
   '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
-  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw'
+  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw',
+  'ECkyVBzbEgpU6BmwUBEcqwceepzdsRrW9LHSrnVj6gRU',
+  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT'
 ]
 
 const nameAccountSkipList = [
