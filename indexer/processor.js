@@ -45,7 +45,10 @@ export const blacklist = [
   '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
   '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw',
   'ECkyVBzbEgpU6BmwUBEcqwceepzdsRrW9LHSrnVj6gRU',
-  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT'
+  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT',
+  '9neh36BD2DTmU6Ln9L7KjCz5r4Tx9T2iegRJKujv8MYg', //duhsa
+  'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
+  '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
 ]
 
 const nameAccountSkipList = [
