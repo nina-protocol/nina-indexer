@@ -276,7 +276,7 @@ export default (router) => {
           maxSupportedTransactionVersion: 0
         })
         if (tx) {
-          const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+          let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
             let releasePublicKey = accounts[2].toBase58()
             let accountPublicKey = accounts[1].toBase58()
@@ -284,6 +284,18 @@ export default (router) => {
           } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
             let releasePublicKey = accounts[1].toBase58()
             let accountPublicKey = accounts[3].toBase58()
+            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+          } else if (!accounts || accounts.length === 0) {
+            for (let innerInstruction of tx.meta.innerInstructions) {
+              for (let instruction of innerInstruction.instructions) {
+                if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
+                  console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+                  accounts = instruction.accounts
+                }
+              }
+            }
+            let releasePublicKey = accounts[2].toBase58()
+            let accountPublicKey = accounts[1].toBase58()
             await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
           }
         }
@@ -1588,7 +1600,7 @@ export default (router) => {
     try {
       await NinaProcessor.init()
       let postAccount
-      const { txId } = ctx.query
+      const { txid } = ctx.query
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
@@ -1601,9 +1613,9 @@ export default (router) => {
         
         let hub
         let hubPublicKey
-        console.log('txId', txId)
-        if (txId) {
-          const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+        console.log('txid', txid)
+        if (txid) {
+          const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
             commitment: 'confirmed',
             maxSupportedTransactionVersion: 0
           })

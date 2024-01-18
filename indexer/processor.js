@@ -43,7 +43,12 @@ export const blacklist = [
   'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx',
   '7pZffbxcgGFNW1oM5DJ7w7k3zNdHuQHzQC96srsFd14W',
   '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
-  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw'
+  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw',
+  'ECkyVBzbEgpU6BmwUBEcqwceepzdsRrW9LHSrnVj6gRU',
+  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT',
+  '9neh36BD2DTmU6Ln9L7KjCz5r4Tx9T2iegRJKujv8MYg', //duhsa
+  'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
+  '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
 ]
 
 const nameAccountSkipList = [
@@ -484,9 +489,20 @@ class NinaProcessor {
       hubPublicKey = accounts[8].toBase58()
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+      if (!accounts || accounts.length === 0) {
+        for (let innerInstruction of tx.meta.innerInstructions) {
+          for (let instruction of innerInstruction.instructions) {
+            if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
+              console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+              accounts = instruction.accounts
+            }
+          }
+        }
+      }
       transactionObject.type = 'ReleasePurchase'
       releasePublicKey = accounts[2].toBase58()
       accountPublicKey = accounts[1].toBase58()
+      
       await this.addCollectorForRelease(releasePublicKey, accountPublicKey)
     } else if (tx.meta.logMessages.some(log => log.includes('HubAddCollaborator'))) {
       transactionObject.type = 'HubAddCollaborator'
