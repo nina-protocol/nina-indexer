@@ -1342,17 +1342,45 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
+      await NinaProcessor.init()
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases = await hub.$relatedQuery('releases')
-        .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       const releasesVisible = await getVisibleReleases(releases.results)
+
+      const hubContentPublicKeys = []
+      for await (let release of releasesVisible) {
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
+            new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
+            new anchor.web3.PublicKey(release.publicKey).toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        hubContentPublicKeys.push(hubContentPublicKey)
+      }
+      const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
+      for await (let release of releasesVisible) {
+        const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
+        if (releaseHubContent) {
+          release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
+        }
+      }
+      
+      if (sort === 'desc') {
+        releasesVisible.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        releasesVisible.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
       ctx.body = { 
         releases: releasesVisible,
-        total: releases.total,
+        total: releasesVisible.length,
         publicKey: hub.publicKey,
         query,
       };
