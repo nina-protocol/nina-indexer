@@ -49,6 +49,7 @@ export const blacklist = [
   '9neh36BD2DTmU6Ln9L7KjCz5r4Tx9T2iegRJKujv8MYg', //duhsa
   'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
   '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
+  '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
 ]
 
 const nameAccountSkipList = [
