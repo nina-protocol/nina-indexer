@@ -977,6 +977,33 @@ export default (router) => {
     }
   });
 
+  router.get('/releases/:publicKeyOrSlug/posts', async (ctx) => {
+    try {
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!release) {
+        throw new Error(`Release not found with identifier: ${ctx.params.publicKeyOrSlug}`)
+      }
+      const posts = await release.$relatedQuery('posts')
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      for await (let post of posts.results) {
+        await post.format();
+      }
+      ctx.body = {
+        posts: posts.results,
+        total: posts.total,
+      };
+    } catch (error) {
+      console.error('GET /releases/:publicKeyOrSlug/articles', error)
+      ctx.status = 404
+      ctx.body = {
+        message: `Release not found with identifier: ${ctx.params.publicKeyOrSlug}`
+      }
+    }
+  })
+
   router.get('/releases/:publicKey/exchanges', async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='createdAt' } = ctx.query;
