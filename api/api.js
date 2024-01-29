@@ -983,6 +983,9 @@ export default (router) => {
       column = formatColumnForJsonFields(column);
       let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!release) {
+        release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
+      }
+      if (!release) {
         throw new Error(`Release not found with identifier: ${ctx.params.publicKeyOrSlug}`)
       }
       const posts = await release.$relatedQuery('posts')
