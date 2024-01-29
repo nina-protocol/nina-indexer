@@ -4,6 +4,7 @@ import { deserializeUnchecked, serialize } from 'borsh';
 import Web3 from 'web3';
 import ENS from 'ethereum-ens';
 import formUrlEncoded from 'form-urlencoded';
+import fetch from 'node-fetch';
 
 export const NINA_ID = new anchor.web3.PublicKey("idHukURpSwMbvcRER9pN97tBSsH4pdLSUhnHYwHftd5")
 export const NINA_ID_ETH_TLD = new anchor.web3.PublicKey("9yQ5NdLpFdALfRjjfBLCQiddvMekwRbCtuSYDCi4mpFc")
