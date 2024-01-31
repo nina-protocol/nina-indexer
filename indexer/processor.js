@@ -852,17 +852,17 @@ class NinaProcessor {
             await Release.processRevenueShares(release, releaseRecord);
             if (!releaseRecord.slug) {
               const slug = await Release.generateSlug(releaseRecord.metadata)
-              releaseRecord = await releaseRecord.$query().patch({
+              releaseRecord = Release.query().patchAndFetchById(releaseRecord.id, {
                 slug
               })
             }
             if (!releaseRecord.price) {
-              releaseRecord = await releaseRecord.$query().patch({
+              releaseRecord = await Release.query().patchAndFetchById(releaseRecord.id, {
                 price: `${release.account.price.toNumber()}`,
               })
             }
             if (!releaseRecord.paymentMint) {
-              releaseRecord = await releaseRecord.$query().patch({
+              releaseRecord = await Release.query().patchAndFetchById(releaseRecord.id, {
                 paymentMint: release.account.paymentMint.toBase58(),
               })
             }
