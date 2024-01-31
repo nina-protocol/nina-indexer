@@ -856,6 +856,16 @@ class NinaProcessor {
                 slug
               })
             }
+            if (!releaseRecord.price) {
+              releaseRecord = await releaseRecord.$query().patch({
+                price: `${release.account.price.toNumber()}`,
+              })
+            }
+            if (!releaseRecord.paymentMint) {
+              releaseRecord = await releaseRecord.$query().patch({
+                paymentMint: release.account.paymentMint.toBase58(),
+              })
+            }
           }
           // If release.createdAt is newer than 20 minutes, reset the image cache
           if (Date.parse(releaseRecord.datetime) > (Date.now() - CACHE_RESET_TIME)) {
