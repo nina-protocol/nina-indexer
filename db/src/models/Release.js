@@ -8,7 +8,6 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import axios from 'axios';
 import { customAlphabet } from 'nanoid';
-import Nina from '@nina-protocol/js-sdk-dev';
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
 
