@@ -50,6 +50,8 @@ export const blacklist = [
   'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
   '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
   '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
+  'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
+  'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
 ]
 
 const nameAccountSkipList = [
@@ -852,6 +854,16 @@ class NinaProcessor {
               const slug = await Release.generateSlug(releaseRecord.metadata)
               releaseRecord = await releaseRecord.$query().patch({
                 slug
+              })
+            }
+            if (!releaseRecord.price) {
+              releaseRecord = await releaseRecord.$query().patch({
+                price: `${release.account.price.toNumber()}`,
+              })
+            }
+            if (!releaseRecord.paymentMint) {
+              releaseRecord = await releaseRecord.$query().patch({
+                paymentMint: release.account.paymentMint.toBase58(),
               })
             }
           }
