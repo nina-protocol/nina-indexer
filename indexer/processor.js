@@ -50,8 +50,9 @@ export const blacklist = [
   'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
   '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
   '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
-  'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
+  // 'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
   'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
+  '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F' //mockturno
 ]
 
 const nameAccountSkipList = [
