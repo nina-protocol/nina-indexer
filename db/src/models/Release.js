@@ -8,7 +8,6 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import axios from 'axios';
 import { customAlphabet } from 'nanoid';
-
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
 
@@ -18,7 +17,7 @@ export default class Release extends Model {
   static idColumn = 'id';
   static jsonSchema = {
     type: 'object',
-    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug'],
+    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug', 'price'],
     properties: {
       publicKey: { type: 'string' },
       mint: { type: 'string' },
@@ -43,10 +42,11 @@ export default class Release extends Model {
           }
         }
       },
+      price: { type: 'string' },
     },
   }
 
-  static findOrCreate = async (publicKey) => {
+  static findOrCreate = async (publicKey, hubPublicKey=null) => {
     let release = await Release.query().findOne({ publicKey });
     if (release) {
       return release;
@@ -79,12 +79,21 @@ export default class Release extends Model {
       publisherId: publisher.id,
       releaseAccount
     });
+
+    if (hubPublicKey) {
+
+      const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+      await release.$query().patch({ hubId: hub.id })
+      await Hub.relatedQuery('releases').for(hub.id).patch({
+        visible: true,
+      }).where( {id: release.id });
+    }
+
     return release;
   }
 
   static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
     const slug = await this.generateSlug(metadata);
-
     const release = await Release.query().insertGraph({
       publicKey,
       mint,
@@ -92,6 +101,8 @@ export default class Release extends Model {
       slug,
       datetime,
       publisherId,
+      price: `${releaseAccount.account.price.toNumber()}`,
+      paymentMint: releaseAccount.account.paymentMint.toBase58(),
     })
     await this.processRevenueShares(releaseAccount, release);
     tweetNewRelease(metadata, publisherId);
