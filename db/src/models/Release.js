@@ -93,7 +93,6 @@ export default class Release extends Model {
   }
 
   static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
-    console.log('creating release: ', publicKey, mint, metadata, datetime, publisherId, releaseAccount)
     const slug = await this.generateSlug(metadata);
     const release = await Release.query().insertGraph({
       publicKey,
@@ -102,8 +101,8 @@ export default class Release extends Model {
       slug,
       datetime,
       publisherId,
-      price: `${releaseAccount.price.toNumber()}`,
-      paymentMint: releaseAccount.paymentMint.toBase58(),
+      price: `${releaseAccount.account.price?.toNumber() || 0}`,
+      paymentMint: releaseAccount.account.paymentMint.toBase58(),
     })
     await this.processRevenueShares(releaseAccount, release);
     tweetNewRelease(metadata, publisherId);
