@@ -93,6 +93,7 @@ export default class Release extends Model {
   }
 
   static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
+    console.log('creating release: ', publicKey, mint, metadata, datetime, publisherId, releaseAccount)
     const slug = await this.generateSlug(metadata);
     const release = await Release.query().insertGraph({
       publicKey,
