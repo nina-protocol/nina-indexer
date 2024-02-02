@@ -101,8 +101,8 @@ export default class Release extends Model {
       slug,
       datetime,
       publisherId,
-      price: `${releaseAccount.account.price.toNumber()}`,
-      paymentMint: releaseAccount.account.paymentMint.toBase58(),
+      price: `${releaseAccount.price.toNumber()}`,
+      paymentMint: releaseAccount.paymentMint.toBase58(),
     })
     await this.processRevenueShares(releaseAccount, release);
     tweetNewRelease(metadata, publisherId);
