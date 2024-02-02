@@ -1054,10 +1054,10 @@
     bn.js "^5.2.0"
     debug "^4.3.4"
 
-"@nina-protocol/nina-db@0.0.53":
-  version "0.0.53"
-  resolved "https://registry.yarnpkg.com/@nina-protocol/nina-db/-/nina-db-0.0.53.tgz#d7eac5fc53ecc32a89456b6ff0fdeb6c2a6604f4"
-  integrity sha512-DA+f1hrLvKtyeqTnbhDm+uQvGJh5SZkiLonQqBAhOHVxy7dkwwQI2ysto74jmf2nU803AE2D88h520zysJ4SDQ==
+"@nina-protocol/nina-db@0.0.55":
+  version "0.0.55"
+  resolved "https://registry.yarnpkg.com/@nina-protocol/nina-db/-/nina-db-0.0.55.tgz#b13d340aa1a3c9da2cd304e38b198b4acbec1923"
+  integrity sha512-/TUJ2IDFIDvEMxblrnaI+Csw8pcDtOKwpeapyUJ4bm7fW2glxX5lDlK7S27asQFMFjIYHHlUjA2inmi7RQOuZA==
   dependencies:
     "@babel/plugin-proposal-object-rest-spread" "^7.20.7"
     "@babel/preset-es2015" "^7.0.0-beta.53"
