@@ -55,6 +55,7 @@ export const blacklist = [
   '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F', //mockturno
   'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
   'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
+  '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
 ]
 
 const nameAccountSkipList = [
