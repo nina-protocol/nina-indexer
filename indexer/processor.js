@@ -52,7 +52,10 @@ export const blacklist = [
   '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
   // 'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
   'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
-  '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F' //mockturno
+  '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F', //mockturno
+  'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
+  'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
+  // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
 ]
 
 const nameAccountSkipList = [
