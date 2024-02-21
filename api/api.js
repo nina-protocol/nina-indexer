@@ -84,7 +84,6 @@ export default (router) => {
       const accounts = await Account
         .query()  
         .select('handle')
-      console.log('accounts', accounts)
       ctx.body = {
         slugs: accounts.map(account => account.handle),
       };
@@ -964,7 +963,6 @@ export default (router) => {
         .query()  
         .select('slug')
         .orderBy('datetime', 'desc')
-      console.log('releases', releases)
       ctx.body = {
         slugs: releases.map(release => release.slug),
       };
@@ -1716,7 +1714,6 @@ export default (router) => {
         .query()  
         .select(ref('data:slug').castText())
         .orderBy('datetime', 'desc')
-      console.log('posts', posts)
       ctx.body = {
         slugs: posts.map(post => post.text),
       };
