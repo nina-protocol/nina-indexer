@@ -3,7 +3,7 @@ import { TwitterApi } from 'twitter-api-v2';
 import Account from '../models/Account.js';
 
 const TWEET_DELAY = 360000; // 6 minutes
-
+const NINA_DOMAIN = 'https://ninaprotocol.com';
 const removeQuotesFromStartAndEndOfString = (string) => {
   return string.substring(1, string.length - 1).substring(-1, string.length - 1);
 }
@@ -39,7 +39,7 @@ export const tweetNewRelease = async (metadata, publisherId, slug) => {
           text = `${text} (@${twitterVerification.value})`
         }
       }
-      text = `${text} https://ninaprotocol.com/releases/${slug}`
+      text = `${text} ${NINA_DOMAIN}/releases/${slug}`
       await client.v2.tweet(text);  
     } catch (error) {
       console.warn('error sending new release tweet: ', error, metadata)
