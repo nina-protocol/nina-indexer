@@ -1731,22 +1731,17 @@ export default (router) => {
       await NinaProcessor.init()
       let postAccount
       const { txid } = ctx.query
-      console.log('txid', txid)
-      console.log('ctx.params', ctx.params)
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
       }
-      console.log('2')
       if (!post) {
         postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
         if (!postAccount) {
           throw ('Post not found')
         }
-        console.log('4')
         let hub
         let hubPublicKey
-        console.log('txid', txid)
         if (txid) {
           const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
             commitment: 'confirmed',
@@ -1826,22 +1821,18 @@ export default (router) => {
       }
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
-      console.log('publisher', publisher)
       const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
       if (publishedThroughHub) {
         await publishedThroughHub.format();
       }
-      console.log('publishedThroughHub', publishedThroughHub)
       await post.format();
 
       if (post.data.blocks) {
         const releases = []
         for await (let block of post.data.blocks) {
-          console.log('block.type', block.type)
           switch (block.type) {
             case 'release':
               for await (let release of block.data) {
-                console.log('release', release)
                 const releaseRecord = await Release.query().findOne({ publicKey: release });
                 if (releaseRecord) {
                   await releaseRecord.format();
@@ -1851,9 +1842,7 @@ export default (router) => {
               block.data.release = releases
               break;
             case 'featuredRelease':
-              console.log('featuredRelease', block)
               const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-              console.log('releaseRecord', releaseRecord)
               if (releaseRecord) {
                 await releaseRecord.format();
                 block.data = releaseRecord
