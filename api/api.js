@@ -928,7 +928,7 @@ export default (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      let { offset=0, limit=20, sort='desc', column='datetime', query='', slugs=false } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
 
       const releases = await Release
@@ -945,7 +945,7 @@ export default (router) => {
       }
 
       ctx.body = {
-        releases: slugs ? releases.results.map(release => release.slug) : releases.results,
+        releases: releases.results,
         total: releases.total,
         query
       };
