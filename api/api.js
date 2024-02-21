@@ -79,6 +79,24 @@ export default (router) => {
     }
   })
 
+  router.get('/accounts/sitemap', async (ctx) => {
+    try {
+      const accounts = await Account
+        .query()  
+        .select('handle')
+      ctx.body = {
+        slugs: accounts.map(account => account.handle),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching releases for sitemap'
+      }
+    }
+  });
+
+
   const getCollectedDate = async (release, account) => {
     let purchaseTransactions = []
     const exchanges = await Exchange.query().where('releaseId', release.id)
@@ -939,6 +957,24 @@ export default (router) => {
     }
   });
 
+  router.get('/releases/sitemap', async (ctx) => {
+    try {
+      const releases = await Release
+        .query()  
+        .select('slug')
+        .orderBy('datetime', 'desc')
+      ctx.body = {
+        slugs: releases.map(release => release.slug),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching releases for sitemap'
+      }
+    }
+  });
+
   router.get('/releases/:publicKeyOrSlug', async (ctx) => {
     try {
       const { txid } = ctx.query;
@@ -1167,7 +1203,25 @@ export default (router) => {
       }
     }
   });
-  
+
+  router.get('/hubs/sitemap', async (ctx) => {
+    try {
+      const hubs = await Hub
+        .query()  
+        .select('handle')
+        .orderBy('datetime', 'desc')
+      ctx.body = {
+        slugs: hubs.map(hub => hub.handle),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching hubs for sitemap'
+      }
+    }
+  });
+
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
@@ -1654,6 +1708,24 @@ export default (router) => {
     }
   })
 
+  router.get('/posts/sitemap', async (ctx) => {
+    try {
+      const posts = await Post
+        .query()  
+        .select(ref('data:slug').castText())
+        .orderBy('datetime', 'desc')
+      ctx.body = {
+        slugs: posts.map(post => post.text),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching posts for sitemap'
+      }
+    }
+  });
+
   router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
       await NinaProcessor.init()
@@ -1668,10 +1740,8 @@ export default (router) => {
         if (!postAccount) {
           throw ('Post not found')
         }
-        
         let hub
         let hubPublicKey
-        console.log('txid', txid)
         if (txid) {
           const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
             commitment: 'confirmed',
@@ -1751,12 +1821,10 @@ export default (router) => {
       }
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
-      
       const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
       if (publishedThroughHub) {
         await publishedThroughHub.format();
       }
-
       await post.format();
 
       if (post.data.blocks) {
