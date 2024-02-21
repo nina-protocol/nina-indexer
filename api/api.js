@@ -79,6 +79,25 @@ export default (router) => {
     }
   })
 
+  router.get('/accounts/sitemap', async (ctx) => {
+    try {
+      const accounts = await Account
+        .query()  
+        .select('handle')
+      console.log('accounts', accounts)
+      ctx.body = {
+        slugs: accounts.map(account => account.handle),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching releases for sitemap'
+      }
+    }
+  });
+
+
   const getCollectedDate = async (release, account) => {
     let purchaseTransactions = []
     const exchanges = await Exchange.query().where('releaseId', release.id)
@@ -909,7 +928,7 @@ export default (router) => {
   
   router.get('/releases', async (ctx) => {
     try {
-      let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', column='datetime', query='', slugs=false } = ctx.query;
       column = formatColumnForJsonFields(column);
 
       const releases = await Release
@@ -926,7 +945,7 @@ export default (router) => {
       }
 
       ctx.body = {
-        releases: releases.results,
+        releases: slugs ? releases.results.map(release => release.slug) : releases.results,
         total: releases.total,
         query
       };
@@ -935,6 +954,25 @@ export default (router) => {
       ctx.status = 400
       ctx.body = {
         message: 'Error fetching releases'
+      }
+    }
+  });
+
+  router.get('/releases/sitemap', async (ctx) => {
+    try {
+      const releases = await Release
+        .query()  
+        .select('slug')
+        .orderBy('datetime', 'desc')
+      console.log('releases', releases)
+      ctx.body = {
+        slugs: releases.map(release => release.slug),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching releases for sitemap'
       }
     }
   });
@@ -1167,7 +1205,25 @@ export default (router) => {
       }
     }
   });
-  
+
+  router.get('/hubs/sitemap', async (ctx) => {
+    try {
+      const hubs = await Hub
+        .query()  
+        .select('handle')
+        .orderBy('datetime', 'desc')
+      ctx.body = {
+        slugs: hubs.map(hub => hub.handle),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching hubs for sitemap'
+      }
+    }
+  });
+
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
@@ -1654,21 +1710,43 @@ export default (router) => {
     }
   })
 
+  router.get('/posts/sitemap', async (ctx) => {
+    try {
+      const posts = await Post
+        .query()  
+        .select(ref('data:slug').castText())
+        .orderBy('datetime', 'desc')
+      console.log('posts', posts)
+      ctx.body = {
+        slugs: posts.map(post => post.text),
+      };
+    } catch(err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching posts for sitemap'
+      }
+    }
+  });
+
   router.get('/posts/:publicKeyOrSlug', async (ctx) => {
     try {
       await NinaProcessor.init()
       let postAccount
       const { txid } = ctx.query
+      console.log('txid', txid)
+      console.log('ctx.params', ctx.params)
       let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
       if (!post) {
         post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
       }
+      console.log('2')
       if (!post) {
         postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
         if (!postAccount) {
           throw ('Post not found')
         }
-        
+        console.log('4')
         let hub
         let hubPublicKey
         console.log('txid', txid)
@@ -1751,20 +1829,22 @@ export default (router) => {
       }
       const publisher = await post.$relatedQuery('publisher')
       await publisher.format();
-      
+      console.log('publisher', publisher)
       const publishedThroughHub = await post.$relatedQuery('publishedThroughHub')
       if (publishedThroughHub) {
         await publishedThroughHub.format();
       }
-
+      console.log('publishedThroughHub', publishedThroughHub)
       await post.format();
 
       if (post.data.blocks) {
         const releases = []
         for await (let block of post.data.blocks) {
+          console.log('block.type', block.type)
           switch (block.type) {
             case 'release':
               for await (let release of block.data) {
+                console.log('release', release)
                 const releaseRecord = await Release.query().findOne({ publicKey: release });
                 if (releaseRecord) {
                   await releaseRecord.format();
@@ -1774,7 +1854,9 @@ export default (router) => {
               block.data.release = releases
               break;
             case 'featuredRelease':
+              console.log('featuredRelease', block)
               const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+              console.log('releaseRecord', releaseRecord)
               if (releaseRecord) {
                 await releaseRecord.format();
                 block.data = releaseRecord
