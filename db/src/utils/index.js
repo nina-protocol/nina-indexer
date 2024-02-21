@@ -2,7 +2,7 @@ import striptags from 'striptags';
 import { TwitterApi } from 'twitter-api-v2';
 import Account from '../models/Account.js';
 
-const TWEET_DELAY = 180000; // 3 minutes
+const TWEET_DELAY = 360000; // 6 minutes
 
 const removeQuotesFromStartAndEndOfString = (string) => {
   return string.substring(1, string.length - 1).substring(-1, string.length - 1);
@@ -21,7 +21,7 @@ export const decode = (byteArray) => {
   return new TextDecoder().decode(new Uint8Array(byteArray)).replaceAll(/\u0000/g, '');
 }
 
-export const tweetNewRelease = async (metadata, publisherId) => {
+export const tweetNewRelease = async (metadata, publisherId, slug) => {
   if (process.env.TWITTER_API_SECRET) {
     try {
       await new Promise(resolve => setTimeout(resolve, TWEET_DELAY))
@@ -39,7 +39,7 @@ export const tweetNewRelease = async (metadata, publisherId) => {
           text = `${text} (@${twitterVerification.value})`
         }
       }
-      text = `${text} ${metadata.external_url}`
+      text = `${text} https://ninaprotocol.com/releases/${slug}`
       await client.v2.tweet(text);  
     } catch (error) {
       console.warn('error sending new release tweet: ', error, metadata)
