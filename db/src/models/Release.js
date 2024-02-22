@@ -107,7 +107,7 @@ export default class Release extends Model {
       paymentMint,
     })
     await this.processRevenueShares(releaseAccount, release);
-    tweetNewRelease(metadata, publisherId);
+    tweetNewRelease(metadata, publisherId, slug);
     return release;
   }
 
