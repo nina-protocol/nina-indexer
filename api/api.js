@@ -982,7 +982,7 @@ export default (router) => {
       if (!release) {
         release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
       }
-      if (!release && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+      if (txid && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
         await NinaProcessor.init()
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
 

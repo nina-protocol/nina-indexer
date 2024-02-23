@@ -54,7 +54,7 @@ export const blacklist = [
   'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
   '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F', //mockturno
   'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
-  'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
+  // 'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
   // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
 ]
 
@@ -685,6 +685,20 @@ class NinaProcessor {
         accountPublicKey = accounts[0].toBase58()
         releasePublicKey = accounts[1].toBase58()
       }
+
+      const metaplex = new Metaplex(this.provider.connection);
+      const releaseAccount = await this.program.account.release.fetch(new anchor.web3.PublicKey(releasePublicKey), 'confirmed')
+      let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+      let json
+      try {
+        json = (await axios.get(metadataAccount.uri)).data
+      } catch (error) {
+        json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
+      }
+      const release = await Release.query().findOne({ publicKey: releasePublicKey })
+      await release.$query().patch({
+        metadata: json,
+      })
     } else if (tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
       transactionObject.type = 'ExchangeInit'
       accountPublicKey = accounts[0].toBase58()
