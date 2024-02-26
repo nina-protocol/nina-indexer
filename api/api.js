@@ -2375,12 +2375,13 @@ export default (router) => {
 
   router.get('/verifications/:publicKey/unregister', async (ctx) => {
     try {
+      console.log('/verifications/:publicKey/unregister publicKey', ctx.params.publicKey)
       let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      console.log('verification', verification)
       if (verification) {
         let confirmedDeleted = false
         await NinaProcessor.init();
         let i = 0;
-        console.log('/verifications/:publicKey/unregister publicKey', ctx.params.publicKey)
         while (!confirmedDeleted && i < 60) {
           console.log('publicKey', ctx.params.publicKey)
           console.log('i', i)
