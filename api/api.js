@@ -2380,11 +2380,11 @@ export default (router) => {
         let confirmedDeleted = false
         await NinaProcessor.init();
         let i = 0;
+        console.log('/verifications/:publicKey/unregister publicKey', ctx.params.publicKey)
         while (!confirmedDeleted && i < 60) {
           console.log('publicKey', ctx.params.publicKey)
           console.log('i', i)
           console.log('confirmedDeleted', confirmedDeleted)
-          verification = await verficationRequest(publicKey)
           i++;
           let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
             new anchor.web3.PublicKey(ctx.params.publicKey)
@@ -2392,11 +2392,11 @@ export default (router) => {
           if (!ninaNameIdRegistry) {
             await verification.$query().delete()
             confirmedDeleted = true
+            console.log('successfully deleted verification', ctx.params.publicKey)
           }  
           await sleep(1500)
         }  
       }
-      console.log('successfully deleted verification', ctx.params.publicKey)
       ctx.body = {
         success: true,
       }
