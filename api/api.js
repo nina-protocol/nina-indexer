@@ -2377,13 +2377,21 @@ export default (router) => {
     try {
       let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
       if (verification) {
+        let confirmedDeleted = false
         await NinaProcessor.init();
-        let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
-          new anchor.web3.PublicKey(ctx.params.publicKey)
-        );
-        if (!ninaNameIdRegistry) {
-          await verification.$query().delete()
-        }
+        let i = 0;
+        while (!confirmedDeleted && i < 60) {
+          verification = await verficationRequest(publicKey)
+          i++;
+          let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
+            new anchor.web3.PublicKey(ctx.params.publicKey)
+          );
+          if (!ninaNameIdRegistry) {
+            await verification.$query().delete()
+            confirmedDeleted = true
+          }  
+          await sleep()
+        }  
       }
 
       ctx.body = {
