@@ -2372,6 +2372,33 @@ export default (router) => {
       console.warn(error)
     }
   })
+
+  router.get('/verifications/:publicKey/unregister', async (ctx) => {
+    try {
+      let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      if (verification) {
+        await NinaProcessor.init();
+        let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
+          new anchor.web3.PublicKey(ctx.params.publicKey)
+        );
+        if (!ninaNameIdRegistry) {
+          await verification.$query().delete()
+        }
+      }
+
+      ctx.body = {
+        success: true,
+      }
+    } catch (error) {
+      console.warn(error)
+      ctx.status = 400
+      ctx.body = {
+        success: false,
+      }
+
+    }
+  })
+
 }
 
 const hubPostNotFound = (ctx) => {
