@@ -2394,8 +2394,9 @@ export default (router) => {
             await verification.$query().delete()
             confirmedDeleted = true
             console.log('successfully deleted verification', ctx.params.publicKey)
+          } else {
+            await sleep(1500)
           }  
-          await sleep(1500)
         }  
       }
       ctx.body = {
