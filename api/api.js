@@ -2381,6 +2381,9 @@ export default (router) => {
         await NinaProcessor.init();
         let i = 0;
         while (!confirmedDeleted && i < 60) {
+          console.log('publicKey', ctx.params.publicKey)
+          console.log('i', i)
+          console.log('confirmedDeleted', confirmedDeleted)
           verification = await verficationRequest(publicKey)
           i++;
           let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
@@ -2393,7 +2396,7 @@ export default (router) => {
           await sleep(1500)
         }  
       }
-
+      console.log('successfully deleted verification', ctx.params.publicKey)
       ctx.body = {
         success: true,
       }
