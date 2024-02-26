@@ -2331,7 +2331,7 @@ export default (router) => {
     }
   })
 
-  const sleep = () => new Promise(resolve => setTimeout(resolve, 500))
+  const sleep = (time) => new Promise(resolve => setTimeout(resolve, time))
 
   const verficationRequest = async (publicKey) => {
     try {
@@ -2349,7 +2349,7 @@ export default (router) => {
       while (!verification && i < 60) {
         verification = await verficationRequest(publicKey)
         i++;
-        await sleep()
+        await sleep(500)
       }
       return verification
     } catch (err) {
@@ -2375,13 +2375,17 @@ export default (router) => {
 
   router.get('/verifications/:publicKey/unregister', async (ctx) => {
     try {
+      console.log('/verifications/:publicKey/unregister publicKey', ctx.params.publicKey)
       let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
+      console.log('verification', verification)
       if (verification) {
         let confirmedDeleted = false
         await NinaProcessor.init();
         let i = 0;
         while (!confirmedDeleted && i < 60) {
-          verification = await verficationRequest(publicKey)
+          console.log('publicKey', ctx.params.publicKey)
+          console.log('i', i)
+          console.log('confirmedDeleted', confirmedDeleted)
           i++;
           let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
             new anchor.web3.PublicKey(ctx.params.publicKey)
@@ -2389,11 +2393,12 @@ export default (router) => {
           if (!ninaNameIdRegistry) {
             await verification.$query().delete()
             confirmedDeleted = true
+            console.log('successfully deleted verification', ctx.params.publicKey)
+          } else {
+            await sleep(1500)
           }  
-          await sleep()
         }  
       }
-
       ctx.body = {
         success: true,
       }

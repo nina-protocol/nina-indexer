@@ -177,27 +177,7 @@ class NinaProcessor {
       
       for await (let nameRegistry of existingNameRegistries) {
         try {
-          if (nameRegistry.type === 'twitter') {
-            try {
-              await axios.get(nameRegistry.image)
-            } catch (e){
-              const profile = await getTwitterProfile(nameRegistry.value);
-              if (profile) {
-                await Verification.query().patch({
-                  displayName: profile.name,
-                  image: profile.profile_image_url.replace('_normal', ''),
-                  description: profile.description,
-                  active: true,
-                }).where({ publicKey: nameRegistry.publicKey });
-              } else {
-                if (nameRegistry.active) {
-                  await Verification.query().patch({
-                    active: false,
-                  }).where({ publicKey: nameRegistry.publicKey });  
-                }
-              }
-            }
-          } else if (nameRegistry.type === 'soundcloud') {
+          if (nameRegistry.type === 'soundcloud') {
             try {
               await axios.get(nameRegistry.image)
             } catch (e) {
