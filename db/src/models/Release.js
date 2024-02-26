@@ -118,8 +118,10 @@ export default class Release extends Model {
         if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
           const recipientAccount = await Account.findOrCreate(recipient.recipientAuthority.toBase58());
           const revenueShares = (await recipientAccount.$relatedQuery('revenueShares')).map(revenueShare => revenueShare.id);
-          if (!revenueShares.includes(releaseRecord.id)) {
+          if (!revenueShares.includes(releaseRecord.id) && recipient.percentShare.toNumber() > 0) {
             await Account.relatedQuery('revenueShares').for(recipientAccount.id).relate(releaseRecord.id);
+          } else if (revenueShares.includes(releaseRecord.id) && recipient.percentShare.toNumber() === 0) {
+            await Account.relatedQuery('revenueShares').for(recipientAccount.id).unrelate().where('id', releaseRecord.id);
           }
         }
       } catch (error) {
