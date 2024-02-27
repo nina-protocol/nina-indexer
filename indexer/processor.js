@@ -1313,6 +1313,9 @@ class NinaProcessor {
         if (hubReleasesForHubDb.includes(hubRelease.account.release.toBase58())) {
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubRelease.publicKey.toBase58())
           const release = await Release.query().findOne({publicKey: hubRelease.account.release.toBase58()});
+          if (!release.hubId && hub.authorityId === release.publisherId) {
+            await release.$query().patch({hubId: hub.id});
+          }
           if (release) {
             let visible = false;
             hubContent.forEach(hc => {
