@@ -878,9 +878,7 @@ class NinaProcessor {
             }
             const tags = await releaseRecord.$relatedQuery('tags');
             if (tags.length === 0 && releaseRecord.metadata.properties.tags?.length > 0) {
-              console.log('adding tags')
               for await (let tag of releaseRecord.metadata.properties.tags) {
-                console.log('tag', tag)
                 const tagRecord = await Tag.findOrCreate(tag);
                 await Release.relatedQuery('tags').for(releaseRecord.id).relate(tagRecord.id);
               }
