@@ -37,4 +37,5 @@ export const up = function (knex) {
  */
 export const down = function (knex) {
     return knex.schema.dropTableIfExists('tags');
+    return knex.schema.dropTableIfExists('tags_content');
 };
