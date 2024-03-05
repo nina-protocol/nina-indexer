@@ -8,6 +8,7 @@ import {
   Post,
   Release,
   Subscription,
+  Tag,
   Transaction,
   Verification,
 } from '@nina-protocol/nina-db';
@@ -676,9 +677,20 @@ class NinaProcessor {
         json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
       }
       const release = await Release.query().findOne({ publicKey: releasePublicKey })
+      const tagsBefore = await release.$relatedQuery('tags')
+      const newTags = json.properties.tags.filter(tag => !tagsBefore.find(t => t.value === tag))
+      const deletedTags = tagsBefore.filter(tag => !json.properties.tags.find(t => t === tag.value))
       await release.$query().patch({
         metadata: json,
       })
+      for await (let tag of newTags) {
+        const tagRecord = await Tag.findOrCreate(tag);
+        await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id);
+      }
+      for await (let tag of deletedTags) {
+        const tagRecord = await Tag.findOrCreate(tag.value);
+        await Release.relatedQuery('tags').for(release.id).unrelate().where('tagId', tagRecord.id);
+      }
     } else if (tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
       transactionObject.type = 'ExchangeInit'
       accountPublicKey = accounts[0].toBase58()
@@ -863,6 +875,13 @@ class NinaProcessor {
               releaseRecord = await Release.query().patchAndFetchById(releaseRecord.id, {
                 paymentMint: release.account.paymentMint.toBase58(),
               })
+            }
+            const tags = await releaseRecord.$relatedQuery('tags');
+            if (tags.length === 0 && releaseRecord.metadata.properties.tags?.length > 0) {
+              for await (let tag of releaseRecord.metadata.properties.tags) {
+                const tagRecord = await Tag.findOrCreate(tag);
+                await Release.relatedQuery('tags').for(releaseRecord.id).relate(tagRecord.id);
+              }
             }
           }
           // If release.createdAt is newer than 20 minutes, reset the image cache
