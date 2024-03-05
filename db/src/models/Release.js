@@ -6,6 +6,7 @@ import  Account from './Account.js';
 import Exchange from './Exchange.js';
 import Hub from './Hub.js';
 import Post from './Post.js';
+import Tag from './Tag.js';
 import axios from 'axios';
 import { customAlphabet } from 'nanoid';
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
@@ -106,6 +107,12 @@ export default class Release extends Model {
       price: `${price}`,
       paymentMint,
     })
+    if (metadata.properties.tags) {
+      for await (let tag of metadata.properties.tags) {
+        const tagRecord = await Tag.findOrCreate(tag);
+        await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id);
+      }
+    }
     await this.processRevenueShares(releaseAccount, release);
     tweetNewRelease(metadata, publisherId, slug);
     return release;
@@ -247,6 +254,18 @@ export default class Release extends Model {
         },
         to: 'accounts.id',
       },
-    }
+    },
+    tags: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Tag,
+      join: {
+        from: 'releases.id',
+        through: {
+          from: 'tags_releases.releaseId',
+          to: 'tags_releases.tagId',
+        },
+        to: 'tags.id',
+      },
+    },
   })
 }

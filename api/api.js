@@ -9,6 +9,7 @@ import {
   Post,
   Release,
   Subscription,
+  Tag,
   Transaction,
   Verification,
 } from '@nina-protocol/nina-db';
@@ -2412,6 +2413,54 @@ export default (router) => {
     }
   })
 
+  router.get('/tags', async (ctx) => {
+    try {
+      let { offset=0, limit=20, sort='desc', query='' } = ctx.query;
+      const tags = await Tag.query()
+        .where('value', 'ilike', `%${query}%`)
+        .orderBy('value', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let tag of tags.results) {
+        // const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        await tag.format();
+      }
+      ctx.body = {
+        tags
+      }
+    } catch (error) {
+      console.warn(error)
+      ctx.status = 400
+      ctx.body = {
+        success: false,
+      }
+    }
+  })
+
+  router.get('/tags/:value', async (ctx) => {
+    try {
+      let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
+      const tag = await Tag.query().findOne({value: ctx.params.value})
+      const releases = await Tag.relatedQuery('releases').for(tag.id)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let release of releases.results) {
+        await release.format();
+      }
+      ctx.body = {
+        releases: releases.results,
+        total: releases.total,
+      }
+    } catch (error) {
+      console.warn(error)
+      ctx.status = 400
+      ctx.body = {
+        success: false,
+      }
+    }
+  })
 }
 
 const hubPostNotFound = (ctx) => {
