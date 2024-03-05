@@ -18,6 +18,8 @@ export const up = function (knex) {
               .inTable('tags')
               .onDelete('CASCADE')
               .index();
+          table.timestamp('created_at').defaultTo(knex.fn.now());
+          table.timestamp('updated_at').defaultTo(knex.fn.now());
       }),
   ]);
 };
