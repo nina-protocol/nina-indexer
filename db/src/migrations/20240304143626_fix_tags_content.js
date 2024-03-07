@@ -4,6 +4,7 @@
  */
 export const up = function (knex) {
   return Promise.all([
+      knex.schema.dropTable('tags_content'),
       knex.schema.createTable('tags_releases', table => {
           table.primary(['tagId', 'releaseId']);
           table.integer('releaseId')
@@ -18,8 +19,6 @@ export const up = function (knex) {
               .inTable('tags')
               .onDelete('CASCADE')
               .index();
-          table.timestamp('created_at').defaultTo(knex.fn.now());
-          table.timestamp('updated_at').defaultTo(knex.fn.now());
       }),
   ]);
 };

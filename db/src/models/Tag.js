@@ -12,10 +12,13 @@ export default class Tag extends Model {
     },
   }
 
+  static sanitizeValue = (value) => value.toLowerCase().replace('#', '').replace(',', '');
+
   static findOrCreate = async (value) => {
-    let tag = await Tag.query().where('value', value).first();
+    const sanitizedValue = this.sanitizeValue(value);
+    let tag = await Tag.query().where('value', sanitizedValue).first();
     if (!tag) {
-      tag = await Tag.query().insert({ value });
+      tag = await Tag.query().insert({ value: sanitizedValue });
     }
     return tag;
   }
