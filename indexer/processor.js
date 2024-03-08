@@ -57,7 +57,7 @@ export const blacklist = [
   'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
   // 'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
   // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
-  'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
+  // 'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
 ]
 
 const nameAccountSkipList = [
