@@ -60,6 +60,7 @@ export const blacklist = [
   // 'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
   'DhNtpLHXHm61tQ2dZoCF1FUz2rdcYVZYdprKd3aT8MLp', //CLZNE may 10
   '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
+  '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
 ]
 
 const nameAccountSkipList = [
