@@ -61,6 +61,7 @@ export const blacklist = [
   'DhNtpLHXHm61tQ2dZoCF1FUz2rdcYVZYdprKd3aT8MLp', //CLZNE may 10
   '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
   '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
+  'CcaxEGNQ8Xk8uYLiW15HVmDzuhw3WHVrJ2FwnvqbC8zK', //m&m label mix double
 ]
 
 const nameAccountSkipList = [
@@ -924,6 +925,9 @@ class NinaProcessor {
     }
       for await (let newPost of newPosts) {
         try {
+          if (blacklist.includes(newPost.publicKey.toBase58())) {
+            continue;
+          }
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
           const data = await fetchFromArweave(decode(newPost.account.uri).replace('}', ''));
