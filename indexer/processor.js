@@ -62,6 +62,12 @@ export const blacklist = [
   '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
   '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
   'CcaxEGNQ8Xk8uYLiW15HVmDzuhw3WHVrJ2FwnvqbC8zK', //m&m label mix double
+  'Bc66BCnVBmEUoSJ3Px59A6G4XNahddQaf2yZbnJ8SK1S',
+  '3pa2makZMzqA2XnRd55ZwVowopSMdn5sVAGNHZwedSJq',
+  '6g9DeEeVnXFdba1xBqtzrHUZZqsB6ifJrBkjviZTCfho',
+  'EqeAmeH2E7yH9gexLu1j9gtsPuCsfKRJ92e83EEJB63r',
+  '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
+
 ]
 
 const nameAccountSkipList = [
