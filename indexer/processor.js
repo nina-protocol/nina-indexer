@@ -67,7 +67,7 @@ export const blacklist = [
   '6g9DeEeVnXFdba1xBqtzrHUZZqsB6ifJrBkjviZTCfho',
   'EqeAmeH2E7yH9gexLu1j9gtsPuCsfKRJ92e83EEJB63r',
   '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
-
+  '5JaUdyAevoEUJY1bscGPHMxtXQxab4rcJLWeQUuSY6iR', //merz
 ]
 
 const nameAccountSkipList = [
