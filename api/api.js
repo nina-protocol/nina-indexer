@@ -999,7 +999,7 @@ export default (router) => {
               await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
             }  
           } catch (error) {
-            console.log('tx already in db')
+            console.log(`tx already in db: ${txid}`)
           }
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
