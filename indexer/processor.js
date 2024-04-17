@@ -57,6 +57,17 @@ export const blacklist = [
   'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
   // 'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
   // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
+  // 'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
+  'DhNtpLHXHm61tQ2dZoCF1FUz2rdcYVZYdprKd3aT8MLp', //CLZNE may 10
+  '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
+  '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
+  'CcaxEGNQ8Xk8uYLiW15HVmDzuhw3WHVrJ2FwnvqbC8zK', //m&m label mix double
+  'Bc66BCnVBmEUoSJ3Px59A6G4XNahddQaf2yZbnJ8SK1S',
+  '3pa2makZMzqA2XnRd55ZwVowopSMdn5sVAGNHZwedSJq',
+  '6g9DeEeVnXFdba1xBqtzrHUZZqsB6ifJrBkjviZTCfho',
+  'EqeAmeH2E7yH9gexLu1j9gtsPuCsfKRJ92e83EEJB63r',
+  '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
+  '5JaUdyAevoEUJY1bscGPHMxtXQxab4rcJLWeQUuSY6iR', //merz
 ]
 
 const nameAccountSkipList = [
@@ -920,6 +931,9 @@ class NinaProcessor {
     }
       for await (let newPost of newPosts) {
         try {
+          if (blacklist.includes(newPost.publicKey.toBase58())) {
+            continue;
+          }
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
           const data = await fetchFromArweave(decode(newPost.account.uri).replace('}', ''));
