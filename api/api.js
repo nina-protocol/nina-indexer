@@ -991,11 +991,15 @@ export default (router) => {
           maxSupportedTransactionVersion: 0
         })
         if (tx) {
-          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
-          const accounts = ninaInstruction?.accounts
-          const blocktime = tx.blockTime
-          if (txid && accounts && blocktime) {
-            await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
+          try {
+            const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
+            const accounts = ninaInstruction?.accounts
+            const blocktime = tx.blockTime
+            if (txid && accounts && blocktime) {
+              await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
+            }  
+          } catch (error) {
+            console.log('tx already in db')
           }
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
