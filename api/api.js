@@ -1439,6 +1439,7 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
+        console.log('releases', releases)
       const releasesVisible = await getVisibleReleases(releases.results)
 
       const hubContentPublicKeys = []
@@ -1469,7 +1470,7 @@ export default (router) => {
 
       ctx.body = { 
         releases: releasesVisible,
-        total: releasesVisible.length,
+        total: releases.total,
         publicKey: hub.publicKey,
         query,
       };
