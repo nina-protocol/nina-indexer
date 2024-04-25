@@ -1469,7 +1469,7 @@ export default (router) => {
 
       ctx.body = { 
         releases: releasesVisible,
-        total: releasesVisible.length,
+        total: releases.length,
         publicKey: hub.publicKey,
         query,
       };
