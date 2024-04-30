@@ -16,6 +16,8 @@ import {
 import NinaProcessor from '../indexer/processor.js';
 import { decode, fetchFromArweave } from '../indexer/utils.js';
 import { blacklist } from '../indexer/processor.js';
+import ratelimit from 'koa-ratelimit';
+
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
 // results in applications that haven't implemented pagination yet
@@ -1480,7 +1482,42 @@ export default (router) => {
     }
   })
 
-  router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
+  const secondFloorMiddleware = async (ctx, next) => {
+    if (ctx.params.publicKeyOrHandle === 'FjAN2t3Q2URkTfCUupbbDoLPUzi5zCv8APDDj2XUcjoL') {
+      try {
+        return ratelimit({
+          driver: 'memory',
+          db: new Map(),
+          duration: 600000,
+          errorMessage:`Casey Jones you better watch your speed`,
+          id: (ctx) => {
+            return ctx.request.headers['x-id'] || '1'
+          },
+          headers: {
+            remaining: 'Rate-Limit-Remaining',
+            reset: 'Rate-Limit-Reset',
+            total: 'Rate-Limit-Total'
+          },
+          whitelist: (ctx) => {
+            if (
+              ctx.request.query.api_key === process.env.NINA_API_KEY
+            ) {
+              return true;
+            }
+        
+            return false;
+          },
+          max: 200,
+          disableHeader: false,
+        })(ctx, next)
+      } catch (error) {
+        console.log('secondFloorMiddleware error', error)
+      }
+    }
+    return next()
+  }
+
+  router.get('/hubs/:publicKeyOrHandle/posts', secondFloorMiddleware, async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column, 'data');
