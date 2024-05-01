@@ -1434,16 +1434,26 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
       await NinaProcessor.init()
-      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', random='false' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases = await hub.$relatedQuery('releases')
-        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-        .orderBy(column, sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
-        console.log('releases', releases)
-      const releasesVisible = await getVisibleReleases(releases.results)
+      let releases
+      if (random === 'true') {
+        releases = await hub.$relatedQuery('releases')
+          .orderByRaw('random()')
+          .limit(limit)
+        releases = {
+          results: releases,
+          total: releases.length
+        }
+      } else {
+        releases = await hub.$relatedQuery('releases')
+          .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+          .orderBy(column, sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+      }
 
+      const releasesVisible = await getVisibleReleases(releases.results)
       const hubContentPublicKeys = []
       for await (let release of releasesVisible) {
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
