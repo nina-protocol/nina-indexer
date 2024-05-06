@@ -1058,6 +1058,10 @@ export default (router) => {
   
   router.get('/releases/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
     try {
+      if (ctx.query.txId) {
+        await processReleaseCollectedTransaction(ctx.query.txId)
+      }
+
       let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
       if (!account) {
         throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
@@ -1066,14 +1070,11 @@ export default (router) => {
       if (!release) {
         throw new Error(`Release not found with identifier: ${ctx.params.releasePublicKeyOrSlug}`)
       }
+
       const collector = await account.$relatedQuery('collected')
         .where('releaseId', release.id)
         .first();
-      if (collector) {
-        if (ctx.query.txId) {
-          await processReleaseCollectedTransaction(ctx.query.txId)
-        }
-      } else {
+      if (!collector) {
         throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
       }
 
@@ -2595,7 +2596,7 @@ const processReleaseCollectedTransaction = async (txId) => {
       } else if (!accounts || accounts.length === 0) {
         for (let innerInstruction of tx.meta.innerInstructions) {
           for (let instruction of innerInstruction.instructions) {
-            if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
               console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
               accounts = instruction.accounts
             }
