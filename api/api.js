@@ -1083,6 +1083,38 @@ export default (router) => {
     }
   });
 
+  
+  router.get('/releases/:publicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
+    try {
+      let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
+      if (!account) {
+        throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
+      }
+      let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+      if (!release) {
+        throw new Error(`Release not found with identifier: ${ctx.params.publicKeyOrSlug}`)
+      }
+
+      const collector = await account.$relatedQuery('collected')
+        .where('releaseId', release.id)
+        .first();
+      if (!collector) {
+        throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
+      }
+
+      ctx.body = {
+        collected: collector ? true : false,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug}`,
+        collected: false
+      }
+    }
+  })
+
   router.get('/releases/:publicKey/collectors', async (ctx) => {
     try {
       const { offset=0, limit=BIG_LIMIT } = ctx.query;
