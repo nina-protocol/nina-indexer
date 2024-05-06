@@ -291,35 +291,7 @@ export default (router) => {
       }
       const { txId, releasePublicKey } = ctx.request.query;
       if (txId) {
-        await NinaProcessor.init();
-        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-          commitment: 'confirmed',
-          maxSupportedTransactionVersion: 0
-        })
-        if (tx) {
-          let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
-          if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-            let releasePublicKey = accounts[2].toBase58()
-            let accountPublicKey = accounts[1].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
-            let releasePublicKey = accounts[1].toBase58()
-            let accountPublicKey = accounts[3].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          } else if (!accounts || accounts.length === 0) {
-            for (let innerInstruction of tx.meta.innerInstructions) {
-              for (let instruction of innerInstruction.instructions) {
-                if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
-                  console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
-                  accounts = instruction.accounts
-                }
-              }
-            }
-            let releasePublicKey = accounts[2].toBase58()
-            let accountPublicKey = accounts[1].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          }
-        }
+        await processReleaseCollectedTransaction(txId)
       } else if (releasePublicKey) {
         await NinaProcessor.init();
         const release = await NinaProcessor.program.account.release.fetch(new anchor.web3.PublicKey(releasePublicKey))
@@ -1082,6 +1054,42 @@ export default (router) => {
       }
     }
   });
+
+  
+  router.get('/releases/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
+    try {
+      if (ctx.query.txId) {
+        await processReleaseCollectedTransaction(ctx.query.txId)
+      }
+
+      let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
+      if (!account) {
+        throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
+      }
+      let release = await Release.query().findOne({publicKey: ctx.params.releasePublicKeyOrSlug})
+      if (!release) {
+        throw new Error(`Release not found with identifier: ${ctx.params.releasePublicKeyOrSlug}`)
+      }
+
+      const collector = await account.$relatedQuery('collected')
+        .where('releaseId', release.id)
+        .first();
+      if (!collector) {
+        throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
+      }
+
+      ctx.body = {
+        collected: collector ? true : false,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug}`,
+        collected: false
+      }
+    }
+  })
 
   router.get('/releases/:publicKey/collectors', async (ctx) => {
     try {
@@ -2566,4 +2574,40 @@ const getPublishedThroughHubSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publishedThroughHubSubQuery
+}
+
+const processReleaseCollectedTransaction = async (txId) => {
+  try {
+    await NinaProcessor.init();
+    const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0
+    })
+    if (tx) {
+      let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+      if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+        let releasePublicKey = accounts[2].toBase58()
+        let accountPublicKey = accounts[1].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+        let releasePublicKey = accounts[1].toBase58()
+        let accountPublicKey = accounts[3].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      } else if (!accounts || accounts.length === 0) {
+        for (let innerInstruction of tx.meta.innerInstructions) {
+          for (let instruction of innerInstruction.instructions) {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
+              console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+              accounts = instruction.accounts
+            }
+          }
+        }
+        let releasePublicKey = accounts[2].toBase58()
+        let accountPublicKey = accounts[1].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      }
+    }
+  } catch (error) {
+    console.error('Error processing release collected transaction', error)
+  }
 }
