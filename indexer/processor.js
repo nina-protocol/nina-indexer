@@ -69,7 +69,7 @@ export const blacklist = [
   '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
   '5JaUdyAevoEUJY1bscGPHMxtXQxab4rcJLWeQUuSY6iR', //merz fri apr 19
   '8bfkDUUaT4JoLEzkiyW7mJx6hECrwZg4hKiasvVATyTH', // furtado may 3
-  '5vFhRng1KaKbWnpnGMuyF49YXXqGxeNFdn9q8Bc9jkUi', // lara june 7
+  // '5vFhRng1KaKbWnpnGMuyF49YXXqGxeNFdn9q8Bc9jkUi', // lara june 7
 ]
 
 const nameAccountSkipList = [
