@@ -3,6 +3,7 @@ import { stripHtmlIfNeeded } from '../utils/index.js';
 import Account from './Account.js';
 import Release from './Release.js';
 import Post from './Post.js';
+import Subscription from './Subscription.js';
 
 export default class Hub extends Model {
   static get tableName() {
@@ -33,6 +34,9 @@ export default class Hub extends Model {
     delete this.id;
 
     stripHtmlIfNeeded(this.data, 'description');
+
+    const followers = await Subscription.query().where('to', this.publicKey).range(0, 0);
+    this.followers = followers.total;
   }
   
   static relationMappings = () => ({
