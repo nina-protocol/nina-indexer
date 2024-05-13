@@ -1240,6 +1240,7 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
+      const { hubOnly } = ctx.query;
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
@@ -1275,6 +1276,15 @@ export default (router) => {
         }
       }
 
+      await hub.format();
+      
+      if (hubOnly) {
+        ctx.body = {
+          hub,
+        }
+        return
+      }
+
       const collaborators = await hub.$relatedQuery('collaborators')
       let releases = await hub.$relatedQuery('releases')
       for (let release of releases) {
@@ -1288,8 +1298,6 @@ export default (router) => {
         NinaProcessor.warmCache(hub.data.image);
       }
       
-      await hub.format();
-
       for (let collaborator of collaborators) {
         await collaborator.format();
       }
