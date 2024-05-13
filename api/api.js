@@ -737,6 +737,68 @@ export default (router) => {
     }
   })
 
+  router.get('/accounts/:publicKeyOrHandle/following/newReleases', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+
+      const hubIds = []
+      const accountIds = []
+
+      for await (let subscription of subscriptions) {
+        if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.to })
+          hubIds.push(hub.id)
+        } else if (subscription.subscriptionType === 'account') {
+          const account = await Account.query().findOne({ publicKey: subscription.to })
+          accountIds.push(account.id)
+        }
+      }
+      const notUserSubquery = Transaction.query()
+        .select('id')
+        .where('authorityId', account.id)
+
+      const transactions = await Transaction.query()
+        .where((builder) => 
+          builder
+            .whereIn('hubId', hubIds)
+            .orWhereIn('toHubId', hubIds)
+            .orWhereIn('authorityId', accountIds)
+            .orWhereIn('toAccountId', accountIds)
+        )
+        .whereIn('type', ['ReleaseInit', 'ReleaseInitViaHub', 'ReleaseInitWithCredit'])
+        .whereNotIn('id', notUserSubquery)
+        .orderBy('blocktime', 'desc')
+        .range(Number(offset), Number(offset) + Number(limit))
+
+      
+      const feedItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        feedItems.push(transaction)
+      }
+      ctx.body = {
+        releases: feedItems.map(transaction => transaction.release),
+        total: transactions.total
+      };
+    } catch (err) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/accounts/:publicKey/activity', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
