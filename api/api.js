@@ -548,6 +548,8 @@ export default (router) => {
       for await (let subscription of subscriptions.results) {
         if (subscription.subscriptionType === 'account') {
           const account = await Account.findOrCreate(subscription.to);
+          const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+          account.followers = accountFollowers.total
           delete subscription.id
 
           await account.format();
@@ -557,6 +559,8 @@ export default (router) => {
           })
         } else if (subscription.subscriptionType === 'hub') {
           const hub = await Hub.query().findOne({ publicKey: subscription.to });
+          const hubFollowers = await Subscription.query().where('to', hub.publicKey).range(0, 0)
+          hub.followers = hubFollowers.total
           delete subscription.id
 
           await hub.format();
@@ -602,20 +606,13 @@ export default (router) => {
       for await (let subscription of subscriptions.results) {
         if (subscription.subscriptionType === 'account') {
           const account = await Account.findOrCreate(subscription.from);
+          const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+          account.followers = accountFollowers.total
           await account.format();
           delete subscription.id
 
           followers.push({
             account,
-            subscription,
-          })
-        } else if (subscription.subscriptionType === 'hub') {
-          const hub = await Hub.query().findOne({ publicKey: subscription.from });
-          await hub.format();
-          delete subscription.id
-
-          followers.push({
-            hub,
             subscription,
           })
         }
