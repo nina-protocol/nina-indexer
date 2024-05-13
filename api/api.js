@@ -1324,19 +1324,18 @@ export default (router) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-        const followers = []
-        for await (let subscription of subscriptions.results) {
-          if (subscription.subscriptionType === 'hub') {
-            const account = await Account.query().findOne({ publicKey: subscription.from });
-            await account.format();
-            delete subscription.id
-            followers.push({
-              account,
-              subscription,
-            })
-          }
-        }
-  
+      const followers = []
+      const accounts = await Account.query().whereIn('publicKey', subscriptions.results.map(subscription => subscription.from))
+      for await (let account of accounts) {
+        await account.format();
+        const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+        followers.push({
+          account,
+          followers: Number(accountFollowers.total),
+          subscription: subscriptions.results.find(subscription => subscription.from === account.publicKey)
+        })
+      }
+
       ctx.body = {
         followers,
         total: subscriptions.total,
