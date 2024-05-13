@@ -4,6 +4,7 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import Release from './Release.js';
 import Verification from './Verification.js';
+import Subscription from './Subscription.js';
 
 export default class Account extends Model {
   static tableName= 'accounts';
@@ -41,6 +42,8 @@ export default class Account extends Model {
       this.verifications = verifications;
     }
     delete this.id
+    const followers = await Subscription.query().where('to', this.publicKey).range(0,0);
+    this.followers = followers.total;
   }
 
   static relationMappings = () => ({    
