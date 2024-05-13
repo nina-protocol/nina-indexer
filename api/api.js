@@ -2136,11 +2136,22 @@ export default (router) => {
         await post.format();
       }
 
+      const tags = await Tag.query()
+        .where('name', 'ilike', `%${query}%`)
+        .orderBy('name', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let tag of tags.results) {
+        tag.type = 'tag'
+        tag.format()
+      }
+
       ctx.body = {
         accounts,
         releases,
         hubs,
         posts,
+        tags,
       };
     } catch (error) {
       console.log(error)
