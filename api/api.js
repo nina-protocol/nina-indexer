@@ -1109,6 +1109,8 @@ export default (router) => {
           const collectedPublicKeys = collectedReleases.map(release => release.publicKey)
           account.collection = collectedPublicKeys
         }
+        const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0,0)
+        account.followers = accountFollowers.total
         account.collectedDate = await getCollectedDate(release, account)
         await account.format();
       }
