@@ -548,6 +548,8 @@ export default (router) => {
       for await (let subscription of subscriptions.results) {
         if (subscription.subscriptionType === 'account') {
           const account = await Account.findOrCreate(subscription.to);
+          const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+          account.followers = accountFollowers.total
           delete subscription.id
 
           await account.format();
@@ -557,6 +559,8 @@ export default (router) => {
           })
         } else if (subscription.subscriptionType === 'hub') {
           const hub = await Hub.query().findOne({ publicKey: subscription.to });
+          const hubFollowers = await Subscription.query().where('to', hub.publicKey).range(0, 0)
+          hub.followers = hubFollowers.total
           delete subscription.id
 
           await hub.format();
@@ -602,20 +606,13 @@ export default (router) => {
       for await (let subscription of subscriptions.results) {
         if (subscription.subscriptionType === 'account') {
           const account = await Account.findOrCreate(subscription.from);
+          const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+          account.followers = accountFollowers.total
           await account.format();
           delete subscription.id
 
           followers.push({
             account,
-            subscription,
-          })
-        } else if (subscription.subscriptionType === 'hub') {
-          const hub = await Hub.query().findOne({ publicKey: subscription.from });
-          await hub.format();
-          delete subscription.id
-
-          followers.push({
-            hub,
             subscription,
           })
         }
@@ -1240,6 +1237,7 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
+      const { hubOnly } = ctx.query;
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
@@ -1275,6 +1273,15 @@ export default (router) => {
         }
       }
 
+      await hub.format();
+      
+      if (hubOnly) {
+        ctx.body = {
+          hub,
+        }
+        return
+      }
+
       const collaborators = await hub.$relatedQuery('collaborators')
       let releases = await hub.$relatedQuery('releases')
       for (let release of releases) {
@@ -1288,8 +1295,6 @@ export default (router) => {
         NinaProcessor.warmCache(hub.data.image);
       }
       
-      await hub.format();
-
       for (let collaborator of collaborators) {
         await collaborator.format();
       }
@@ -1324,19 +1329,18 @@ export default (router) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-        const followers = []
-        for await (let subscription of subscriptions.results) {
-          if (subscription.subscriptionType === 'hub') {
-            const account = await Account.query().findOne({ publicKey: subscription.from });
-            await account.format();
-            delete subscription.id
-            followers.push({
-              account,
-              subscription,
-            })
-          }
-        }
-  
+      const followers = []
+      const accounts = await Account.query().whereIn('publicKey', subscriptions.results.map(subscription => subscription.from))
+      for await (let account of accounts) {
+        await account.format();
+        const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+        followers.push({
+          account,
+          followers: Number(accountFollowers.total),
+          subscription: subscriptions.results.find(subscription => subscription.from === account.publicKey)
+        })
+      }
+
       ctx.body = {
         followers,
         total: subscriptions.total,
