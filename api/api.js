@@ -1330,9 +1330,9 @@ export default (router) => {
         }
       }
 
-      await hub.format();
       
-      if (hubOnly) {
+      if (hubOnly === 'true') {
+        await hub.format();
         ctx.body = {
           hub,
         }
@@ -1359,6 +1359,7 @@ export default (router) => {
       for await (let post of posts) {
         await post.format();
       }
+      await hub.format();
 
       ctx.body = {
         hub,
