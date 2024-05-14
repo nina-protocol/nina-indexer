@@ -2105,6 +2105,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
         .orderBy('datetime', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
   
@@ -2137,8 +2138,8 @@ export default (router) => {
       }
 
       const tags = await Tag.query()
-        .where('name', 'ilike', `%${query}%`)
-        .orderBy('name', sort)
+        .where('value', 'ilike', `%${query}%`)
+        .orderBy('value', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
       for await (let tag of tags.results) {
@@ -2179,6 +2180,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       
       const formattedReleasesResponse = []
@@ -2712,6 +2714,15 @@ const getPublishedThroughHubSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publishedThroughHubSubQuery
+}
+
+const getPublisherSubQuery = (query) => {
+  const publisherSubQuery = Account.query()
+    .select('id')
+    .where('displayName', 'ilike', `%${query}%`)
+    .orWhere('handle', 'ilike', `%${query}%`)
+
+  return publisherSubQuery
 }
 
 const processReleaseCollectedTransaction = async (txId) => {
