@@ -2084,6 +2084,84 @@ export default (router) => {
     }
   });
 
+  router.get('/search/all', async (ctx) => {
+    try {
+      let { offset=0, limit=3, sort='desc', query='' } = ctx.query;
+
+      const accounts = await Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+        .orderBy('displayName', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let account of accounts.results) {
+        account.type = 'account'
+        await account.format();
+      }
+  
+      const releases = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+  
+      for await (let release of releases.results) {
+        release.type = 'release'
+        await release.format();
+      }
+  
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let hub of hubs.results) {
+        hub.type = 'hub'
+        await hub.format()
+      }
+  
+      const posts = await Post.query()
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let post of posts.results) {
+        post.type = 'post'
+        await post.format();
+      }
+
+      const tags = await Tag.query()
+        .where('value', 'ilike', `%${query}%`)
+        .orderBy('value', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let tag of tags.results) {
+        tag.type = 'tag'
+        tag.format()
+      }
+
+      ctx.body = {
+        accounts,
+        releases,
+        hubs,
+        posts,
+        tags,
+      };
+    } catch (error) {
+      console.log(error)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching search results'
+      }
+    }
+});
 
   router.post('/search/v2', async (ctx) => {
     try { 
@@ -2102,6 +2180,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       
       const formattedReleasesResponse = []
@@ -2635,6 +2714,15 @@ const getPublishedThroughHubSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publishedThroughHubSubQuery
+}
+
+const getPublisherSubQuery = (query) => {
+  const publisherSubQuery = Account.query()
+    .select('id')
+    .where('displayName', 'ilike', `%${query}%`)
+    .orWhere('handle', 'ilike', `%${query}%`)
+
+  return publisherSubQuery
 }
 
 const processReleaseCollectedTransaction = async (txId) => {
