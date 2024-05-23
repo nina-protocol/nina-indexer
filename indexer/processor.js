@@ -71,6 +71,7 @@ export const blacklist = [
   '8bfkDUUaT4JoLEzkiyW7mJx6hECrwZg4hKiasvVATyTH', // furtado may 3
   // '5vFhRng1KaKbWnpnGMuyF49YXXqGxeNFdn9q8Bc9jkUi', // lara june 7
   'EoZTcZBrSEWgvgC2CiDbyApu1fY8uKeQuKQe3jo8LveG', // taraneh new age prayer double
+  '6AyQ7vDhEHX8eiEHKcqEq6tD8wVfjcAeeup5zNm8D2TU', // rxk may 31
 ]
 
 const nameAccountSkipList = [
