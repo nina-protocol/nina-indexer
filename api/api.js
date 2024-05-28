@@ -2087,7 +2087,7 @@ export default (router) => {
 
   router.get('/search/all', async (ctx) => {
     try {
-      let { offset=0, limit=3, sort='desc', query='' } = ctx.query;
+      let { offset=0, limit=2, sort='desc', query='' } = ctx.query;
 
       const accounts = await Account.query()
         .where('displayName', 'ilike', `%${query}%`)
@@ -2126,33 +2126,43 @@ export default (router) => {
         await hub.format()
       }
   
-      const posts = await Post.query()
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
-        .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      // const posts = await Post.query()
+      //   .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      //   .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      //   .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      //   .orderBy('datetime', sort)
+      //   .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      for await (let post of posts.results) {
-        post.type = 'post'
-        await post.format();
-      }
+      // for await (let post of posts.results) {
+      //   post.type = 'post'
+      //   await post.format();
+      // }
+
+      const exactMatch = await Tag.query()
+        .where('value', `${query}`)
+        .first();
 
       const tags = await Tag.query()
-        .where('value', 'ilike', `%${query}%`)
-        .orderBy('value', sort)
+        .where('value', 'like', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
       
-      for await (let tag of tags.results) {
-        tag.type = 'tag'
-        tag.format()
+      if (exactMatch && !tags.results.find(tag => tag.id === exactMatch.id)) {
+        tags.results.unshift(exactMatch)
       }
 
+      for await (let tag of tags.results) {
+        tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        tag.type = 'tag'
+        await tag.format();
+      }
+
+      tags.results.sort((a, b) => b.count - a.count)
+  
       ctx.body = {
         accounts,
         releases,
         hubs,
-        posts,
+        // posts,
         tags,
       };
     } catch (error) {
