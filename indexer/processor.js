@@ -74,6 +74,7 @@ export const blacklist = [
   // '6AyQ7vDhEHX8eiEHKcqEq6tD8wVfjcAeeup5zNm8D2TU', // rxk may 31
   'GitWVdeCFQMDAubKcK8iyFgeMBKkRtYxQDCz8qCA15zh', //jhnny dup
   '6nnjEpURGRrPwpGr22nRRzB12pJM2UvHU4qHGo6z3b6z', //howcouldichange
+  '4nLm7zbTUqPXyGsVv7Vzfj3Bz7jAS4YPRnU1tNNKS3wK', //closeby june 26
 ]
 
 const nameAccountSkipList = [
