@@ -76,6 +76,8 @@ export const blacklist = [
   '6nnjEpURGRrPwpGr22nRRzB12pJM2UvHU4qHGo6z3b6z', //howcouldichange
   '4nLm7zbTUqPXyGsVv7Vzfj3Bz7jAS4YPRnU1tNNKS3wK', //closeby june 26
   '5gnoJjppM5u4bD7KUPihbuxDkHbZGopqducrje9e3TiW', // your day will come (discord.com/channels/829052641408450571/829052724124975115/1252372147263766628)
+  'AygcTrYaqqVjKNaYaCt6UwahdMjkUSCzEp1ZMtY8WFSY', // chanel beads (discord.com/channels/829052641408450571/829052724124975115/1252667462466670694)
+  'AmDPZsPSxSunoo6PQJQg5w2MK6oyjJ3MEeRn4K8gavP7'
 ]
 
 const nameAccountSkipList = [
