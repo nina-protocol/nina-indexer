@@ -843,11 +843,20 @@ class NinaProcessor {
   async processReleases() {
     // Get all releases that are not on the blacklist
     try {
-      const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
+      //Get all restricted releases, combine with blacklist, and delete from index
+      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      let restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+      restrictedReleasesPublicKeys = restrictedReleasesPublicKeys.concat(blacklist);
+      const releasesToDelete = Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
+      for await (let release of releasesToDelete) {
+        await Release.query().deleteById(release.id);
+      }
+      
+      const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
       const existingReleases = await Release.query();
-
+      
       console.log(`${new Date()} processReleases - ${releases.length}`)
 
       const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
