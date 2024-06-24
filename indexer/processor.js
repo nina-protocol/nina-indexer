@@ -38,47 +38,6 @@ const CACHE_RESET_TIME = 1200000 // 20 minutes
 
 const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
 const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd'
-export const blacklist = [
-  'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
-  'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
-  'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx',
-  '7pZffbxcgGFNW1oM5DJ7w7k3zNdHuQHzQC96srsFd14W',
-  '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
-  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw',
-  'ECkyVBzbEgpU6BmwUBEcqwceepzdsRrW9LHSrnVj6gRU',
-  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT',
-  '9neh36BD2DTmU6Ln9L7KjCz5r4Tx9T2iegRJKujv8MYg', //duhsa
-  'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
-  '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
-  '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
-  // 'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
-  'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
-  '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F', //mockturno
-  'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
-  // 'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
-  // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
-  // 'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
-  'DhNtpLHXHm61tQ2dZoCF1FUz2rdcYVZYdprKd3aT8MLp', //CLZNE may 10
-  '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
-  '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
-  'CcaxEGNQ8Xk8uYLiW15HVmDzuhw3WHVrJ2FwnvqbC8zK', //m&m label mix double
-  'Bc66BCnVBmEUoSJ3Px59A6G4XNahddQaf2yZbnJ8SK1S',
-  '3pa2makZMzqA2XnRd55ZwVowopSMdn5sVAGNHZwedSJq',
-  '6g9DeEeVnXFdba1xBqtzrHUZZqsB6ifJrBkjviZTCfho',
-  'EqeAmeH2E7yH9gexLu1j9gtsPuCsfKRJ92e83EEJB63r',
-  '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
-  '5JaUdyAevoEUJY1bscGPHMxtXQxab4rcJLWeQUuSY6iR', // merz fri apr 19
-  '8bfkDUUaT4JoLEzkiyW7mJx6hECrwZg4hKiasvVATyTH', // furtado may 3
-  // '5vFhRng1KaKbWnpnGMuyF49YXXqGxeNFdn9q8Bc9jkUi', // lara june 7
-  'EoZTcZBrSEWgvgC2CiDbyApu1fY8uKeQuKQe3jo8LveG', // taraneh new age prayer double
-  // '6AyQ7vDhEHX8eiEHKcqEq6tD8wVfjcAeeup5zNm8D2TU', // rxk may 31
-  'GitWVdeCFQMDAubKcK8iyFgeMBKkRtYxQDCz8qCA15zh', //jhnny dup
-  '6nnjEpURGRrPwpGr22nRRzB12pJM2UvHU4qHGo6z3b6z', //howcouldichange
-  '4nLm7zbTUqPXyGsVv7Vzfj3Bz7jAS4YPRnU1tNNKS3wK', //closeby june 26
-  '5gnoJjppM5u4bD7KUPihbuxDkHbZGopqducrje9e3TiW', // your day will come (discord.com/channels/829052641408450571/829052724124975115/1252372147263766628)
-  'AygcTrYaqqVjKNaYaCt6UwahdMjkUSCzEp1ZMtY8WFSY', // chanel beads (discord.com/channels/829052641408450571/829052724124975115/1252667462466670694)
-  'AmDPZsPSxSunoo6PQJQg5w2MK6oyjJ3MEeRn4K8gavP7'
-]
 
 const nameAccountSkipList = [
   '79k2rLEdyzgMyyztSXxk3BsZoyysxt4SKv7h47iv4qBo',
@@ -780,7 +739,7 @@ class NinaProcessor {
         }
       }
 
-      if (releasePublicKey && blacklist.indexOf(releasePublicKey) === -1) {
+      if (releasePublicKey) {
         const release = await Release.findOrCreate(releasePublicKey)
         if (release) {
           transactionObject.releaseId = release.id
@@ -841,12 +800,10 @@ class NinaProcessor {
   }
 
   async processReleases() {
-    // Get all releases that are not on the blacklist
     try {
-      //Get all restricted releases, combine with blacklist, and delete from index
+      // get all resticted releases and delete from index
       const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
       let restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
-      restrictedReleasesPublicKeys = restrictedReleasesPublicKeys.concat(blacklist);
       const releasesToDelete = Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
       for await (let release of releasesToDelete) {
         await Release.query().deleteById(release.id);
@@ -950,9 +907,6 @@ class NinaProcessor {
     }
       for await (let newPost of newPosts) {
         try {
-          if (blacklist.includes(newPost.publicKey.toBase58())) {
-            continue;
-          }
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
           const data = await fetchFromArweave(decode(newPost.account.uri).replace('}', ''));
@@ -1227,7 +1181,7 @@ class NinaProcessor {
 
   async processCollectors() {
     try {
-      const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
+      const releases = await this.program.account.release.all();
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
   
