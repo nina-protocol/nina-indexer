@@ -739,10 +739,7 @@ class NinaProcessor {
         }
       }
 
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
-      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
-
-      if (releasePublicKey && !restrictedReleasesPublicKeys.includes(releasePublicKey)) {
+      if (releasePublicKey) {
         const release = await Release.findOrCreate(releasePublicKey)
         if (release) {
           transactionObject.releaseId = release.id
