@@ -737,6 +737,68 @@ export default (router) => {
     }
   })
 
+  router.get('/accounts/:publicKeyOrHandle/following/newReleases', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+
+      const hubIds = []
+      const accountIds = []
+
+      for await (let subscription of subscriptions) {
+        if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.to })
+          hubIds.push(hub.id)
+        } else if (subscription.subscriptionType === 'account') {
+          const account = await Account.query().findOne({ publicKey: subscription.to })
+          accountIds.push(account.id)
+        }
+      }
+      const notUserSubquery = Transaction.query()
+        .select('id')
+        .where('authorityId', account.id)
+
+      const transactions = await Transaction.query()
+        .where((builder) => 
+          builder
+            .whereIn('hubId', hubIds)
+            .orWhereIn('toHubId', hubIds)
+            .orWhereIn('authorityId', accountIds)
+            .orWhereIn('toAccountId', accountIds)
+        )
+        .whereIn('type', ['ReleaseInit', 'ReleaseInitViaHub', 'ReleaseInitWithCredit'])
+        .whereNotIn('id', notUserSubquery)
+        .orderBy('blocktime', 'desc')
+        .range(Number(offset), Number(offset) + Number(limit))
+
+      
+      const feedItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        feedItems.push(transaction)
+      }
+      ctx.body = {
+        releases: feedItems.map(transaction => transaction.release),
+        total: transactions.total
+      };
+    } catch (err) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
   router.get('/accounts/:publicKey/activity', async (ctx) => {
     try {
       const { limit=50, offset=0 } = ctx.query;
@@ -1268,9 +1330,9 @@ export default (router) => {
         }
       }
 
-      await hub.format();
       
-      if (hubOnly) {
+      if (hubOnly === 'true') {
+        await hub.format();
         ctx.body = {
           hub,
         }
@@ -1297,6 +1359,7 @@ export default (router) => {
       for await (let post of posts) {
         await post.format();
       }
+      await hub.format();
 
       ctx.body = {
         hub,
@@ -2022,6 +2085,94 @@ export default (router) => {
     }
   });
 
+  router.get('/search/all', async (ctx) => {
+    try {
+      let { offset=0, limit=2, sort='desc', query='' } = ctx.query;
+
+      const accounts = await Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+        .orderBy('displayName', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let account of accounts.results) {
+        account.type = 'account'
+        await account.format();
+      }
+  
+      const releases = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+  
+      for await (let release of releases.results) {
+        release.type = 'release'
+        await release.format();
+      }
+  
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let hub of hubs.results) {
+        hub.type = 'hub'
+        await hub.format()
+      }
+  
+      // const posts = await Post.query()
+      //   .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      //   .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      //   .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      //   .orderBy('datetime', sort)
+      //   .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      // for await (let post of posts.results) {
+      //   post.type = 'post'
+      //   await post.format();
+      // }
+
+      const exactMatch = await Tag.query()
+        .where('value', `${query}`)
+        .first();
+
+      const tags = await Tag.query()
+        .where('value', 'like', `%${query}%`)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      if (exactMatch && !tags.results.find(tag => tag.id === exactMatch.id)) {
+        tags.results.unshift(exactMatch)
+      }
+
+      for await (let tag of tags.results) {
+        tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        tag.type = 'tag'
+        await tag.format();
+      }
+
+      tags.results.sort((a, b) => b.count - a.count)
+  
+      ctx.body = {
+        accounts,
+        releases,
+        hubs,
+        // posts,
+        tags,
+      };
+    } catch (error) {
+      console.log(error)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching search results'
+      }
+    }
+});
 
   router.post('/search/v2', async (ctx) => {
     try { 
@@ -2040,6 +2191,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       
       const formattedReleasesResponse = []
@@ -2573,6 +2725,15 @@ const getPublishedThroughHubSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publishedThroughHubSubQuery
+}
+
+const getPublisherSubQuery = (query) => {
+  const publisherSubQuery = Account.query()
+    .select('id')
+    .where('displayName', 'ilike', `%${query}%`)
+    .orWhere('handle', 'ilike', `%${query}%`)
+
+  return publisherSubQuery
 }
 
 const processReleaseCollectedTransaction = async (txId) => {
