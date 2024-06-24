@@ -283,6 +283,10 @@ class NinaProcessor {
       const exchangeCancels = []
       const completedExchanges = []
       const coder = new anchor.BorshInstructionCoder(this.program.idl)
+
+      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+
       for await (let page of pages) {
         const txIds = page.map(signature => signature.signature)
         const txs = await this.provider.connection.getParsedTransactions(txIds, {
@@ -300,7 +304,7 @@ class NinaProcessor {
               console.log(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
               let transactionRecord = await Transaction.query().findOne({ txid })
               if (!transactionRecord || isInitialRun) {
-                await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord)
+                await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord, restrictedReleasesPublicKeys)
               }
               if (!transactionRecord && accounts) {
                 if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
@@ -422,10 +426,14 @@ class NinaProcessor {
     return accounts[0].toBase58() === FILE_SERVICE_ADDRESS || accounts[0].toBase58() === accounts[1].toBase58()
   }
 
-  async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null) {
+  async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null, restrictedReleasesPublicKeys=null) {
     let transactionObject = {
       txid,
       blocktime,
+    }
+    if (!restrictedReleasesPublicKeys) {
+      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
     }
     let hubPublicKey
     let accountPublicKey
@@ -738,9 +746,6 @@ class NinaProcessor {
           transactionObject.hubId = hub.id
         }
       }
-
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
-      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
 
       if (releasePublicKey && !restrictedReleasesPublicKeys.includes(releasePublicKey)) {
         const release = await Release.findOrCreate(releasePublicKey)
