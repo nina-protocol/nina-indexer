@@ -284,7 +284,7 @@ class NinaProcessor {
       const completedExchanges = []
       const coder = new anchor.BorshInstructionCoder(this.program.idl)
 
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
 
       for await (let page of pages) {
@@ -432,7 +432,7 @@ class NinaProcessor {
       blocktime,
     }
     if (!restrictedReleasesPublicKeys) {
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
     }
     let hubPublicKey
@@ -810,7 +810,7 @@ class NinaProcessor {
   async processReleases() {
     try {
       // get all resticted releases and delete from index
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
       const releasesToDelete = Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
       for await (let release of releasesToDelete) {
@@ -1189,7 +1189,7 @@ class NinaProcessor {
 
   async processCollectors() {
     try {
-      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
       const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
       const releaseMints = releases.map(x => x.account.releaseMint)
