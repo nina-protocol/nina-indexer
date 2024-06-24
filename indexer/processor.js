@@ -739,7 +739,10 @@ class NinaProcessor {
         }
       }
 
-      if (releasePublicKey) {
+      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+
+      if (releasePublicKey && !restrictedReleasesPublicKeys.includes(releasePublicKey)) {
         const release = await Release.findOrCreate(releasePublicKey)
         if (release) {
           transactionObject.releaseId = release.id
@@ -803,7 +806,7 @@ class NinaProcessor {
     try {
       // get all resticted releases and delete from index
       const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
-      let restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
       const releasesToDelete = Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
       for await (let release of releasesToDelete) {
         await Release.query().deleteById(release.id);
@@ -1181,7 +1184,9 @@ class NinaProcessor {
 
   async processCollectors() {
     try {
-      const releases = await this.program.account.release.all();
+      const restrictedReleases = await axios.get(`${ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+      const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
   
