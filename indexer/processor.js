@@ -812,8 +812,12 @@ class NinaProcessor {
       // get all resticted releases and delete from index
       const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
-      const releasesToDelete = Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
+
+      const releasesToDelete = await Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
+      console.log('releasesToDelete', releasesToDelete.map(x => x.publicKey))
+      
       for await (let release of releasesToDelete) {
+        console.log('deleting restricted release:', release.publicKey)
         await Release.query().deleteById(release.id);
       }
       
@@ -844,7 +848,7 @@ class NinaProcessor {
             publisherId: publisher.id,
             releaseAccount: release
           })
-          console.log(`Instered Release: ${release.publicKey.toBase58()}`)
+          console.log(`Inserted Release: ${release.publicKey.toBase58()}`)
         } catch (err) {
           console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }

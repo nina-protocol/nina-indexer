@@ -1034,11 +1034,16 @@ export default (router) => {
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
         NinaProcessor.warmCache(release.metadata.image, 5000);
-      }  
-      await release.format();
+      }
       
-      ctx.body = {
-        release,
+      if (release) {
+        await release.format();
+        
+        ctx.body = {
+          release,
+        }
+      } else {
+        throw new Error(`Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`)
       }
   } catch (err) {
       console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug} ${err}`)
