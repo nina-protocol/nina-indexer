@@ -815,7 +815,7 @@ class NinaProcessor {
 
       const releasesToDelete = await Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
       console.log('releasesToDelete', releasesToDelete.map(x => x.publicKey))
-      
+
       for await (let release of releasesToDelete) {
         console.log('deleting restricted release:', release.publicKey)
         await Release.query().deleteById(release.id);
@@ -853,7 +853,6 @@ class NinaProcessor {
           console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
       }
-  
       for await (let releaseRecord of existingReleases) {
         try {
           const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
@@ -861,7 +860,7 @@ class NinaProcessor {
             await Release.processRevenueShares(release, releaseRecord);
             if (!releaseRecord.slug) {
               const slug = await Release.generateSlug(releaseRecord.metadata)
-              releaseRecord = Release.query().patchAndFetchById(releaseRecord.id, {
+              releaseRecord = await Release.query().patchAndFetchById(releaseRecord.id, {
                 slug
               })
             }
@@ -888,7 +887,7 @@ class NinaProcessor {
             this.warmCache(releaseRecord.metadata.image);
           }
         } catch (error) {
-          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord.publicKey}: ${error}`);
+          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord}: ${error}`);
         }
       }
     } catch (error) {
