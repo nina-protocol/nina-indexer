@@ -817,8 +817,12 @@ class NinaProcessor {
       console.log('releasesToDelete', releasesToDelete.map(x => x.publicKey))
 
       for await (let release of releasesToDelete) {
-        console.log('deleting restricted release:', release.publicKey)
-        await Release.query().deleteById(release.id);
+        try {
+          console.log('deleting restricted release:', release.publicKey)
+          await Release.query().deleteById(release.id);
+        } catch (error) {
+          console.log('error deleting restricted release:', release.publicKey, error)
+        }
       }
       
       const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
