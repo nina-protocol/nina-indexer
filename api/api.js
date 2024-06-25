@@ -15,7 +15,6 @@ import {
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
 import { decode, fetchFromArweave } from '../indexer/utils.js';
-import { blacklist } from '../indexer/processor.js';
 import ratelimit from 'koa-ratelimit';
 
 // NOTE: originally many endpoints were lacking pagination
@@ -1010,14 +1009,18 @@ export default (router) => {
       if (!release) {
         release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
       }
-      if (txid && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+
+      if (txid) {
         await NinaProcessor.init()
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
 
           commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
-        if (tx) {
+        const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+        const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+  
+        if (tx && restrictedReleasesPublicKeys.indexOf(ctx.params.publicKeyOrSlug) === -1) {
           try {
             const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
             const accounts = ninaInstruction?.accounts
@@ -1031,11 +1034,16 @@ export default (router) => {
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
         NinaProcessor.warmCache(release.metadata.image, 5000);
-      }  
-      await release.format();
+      }
       
-      ctx.body = {
-        release,
+      if (release) {
+        await release.format();
+        
+        ctx.body = {
+          release,
+        }
+      } else {
+        throw new Error(`Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`)
       }
   } catch (err) {
       console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug} ${err}`)
