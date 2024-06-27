@@ -2590,6 +2590,10 @@ export default (router) => {
       }
     } catch (error) {
       console.warn(error)
+      ctx.status = 400
+      ctx.body = {
+        success: false,
+      }
     }
   })
 
