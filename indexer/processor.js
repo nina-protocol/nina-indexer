@@ -38,38 +38,6 @@ const CACHE_RESET_TIME = 1200000 // 20 minutes
 
 const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
 const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd'
-export const blacklist = [
-  'BpZ5zoBehKfKUL2eSFd3SNLXmXHi4vtuV4U6WxJB3qvt',
-  'FNZbs4pdxKiaCNPVgMiPQrpzSJzyfGrocxejs8uBWnf',
-  'AWNbGaKQLLtwZ7Dn9tFwD1ZiqotSQf41zHWkfq2v2CBx',
-  '7pZffbxcgGFNW1oM5DJ7w7k3zNdHuQHzQC96srsFd14W',
-  '5bbtHxL8rhNxGvEbBQhEJnBci98GdrebYyrTa7KEGgsE',
-  '69nbYBjCpaC5NAPsQuLVGrJ6PWXThGmhpU4ftQQU9FNw',
-  'ECkyVBzbEgpU6BmwUBEcqwceepzdsRrW9LHSrnVj6gRU',
-  'C81ZghJq4JitQBmNx1EbGBAn5cECAEBw31cxNs4CNuuT',
-  '9neh36BD2DTmU6Ln9L7KjCz5r4Tx9T2iegRJKujv8MYg', //duhsa
-  'Gv3kCB228w2mwc2uYuU4xka9rr5ia9vfoGYWvD9qKy3o', // shreddies new age
-  '8cz3KyHRmSjyjjtjGa3Uo3JqLoLuj4UFpmeqPWeh9Z2m', // drs everything must go
-  '5nh1UMSNBjkAHG2LGB95N3YDDdo5TNtdWJfNC5mniJrk', // gods mom 
-  // 'BQfv888vV1yb3EBiELNazLphWdZkyCoQ12Wn1rDnPewN', // sv jasper
-  'U6zHrdKuzSESWAagA3rHCFDrbrrykrfksFEpecbqNhD', //omar tek double
-  '43qV7YR9mKYoFj5FbAGty6qLpDZWVatLzzQQmticPP2F', //mockturno
-  'H49ruBocWacUQgdryuap2mt4ELGStPk21v6FoLLJqYU1', // ayla loon
-  // 'GsWQccLjBVXjE46Jyt3G71s7Yqo55WupWGXFrFRbR8Vn', // ws
-  // '83utqav6fN78SBS4YLr4aF51ahWLBQKhqJwePZob1esC', // heavee 
-  // 'H92zsEYTHqiDK9uZWT58vsReKvtWpLuLNghadaZu8T8o' // nexcyia
-  'DhNtpLHXHm61tQ2dZoCF1FUz2rdcYVZYdprKd3aT8MLp', //CLZNE may 10
-  '9P2pVbci23jzScATTDYmNGDbSsz2VRisPqRgvtuPuLnG', //dp
-  '72Rz4zuSwt7ThLbBtCBX7XvHtsAZGMoRHewAhg3EHVG5', //aliese
-  'CcaxEGNQ8Xk8uYLiW15HVmDzuhw3WHVrJ2FwnvqbC8zK', //m&m label mix double
-  'Bc66BCnVBmEUoSJ3Px59A6G4XNahddQaf2yZbnJ8SK1S',
-  '3pa2makZMzqA2XnRd55ZwVowopSMdn5sVAGNHZwedSJq',
-  '6g9DeEeVnXFdba1xBqtzrHUZZqsB6ifJrBkjviZTCfho',
-  'EqeAmeH2E7yH9gexLu1j9gtsPuCsfKRJ92e83EEJB63r',
-  '9maki6Sx6xPiNcofauXpdqwRfNG1av1vFYcZtm5TrMcU',
-  '5JaUdyAevoEUJY1bscGPHMxtXQxab4rcJLWeQUuSY6iR', //merz fri apr 19
-  '8bfkDUUaT4JoLEzkiyW7mJx6hECrwZg4hKiasvVATyTH', // furtado may 3
-]
 
 const nameAccountSkipList = [
   '79k2rLEdyzgMyyztSXxk3BsZoyysxt4SKv7h47iv4qBo',
@@ -92,7 +60,7 @@ class NinaProcessor {
   async init() {
     const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
     this.provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
-    const tokenIndexConnection = new anchor.web3.Connection(process.env.SOLANA_TOKEN_INDEX_CLUSTER_URL);
+    const tokenIndexConnection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
     this.tokenIndexProvider = new anchor.AnchorProvider(tokenIndexConnection, {commitment: 'processed'});
     this.program = await anchor.Program.at(
       process.env.NINA_PROGRAM_ID,
@@ -315,6 +283,10 @@ class NinaProcessor {
       const exchangeCancels = []
       const completedExchanges = []
       const coder = new anchor.BorshInstructionCoder(this.program.idl)
+
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+
       for await (let page of pages) {
         const txIds = page.map(signature => signature.signature)
         const txs = await this.provider.connection.getParsedTransactions(txIds, {
@@ -332,7 +304,7 @@ class NinaProcessor {
               console.log(`processing tx: ${txid} - ${blocktime} - ${datetime}`)
               let transactionRecord = await Transaction.query().findOne({ txid })
               if (!transactionRecord || isInitialRun) {
-                await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord)
+                await this.processTransaction(tx, txid, blocktime, accounts, transactionRecord, restrictedReleasesPublicKeys)
               }
               if (!transactionRecord && accounts) {
                 if (accounts.length === 13 || tx.meta.logMessages.some(log => log.includes('ExchangeInit'))) {
@@ -454,10 +426,14 @@ class NinaProcessor {
     return accounts[0].toBase58() === FILE_SERVICE_ADDRESS || accounts[0].toBase58() === accounts[1].toBase58()
   }
 
-  async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null) {
+  async processTransaction(tx, txid, blocktime, accounts, transactionRecord=null, restrictedReleasesPublicKeys=null) {
     let transactionObject = {
       txid,
       blocktime,
+    }
+    if (!restrictedReleasesPublicKeys) {
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+      restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
     }
     let hubPublicKey
     let accountPublicKey
@@ -771,7 +747,7 @@ class NinaProcessor {
         }
       }
 
-      if (releasePublicKey && blacklist.indexOf(releasePublicKey) === -1) {
+      if (releasePublicKey && !restrictedReleasesPublicKeys.includes(releasePublicKey)) {
         const release = await Release.findOrCreate(releasePublicKey)
         if (release) {
           transactionObject.releaseId = release.id
@@ -832,13 +808,28 @@ class NinaProcessor {
   }
 
   async processReleases() {
-    // Get all releases that are not on the blacklist
     try {
-      const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
+      // get all resticted releases and delete from index
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+
+      const releasesToDelete = await Release.query().whereIn('publicKey', restrictedReleasesPublicKeys);
+      console.log('releasesToDelete', releasesToDelete.map(x => x.publicKey))
+
+      for await (let release of releasesToDelete) {
+        try {
+          console.log('deleting restricted release:', release.publicKey)
+          await Release.query().deleteById(release.id);
+        } catch (error) {
+          console.log('error deleting restricted release:', release.publicKey, error)
+        }
+      }
+      
+      const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
       const existingReleases = await Release.query();
-
+      
       console.log(`${new Date()} processReleases - ${releases.length}`)
 
       const allMints = metadataAccounts.map(x => x.mintAddress.toBase58());
@@ -861,12 +852,11 @@ class NinaProcessor {
             publisherId: publisher.id,
             releaseAccount: release
           })
-          console.log(`Instered Release: ${release.publicKey.toBase58()}`)
+          console.log(`Inserted Release: ${release.publicKey.toBase58()}`)
         } catch (err) {
           console.log(`${new Date()} processReleases - error creating release ${release.publicKey.toBase58()}: ${err}`);
         }
       }
-  
       for await (let releaseRecord of existingReleases) {
         try {
           const release = releases.find(x => x.publicKey.toBase58() === releaseRecord.publicKey);
@@ -874,7 +864,7 @@ class NinaProcessor {
             await Release.processRevenueShares(release, releaseRecord);
             if (!releaseRecord.slug) {
               const slug = await Release.generateSlug(releaseRecord.metadata)
-              releaseRecord = Release.query().patchAndFetchById(releaseRecord.id, {
+              releaseRecord = await Release.query().patchAndFetchById(releaseRecord.id, {
                 slug
               })
             }
@@ -901,7 +891,7 @@ class NinaProcessor {
             this.warmCache(releaseRecord.metadata.image);
           }
         } catch (error) {
-          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord.publicKey}: ${error}`);
+          console.log(`${new Date()} processReleases - error Release.processRevenueShares existingReleases ${releaseRecord}: ${error}`);
         }
       }
     } catch (error) {
@@ -932,9 +922,6 @@ class NinaProcessor {
     }
       for await (let newPost of newPosts) {
         try {
-          if (blacklist.includes(newPost.publicKey.toBase58())) {
-            continue;
-          }
           const hubPost = hubPosts.find(x => x.account.post.toBase58() === newPost.publicKey.toBase58());
           const hubContent = hubContents.filter(x => x.account.child.toBase58() === hubPost.publicKey.toBase58())[0];
           const data = await fetchFromArweave(decode(newPost.account.uri).replace('}', ''));
@@ -1209,7 +1196,9 @@ class NinaProcessor {
 
   async processCollectors() {
     try {
-      const releases = (await this.program.account.release.all()).filter(x => !blacklist.includes(x.publicKey.toBase58()));
+      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+      const releases = (await this.program.account.release.all()).filter(x => !restrictedReleasesPublicKeys.includes(x.publicKey.toBase58()));
       const releaseMints = releases.map(x => x.account.releaseMint)
       const metadataAccounts = (await this.metaplex.nfts().findAllByMintList({mints: releaseMints})).filter(x => x);
   

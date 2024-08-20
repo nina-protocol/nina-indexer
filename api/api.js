@@ -15,7 +15,8 @@ import {
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
 import { decode, fetchFromArweave } from '../indexer/utils.js';
-import { blacklist } from '../indexer/processor.js';
+import ratelimit from 'koa-ratelimit';
+
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
 // results in applications that haven't implemented pagination yet
@@ -289,35 +290,7 @@ export default (router) => {
       }
       const { txId, releasePublicKey } = ctx.request.query;
       if (txId) {
-        await NinaProcessor.init();
-        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-          commitment: 'confirmed',
-          maxSupportedTransactionVersion: 0
-        })
-        if (tx) {
-          let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
-          if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-            let releasePublicKey = accounts[2].toBase58()
-            let accountPublicKey = accounts[1].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
-            let releasePublicKey = accounts[1].toBase58()
-            let accountPublicKey = accounts[3].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          } else if (!accounts || accounts.length === 0) {
-            for (let innerInstruction of tx.meta.innerInstructions) {
-              for (let instruction of innerInstruction.instructions) {
-                if (instruction.programId.toBase58() === 'ninaN2tm9vUkxoanvGcNApEeWiidLMM2TdBX8HoJuL4') {
-                  console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
-                  accounts = instruction.accounts
-                }
-              }
-            }
-            let releasePublicKey = accounts[2].toBase58()
-            let accountPublicKey = accounts[1].toBase58()
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-          }
-        }
+        await processReleaseCollectedTransaction(txId)
       } else if (releasePublicKey) {
         await NinaProcessor.init();
         const release = await NinaProcessor.program.account.release.fetch(new anchor.web3.PublicKey(releasePublicKey))
@@ -635,15 +608,6 @@ export default (router) => {
             account,
             subscription,
           })
-        } else if (subscription.subscriptionType === 'hub') {
-          const hub = await Hub.query().findOne({ publicKey: subscription.from });
-          await hub.format();
-          delete subscription.id
-
-          followers.push({
-            hub,
-            subscription,
-          })
         }
       }
 
@@ -761,6 +725,68 @@ export default (router) => {
       }
       ctx.body = {
         feedItems,
+        total: transactions.total
+      };
+    } catch (err) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
+
+  router.get('/accounts/:publicKeyOrHandle/following/newReleases', async (ctx) => {
+    try {
+      const { limit=50, offset=0 } = ctx.query;
+      let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+        if (!account) {
+          accountNotFound(ctx);
+          return;
+        }
+      }
+      const subscriptions = await Subscription.query()
+        .where('from', account.publicKey)
+
+      const hubIds = []
+      const accountIds = []
+
+      for await (let subscription of subscriptions) {
+        if (subscription.subscriptionType === 'hub') {
+          const hub = await Hub.query().findOne({ publicKey: subscription.to })
+          hubIds.push(hub.id)
+        } else if (subscription.subscriptionType === 'account') {
+          const account = await Account.query().findOne({ publicKey: subscription.to })
+          accountIds.push(account.id)
+        }
+      }
+      const notUserSubquery = Transaction.query()
+        .select('id')
+        .where('authorityId', account.id)
+
+      const transactions = await Transaction.query()
+        .where((builder) => 
+          builder
+            .whereIn('hubId', hubIds)
+            .orWhereIn('toHubId', hubIds)
+            .orWhereIn('authorityId', accountIds)
+            .orWhereIn('toAccountId', accountIds)
+        )
+        .whereIn('type', ['ReleaseInit', 'ReleaseInitViaHub', 'ReleaseInitWithCredit'])
+        .whereNotIn('id', notUserSubquery)
+        .orderBy('blocktime', 'desc')
+        .range(Number(offset), Number(offset) + Number(limit))
+
+      
+      const feedItems = []
+      for await (let transaction of transactions.results) {
+        await transaction.format()
+        feedItems.push(transaction)
+      }
+      ctx.body = {
+        releases: feedItems.map(transaction => transaction.release),
         total: transactions.total
       };
     } catch (err) {
@@ -983,14 +1009,18 @@ export default (router) => {
       if (!release) {
         release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
       }
-      if (txid && blacklist.indexOf(ctx.params.publicKeyOrSlug) === -1) {
+
+      if (txid) {
         await NinaProcessor.init()
         const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
 
           commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
-        if (tx) {
+        const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+        const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+  
+        if (tx && restrictedReleasesPublicKeys.indexOf(ctx.params.publicKeyOrSlug) === -1) {
           try {
             const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
             const accounts = ninaInstruction?.accounts
@@ -1004,10 +1034,16 @@ export default (router) => {
         }
         release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
         NinaProcessor.warmCache(release.metadata.image, 5000);
-      }  
-      await release.format();
-      ctx.body = {
-        release,
+      }
+      
+      if (release) {
+        await release.format();
+        
+        ctx.body = {
+          release,
+        }
+      } else {
+        throw new Error(`Release not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`)
       }
   } catch (err) {
       console.log(`/releases/:publicKey Error: publicKeyOrSlug: ${ctx.params.publicKeyOrSlug} ${err}`)
@@ -1080,6 +1116,42 @@ export default (router) => {
       }
     }
   });
+
+  
+  router.get('/releases/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
+    try {
+      if (ctx.query.txId) {
+        await processReleaseCollectedTransaction(ctx.query.txId)
+      }
+
+      let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
+      if (!account) {
+        throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
+      }
+      let release = await Release.query().findOne({publicKey: ctx.params.releasePublicKeyOrSlug})
+      if (!release) {
+        throw new Error(`Release not found with identifier: ${ctx.params.releasePublicKeyOrSlug}`)
+      }
+
+      const collector = await account.$relatedQuery('collected')
+        .where('releaseId', release.id)
+        .first();
+      if (!collector) {
+        throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
+      }
+
+      ctx.body = {
+        collected: collector ? true : false,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 404
+      ctx.body = {
+        message: `Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug}`,
+        collected: false
+      }
+    }
+  })
 
   router.get('/releases/:publicKey/collectors', async (ctx) => {
     try {
@@ -1230,6 +1302,7 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle', async (ctx) => {
     try {
       let hub = await hubForPublicKeyOrHandle(ctx)
+      const { hubOnly } = ctx.query;
       await NinaProcessor.init()
       if (!hub) {
         const publicKey = ctx.params.publicKeyOrHandle
@@ -1265,6 +1338,15 @@ export default (router) => {
         }
       }
 
+      
+      if (hubOnly === 'true') {
+        await hub.format();
+        ctx.body = {
+          hub,
+        }
+        return
+      }
+
       const collaborators = await hub.$relatedQuery('collaborators')
       let releases = await hub.$relatedQuery('releases')
       for (let release of releases) {
@@ -1278,8 +1360,6 @@ export default (router) => {
         NinaProcessor.warmCache(hub.data.image);
       }
       
-      await hub.format();
-
       for (let collaborator of collaborators) {
         await collaborator.format();
       }
@@ -1287,6 +1367,7 @@ export default (router) => {
       for await (let post of posts) {
         await post.format();
       }
+      await hub.format();
 
       ctx.body = {
         hub,
@@ -1314,19 +1395,18 @@ export default (router) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-        const followers = []
-        for await (let subscription of subscriptions.results) {
-          if (subscription.subscriptionType === 'hub') {
-            const account = await Account.query().findOne({ publicKey: subscription.from });
-            await account.format();
-            delete subscription.id
-            followers.push({
-              account,
-              subscription,
-            })
-          }
-        }
-  
+      const followers = []
+      const accounts = await Account.query().whereIn('publicKey', subscriptions.results.map(subscription => subscription.from))
+      for await (let account of accounts) {
+        await account.format();
+        const accountFollowers = await Subscription.query().where('to', account.publicKey).range(0, 0)
+        followers.push({
+          account,
+          followers: Number(accountFollowers.total),
+          subscription: subscriptions.results.find(subscription => subscription.from === account.publicKey)
+        })
+      }
+
       ctx.body = {
         followers,
         total: subscriptions.total,
@@ -1432,15 +1512,26 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle/releases', async (ctx) => {
     try {
       await NinaProcessor.init()
-      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', random='false' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases = await hub.$relatedQuery('releases')
-        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-        .orderBy(column, sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
-      const releasesVisible = await getVisibleReleases(releases.results)
+      let releases
+      if (random === 'true') {
+        releases = await hub.$relatedQuery('releases')
+          .orderByRaw('random()')
+          .limit(limit)
+        releases = {
+          results: releases,
+          total: releases.length
+        }
+      } else {
+        releases = await hub.$relatedQuery('releases')
+          .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+          .orderBy(column, sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+      }
 
+      const releasesVisible = await getVisibleReleases(releases.results)
       const hubContentPublicKeys = []
       for await (let release of releasesVisible) {
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
@@ -1469,7 +1560,7 @@ export default (router) => {
 
       ctx.body = { 
         releases: releasesVisible,
-        total: releasesVisible.length,
+        total: releases.total,
         publicKey: hub.publicKey,
         query,
       };
@@ -1479,7 +1570,42 @@ export default (router) => {
     }
   })
 
-  router.get('/hubs/:publicKeyOrHandle/posts', async (ctx) => {
+  const secondFloorMiddleware = async (ctx, next) => {
+    if (ctx.params.publicKeyOrHandle === 'FjAN2t3Q2URkTfCUupbbDoLPUzi5zCv8APDDj2XUcjoL') {
+      try {
+        return ratelimit({
+          driver: 'memory',
+          db: new Map(),
+          duration: 600000,
+          errorMessage:`Casey Jones you better watch your speed`,
+          id: (ctx) => {
+            return ctx.request.headers['x-id'] || '1'
+          },
+          headers: {
+            remaining: 'Rate-Limit-Remaining',
+            reset: 'Rate-Limit-Reset',
+            total: 'Rate-Limit-Total'
+          },
+          whitelist: (ctx) => {
+            if (
+              ctx.request.query.api_key === process.env.NINA_API_KEY
+            ) {
+              return true;
+            }
+        
+            return false;
+          },
+          max: 200,
+          disableHeader: false,
+        })(ctx, next)
+      } catch (error) {
+        console.log('secondFloorMiddleware error', error)
+      }
+    }
+    return next()
+  }
+
+  router.get('/hubs/:publicKeyOrHandle/posts', secondFloorMiddleware, async (ctx) => {
     try {
       let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column, 'data');
@@ -1967,6 +2093,94 @@ export default (router) => {
     }
   });
 
+  router.get('/search/all', async (ctx) => {
+    try {
+      let { offset=0, limit=2, sort='desc', query='' } = ctx.query;
+
+      const accounts = await Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+        .orderBy('displayName', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let account of accounts.results) {
+        account.type = 'account'
+        await account.format();
+      }
+  
+      const releases = await Release.query()
+        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+  
+      for await (let release of releases.results) {
+        release.type = 'release'
+        await release.format();
+      }
+  
+      const hubs = await Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orderBy('datetime', sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      for await (let hub of hubs.results) {
+        hub.type = 'hub'
+        await hub.format()
+      }
+  
+      // const posts = await Post.query()
+      //   .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      //   .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      //   .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      //   .orderBy('datetime', sort)
+      //   .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      // for await (let post of posts.results) {
+      //   post.type = 'post'
+      //   await post.format();
+      // }
+
+      const exactMatch = await Tag.query()
+        .where('value', `${query}`)
+        .first();
+
+      const tags = await Tag.query()
+        .where('value', 'like', `%${query}%`)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      
+      if (exactMatch && !tags.results.find(tag => tag.id === exactMatch.id)) {
+        tags.results.unshift(exactMatch)
+      }
+
+      for await (let tag of tags.results) {
+        tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        tag.type = 'tag'
+        await tag.format();
+      }
+
+      tags.results.sort((a, b) => b.count - a.count)
+  
+      ctx.body = {
+        accounts,
+        releases,
+        hubs,
+        // posts,
+        tags,
+      };
+    } catch (error) {
+      console.log(error)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching search results'
+      }
+    }
+});
 
   router.post('/search/v2', async (ctx) => {
     try { 
@@ -1985,6 +2199,7 @@ export default (router) => {
         .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('publisherId', getPublisherSubQuery(query))
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       
       const formattedReleasesResponse = []
@@ -2375,6 +2590,10 @@ export default (router) => {
       }
     } catch (error) {
       console.warn(error)
+      ctx.status = 400
+      ctx.body = {
+        success: false,
+      }
     }
   })
 
@@ -2518,4 +2737,49 @@ const getPublishedThroughHubSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publishedThroughHubSubQuery
+}
+
+const getPublisherSubQuery = (query) => {
+  const publisherSubQuery = Account.query()
+    .select('id')
+    .where('displayName', 'ilike', `%${query}%`)
+    .orWhere('handle', 'ilike', `%${query}%`)
+
+  return publisherSubQuery
+}
+
+const processReleaseCollectedTransaction = async (txId) => {
+  try {
+    await NinaProcessor.init();
+    const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0
+    })
+    if (tx) {
+      let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
+      if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
+        let releasePublicKey = accounts[2].toBase58()
+        let accountPublicKey = accounts[1].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
+        let releasePublicKey = accounts[1].toBase58()
+        let accountPublicKey = accounts[3].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      } else if (!accounts || accounts.length === 0) {
+        for (let innerInstruction of tx.meta.innerInstructions) {
+          for (let instruction of innerInstruction.instructions) {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
+              console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
+              accounts = instruction.accounts
+            }
+          }
+        }
+        let releasePublicKey = accounts[2].toBase58()
+        let accountPublicKey = accounts[1].toBase58()
+        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
+      }
+    }
+  } catch (error) {
+    console.error('Error processing release collected transaction', error)
+  }
 }

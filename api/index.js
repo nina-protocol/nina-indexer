@@ -29,7 +29,6 @@ app.use(ratelimit({
   },
   whitelist: (ctx) => {
     if (
-      ctx.request.header.host.includes('ninaprotocol.com') ||
       ctx.request.query.api_key === process.env.NINA_API_KEY
     ) {
       return true;
@@ -37,7 +36,7 @@ app.use(ratelimit({
 
     return false;
   },
-  max: 2500,
+  max: 200,
   disableHeader: false,
 }));
 
