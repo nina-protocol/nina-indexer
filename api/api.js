@@ -1437,8 +1437,7 @@ export default (router) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases
-      const visibleReleasesForHub = await Release
+      const releases = await Release
         .query()
         .joinRelated('hubs')
         .where('hubs_join.hubId', hub.id)
@@ -1446,9 +1445,6 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-      releases = await Release.query()
-        .whereIn('id', visibleReleasesForHub.results.map(release => release.id))
-
       
       let posts = await hub.$relatedQuery('posts')
         .orderBy(formatColumnForJsonFields(column, 'data'), sort)
@@ -1459,11 +1455,11 @@ export default (router) => {
         await post.format();
       }
   
-      for (let release of releases) {
+      for (let release of releases.results) {
         release.type = 'release'
       }
 
-      const all = [...releases, ...posts]
+      const all = [...releases.results, ...posts]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
@@ -1491,7 +1487,7 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases
       if (random === 'true') {
-        const visibleReleasesForHub = await Release
+        const randomReleases = await Release
           .query()
           .joinRelated('hubs')
           .where('hubs_join.hubId', hub.id)
@@ -1499,15 +1495,12 @@ export default (router) => {
           .orderByRaw('random()')
           .limit(limit)
 
-        releases = await Release.query()
-          .whereIn('id', visibleReleasesForHub.map(release => release.id))
-
         releases = {
-          results: releases,
-          total: releases.length
+          results: randomReleases,
+          total: randomReleases.length
         }
       } else {
-        const visibleReleasesForHub = await Release
+        releases = await Release
           .query()
           .joinRelated('hubs')
           .where('hubs_join.hubId', hub.id)
@@ -1515,13 +1508,6 @@ export default (router) => {
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
           .orderBy(column, sort)
           .range(Number(offset), Number(offset) + Number(limit) - 1);
-        releases = await Release.query()
-          .whereIn('id', visibleReleasesForHub.results.map(release => release.id))
-
-        releases = {
-          results: releases,
-          total: visibleReleasesForHub.total
-        }
       }
 
       const hubContentPublicKeys = []
@@ -1565,7 +1551,7 @@ export default (router) => {
   router.get('/hubs/:publicKeyOrHandle/releases/archived', async (ctx) => {
     try {
       await NinaProcessor.init()
-      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
       column = formatColumnForJsonFields(column);
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases
@@ -1577,6 +1563,7 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
+
       releases = await Release.query()
         .whereIn('id', archivedReleasesForHub.results.map(release => release.id))
 
