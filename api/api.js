@@ -1437,9 +1437,18 @@ export default (router) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases = await hub.$relatedQuery('releases')
-        .orderBy(formatColumnForJsonFields(column), sort)
+      let releases
+      const visibleReleasesForHub = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.visible', true)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      releases = await Release.query()
+        .whereIn('id', visibleReleasesForHub.results.map(release => release.id))
+
       
       let posts = await hub.$relatedQuery('posts')
         .orderBy(formatColumnForJsonFields(column, 'data'), sort)
@@ -1482,18 +1491,37 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases
       if (random === 'true') {
-        releases = await hub.$relatedQuery('releases')
+        const visibleReleasesForHub = await Release
+          .query()
+          .joinRelated('hubs')
+          .where('hubs_join.hubId', hub.id)
+          .where('hidden', false)
           .orderByRaw('random()')
           .limit(limit)
+
+        releases = await Release.query()
+          .whereIn('id', visibleReleasesForHub.map(release => release.id))
+
         releases = {
           results: releases,
           total: releases.length
         }
       } else {
-        releases = await hub.$relatedQuery('releases')
+        const visibleReleasesForHub = await Release
+          .query()
+          .joinRelated('hubs')
+          .where('hubs_join.hubId', hub.id)
+          .where('hubs_join.visible', true)
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
           .orderBy(column, sort)
           .range(Number(offset), Number(offset) + Number(limit) - 1);
+        releases = await Release.query()
+          .whereIn('id', visibleReleasesForHub.results.map(release => release.id))
+
+        releases = {
+          results: releases,
+          total: visibleReleasesForHub.total
+        }
       }
 
       const hubContentPublicKeys = []
@@ -1533,6 +1561,68 @@ export default (router) => {
       hubNotFound(ctx)
     }
   })
+
+  router.get('/hubs/:publicKeyOrHandle/releases/archived', async (ctx) => {
+    try {
+      await NinaProcessor.init()
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      let releases
+      const archivedReleasesForHub = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.visible', false)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+      releases = await Release.query()
+        .whereIn('id', archivedReleasesForHub.results.map(release => release.id))
+
+      releases = {
+        results: releases,
+        total: archivedReleasesForHub.total
+      }
+
+      const hubContentPublicKeys = []
+      for await (let release of releases.results) {
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
+            new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
+            new anchor.web3.PublicKey(release.publicKey).toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        hubContentPublicKeys.push(hubContentPublicKey)
+      }
+      const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
+      for await (let release of releases.results) {
+        const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
+        if (releaseHubContent) {
+          release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
+        }
+      }
+      
+      if (sort === 'desc') {
+        releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = { 
+        releases: releases.results,
+        total: releases.total,
+        publicKey: hub.publicKey,
+        query,
+      };
+    } catch (err) {
+      console.log(err)
+      hubNotFound(ctx)
+    }
+  })
+
 
   const secondFloorMiddleware = async (ctx, next) => {
     if (ctx.params.publicKeyOrHandle === 'FjAN2t3Q2URkTfCUupbbDoLPUzi5zCv8APDDj2XUcjoL') {
