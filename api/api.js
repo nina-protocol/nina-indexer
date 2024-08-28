@@ -1457,6 +1457,7 @@ export default (router) => {
   
       for (let release of releases.results) {
         release.type = 'release'
+        await release.format()
       }
 
       const all = [...releases.results, ...posts]
@@ -1534,6 +1535,10 @@ export default (router) => {
         releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
         releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      for await (let release of releases.results) {
+        await release.format()
       }
 
       ctx.body = { 
