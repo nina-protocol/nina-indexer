@@ -22,34 +22,6 @@ import ratelimit from 'koa-ratelimit';
 // results in applications that haven't implemented pagination yet
 const BIG_LIMIT = 5000;
 
-const getVisibleReleases = async (published) => {
-  const releases = []
-  for await (let release of published) {
-    const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
-
-    if (publishedThroughHub) {
-      // Don't show releases that have been archived from their originating Hub
-      // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-      const isVisible = await Release
-        .query()
-        .joinRelated('hubs')
-        .where('hubs_join.hubId', publishedThroughHub.id)
-        .where('hubs_join.releaseId', release.id)
-        .where('hubs_join.visible', true)
-        .first()
-
-      if (isVisible) {
-        await release.format();      
-        releases.push(release)      
-      }
-    } else {
-      await release.format();
-      releases.push(release)
-    }
-  }
-  return releases
-}
-
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
@@ -173,7 +145,6 @@ export default (router) => {
         }
   
         published = await account.$relatedQuery('published')
-        published = await getVisibleReleases(published)
   
         hubs = await account.$relatedQuery('hubs')
         for await (let hub of hubs) {
@@ -185,7 +156,6 @@ export default (router) => {
         }
   
         revenueShares = await account.$relatedQuery('revenueShares')
-        revenueShares = await getVisibleReleases(revenueShares)
   
         subscriptions = await Subscription.query()
           .where('from', account.publicKey)
@@ -253,12 +223,11 @@ export default (router) => {
       let published = await account.$relatedQuery('published')
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-      const publishedVisible = await getVisibleReleases(published)
-      for (let release of publishedVisible) {
+      for (let release of published) {
         release.type = 'release'
       }
 
-      const all = [...collected, ...hubs, ...posts, ...publishedVisible]
+      const all = [...collected, ...hubs, ...posts, ...published]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
@@ -416,10 +385,9 @@ export default (router) => {
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-      const publishedVisible = await getVisibleReleases(published.results)
 
       ctx.body = {
-        published: publishedVisible,
+        published: published.results,
         total: published.total,
         query,
       };
@@ -477,10 +445,8 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      const revenueSharesVisible = await getVisibleReleases(revenueShares.results)
-
       ctx.body = {
-        revenueShares: revenueSharesVisible,
+        revenueShares: revenueShares.results,
         total: revenueShares.total,
       };
     } catch (err) {
@@ -1471,9 +1437,14 @@ export default (router) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       const hub = await hubForPublicKeyOrHandle(ctx)
-      let releases = await hub.$relatedQuery('releases')
-        .orderBy(formatColumnForJsonFields(column), sort)
+      const releases = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.visible', true)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
       
       let posts = await hub.$relatedQuery('posts')
         .orderBy(formatColumnForJsonFields(column, 'data'), sort)
@@ -1484,12 +1455,11 @@ export default (router) => {
         await post.format();
       }
   
-      const releasesVisible = await getVisibleReleases(releases)
-      for (let release of releasesVisible) {
+      for (let release of releases.results) {
         release.type = 'release'
       }
 
-      const all = [...releasesVisible, ...posts]
+      const all = [...releases.results, ...posts]
       if (sort === 'desc') {
         all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
@@ -1517,23 +1487,31 @@ export default (router) => {
       const hub = await hubForPublicKeyOrHandle(ctx)
       let releases
       if (random === 'true') {
-        releases = await hub.$relatedQuery('releases')
+        const randomReleases = await Release
+          .query()
+          .joinRelated('hubs')
+          .where('hubs_join.hubId', hub.id)
+          .where('hidden', false)
           .orderByRaw('random()')
           .limit(limit)
+
         releases = {
-          results: releases,
-          total: releases.length
+          results: randomReleases,
+          total: randomReleases.length
         }
       } else {
-        releases = await hub.$relatedQuery('releases')
+        releases = await Release
+          .query()
+          .joinRelated('hubs')
+          .where('hubs_join.hubId', hub.id)
+          .where('hubs_join.visible', true)
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
           .orderBy(column, sort)
           .range(Number(offset), Number(offset) + Number(limit) - 1);
       }
 
-      const releasesVisible = await getVisibleReleases(releases.results)
       const hubContentPublicKeys = []
-      for await (let release of releasesVisible) {
+      for await (let release of releases.results) {
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
@@ -1545,7 +1523,7 @@ export default (router) => {
         hubContentPublicKeys.push(hubContentPublicKey)
       }
       const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
-      for await (let release of releasesVisible) {
+      for await (let release of releases.results) {
         const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
         if (releaseHubContent) {
           release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
@@ -1553,13 +1531,13 @@ export default (router) => {
       }
       
       if (sort === 'desc') {
-        releasesVisible.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+        releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
       } else {
-        releasesVisible.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+        releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
       }
 
       ctx.body = { 
-        releases: releasesVisible,
+        releases: releases.results,
         total: releases.total,
         publicKey: hub.publicKey,
         query,
@@ -1569,6 +1547,69 @@ export default (router) => {
       hubNotFound(ctx)
     }
   })
+
+  router.get('/hubs/:publicKeyOrHandle/releases/archived', async (ctx) => {
+    try {
+      await NinaProcessor.init()
+      let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
+      column = formatColumnForJsonFields(column);
+      const hub = await hubForPublicKeyOrHandle(ctx)
+      let releases
+      const archivedReleasesForHub = await Release
+        .query()
+        .joinRelated('hubs')
+        .where('hubs_join.hubId', hub.id)
+        .where('hubs_join.visible', false)
+        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .orderBy(column, sort)
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      releases = await Release.query()
+        .whereIn('id', archivedReleasesForHub.results.map(release => release.id))
+
+      releases = {
+        results: releases,
+        total: archivedReleasesForHub.total
+      }
+
+      const hubContentPublicKeys = []
+      for await (let release of releases.results) {
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
+            new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
+            new anchor.web3.PublicKey(release.publicKey).toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        hubContentPublicKeys.push(hubContentPublicKey)
+      }
+      const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
+      for await (let release of releases.results) {
+        const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
+        if (releaseHubContent) {
+          release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
+        }
+      }
+      
+      if (sort === 'desc') {
+        releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
+      } else {
+        releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
+      }
+
+      ctx.body = { 
+        releases: releases.results,
+        total: releases.total,
+        publicKey: hub.publicKey,
+        query,
+      };
+    } catch (err) {
+      console.log(err)
+      hubNotFound(ctx)
+    }
+  })
+
 
   const secondFloorMiddleware = async (ctx, next) => {
     if (ctx.params.publicKeyOrHandle === 'FjAN2t3Q2URkTfCUupbbDoLPUzi5zCv8APDDj2XUcjoL') {
@@ -2195,40 +2236,14 @@ export default (router) => {
         await account.format()
       }
       const releases = await Release.query()
-        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('publisherId', getPublisherSubQuery(query))
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+        .where('archived', false)
+        .whereIn('id', getReleaseSearchSubQuery(query))
       
       const formattedReleasesResponse = []
       for await (let release of releases) {
         release.type = 'release'
-        const publishedThroughHub = await release.$relatedQuery('publishedThroughHub')
-
-        if (publishedThroughHub) {
-          // Don't show releases that have been archived from their originating Hub
-          // TODO: This is a temporary solution. To Double posts - should be removed once we have mutability  
-          const isVisible = await Release
-            .query()
-            .joinRelated('hubs')
-            .where('hubs_join.hubId', publishedThroughHub.id)
-            .where('hubs_join.releaseId', release.id)
-            .where('hubs_join.visible', true)
-            .first()
-          if (isVisible) {  
-            await release.format();
-            await publishedThroughHub.format();  
-            formattedReleasesResponse.push({
-              ...release,
-              hub: publishedThroughHub,
-            })
-          }
-        } else {
-          await release.format();
-          formattedReleasesResponse.push(release)
-        }
+        await release.format();
+        formattedReleasesResponse.push(release)
       }
       
       const hubs = await Hub.query()
@@ -2746,6 +2761,19 @@ const getPublisherSubQuery = (query) => {
     .orWhere('handle', 'ilike', `%${query}%`)
 
   return publisherSubQuery
+}
+
+const getReleaseSearchSubQuery = (query) => {
+  const releases = Release.query()
+    .select('id')
+    .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+    .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+    .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+    .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+    .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+    .orWhereIn('publisherId', getPublisherSubQuery(query))
+
+    return releases
 }
 
 const processReleaseCollectedTransaction = async (txId) => {
