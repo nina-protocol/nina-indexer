@@ -1491,7 +1491,7 @@ export default (router) => {
           .query()
           .joinRelated('hubs')
           .where('hubs_join.hubId', hub.id)
-          .where('hidden', false)
+          .where('archived', false)
           .orderByRaw('random()')
           .limit(limit)
 
