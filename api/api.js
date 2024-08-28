@@ -225,6 +225,7 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
       for (let release of published) {
         release.type = 'release'
+        await release.format()
       }
 
       const all = [...collected, ...hubs, ...posts, ...published]
@@ -385,6 +386,10 @@ export default (router) => {
         .orderBy(column, sort)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+      for await (let release of published.results) {
+        await release.format()
+      }
 
       ctx.body = {
         published: published.results,
@@ -1572,6 +1577,10 @@ export default (router) => {
       releases = await Release.query()
         .whereIn('id', archivedReleasesForHub.results.map(release => release.id))
 
+      for await (let release of releases) {
+        await release.format()
+      }
+      
       releases = {
         results: releases,
         total: archivedReleasesForHub.total
