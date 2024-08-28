@@ -20,7 +20,7 @@ const runInitialSync = async () => {
   try {
     console.log('Initial Sync starting')
     await NinaProcessor.runDbProcesses()
-    await NinaProcessor.runProcessExchangesAndTransactions(true)
+    await NinaProcessor.runProcessExchangesAndTransactions()
     if (process.env.RUN_INITIAL_SYNC === 'true') {
       await NinaProcessor.processCollectors()
     }
