@@ -18,7 +18,7 @@ export default class Release extends Model {
   static idColumn = 'id';
   static jsonSchema = {
     type: 'object',
-    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug', 'price', 'archived'],
+    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug', 'price'],
     properties: {
       publicKey: { type: 'string' },
       mint: { type: 'string' },
@@ -107,6 +107,7 @@ export default class Release extends Model {
       publisherId,
       price: `${price}`,
       paymentMint,
+      archived: false
     })
     if (metadata.properties.tags) {
       for await (let tag of metadata.properties.tags) {
