@@ -756,8 +756,15 @@ export default (router) => {
         await transaction.format()
         feedItems.push(transaction)
       }
+
+      const releases = []
+      for (let transaction of feedItems) {
+        if (transaction.release) {
+          releases.push(transaction.release)
+        }
+      }
       ctx.body = {
-        releases: feedItems.map(transaction => transaction.release),
+        releases,
         total: transactions.total
       };
     } catch (err) {
