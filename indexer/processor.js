@@ -808,8 +808,8 @@ class NinaProcessor {
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
-            hubRelease.hub.toBuffer(),
-            hubRelease.release.toBuffer(),
+            hub.publicKey.toBuffer(),
+            release.publicKey.toBuffer(),
           ],
           NinaProcessor.program.programId
         )
