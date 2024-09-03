@@ -803,7 +803,6 @@ class NinaProcessor {
       if (transactionObject.type === 'HubContentToggleVisibility') {
         const release = await Release.query().findOne({ publicKey: releasePublicKey })
         const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
-        const hubRelease = await Hub.relatedQuery('releases').for(hub.id).where( {id: release.id }).first();
       
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
@@ -814,9 +813,9 @@ class NinaProcessor {
           NinaProcessor.program.programId
         )
         const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-        await hubRelease.$query().patch({
-          visible: hubContent.account.visible
-        })
+        await Hub.relatedQuery('releases').for(hub.id).patch({
+          visible: hubContent.visible,
+        }).where( {id: release.id });
       }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
