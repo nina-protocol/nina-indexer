@@ -1702,7 +1702,22 @@ export default (router) => {
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
-      if (hub && !release) {
+      if (hub && release) {
+        const hubRelease = await Hub.relatedQuery('releases').for(hub.id).where( {id: release.id });
+
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+            hubRelease.hub.toBuffer(),
+            hubRelease.release.toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        await hubRelease.query().patch({
+          visible: hubContent.visible
+        })
+      } else if (hub && !release) {
         await NinaProcessor.init()
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
         if (hubRelease) {
