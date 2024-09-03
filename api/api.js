@@ -1703,8 +1703,8 @@ export default (router) => {
         .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
         .first()
       if (hub && release) {
-        const hubRelease = await Hub.relatedQuery('releases').for(hub.id).where( {id: release.id });
-
+        const hubRelease = await Hub.relatedQuery('releases').for(hub.id).where( {id: release.id }).first();
+        console.log('hubRelease', hubRelease)
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
