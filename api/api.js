@@ -1708,8 +1708,8 @@ export default (router) => {
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
           [
             Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
-            hub.publicKey.toBuffer(),
-            release.publicKey.toBuffer(),
+            new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
+            new anchor.web3.PublicKey(release.publicKey).toBuffer(),
           ],
           NinaProcessor.program.programId
         )
