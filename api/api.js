@@ -1695,7 +1695,6 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
     try {
-      console.log('in it')
       const hub = await hubForPublicKeyOrHandle(ctx)
       const release = await Release
         .query()
@@ -1716,6 +1715,11 @@ export default (router) => {
         await Hub.relatedQuery('releases').for(hub.id).patch({
           visible: hubContent.visible,
         }).where( {id: release.id });
+
+        ctx.body = {
+          release,
+          hub,
+        }
       } else if (hub && !release) {
         await NinaProcessor.init()
         const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
