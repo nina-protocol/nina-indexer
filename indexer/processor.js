@@ -799,6 +799,25 @@ class NinaProcessor {
           visible: true,
         }).where( {id: release.id });
       }
+
+      if (transactionObject.type === 'HubContentToggleVisibility') {
+        const release = await Release.query().findOne({ publicKey: releasePublicKey })
+        const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+        const hubRelease = await Hub.relatedQuery('releases').for(hub.id).where( {id: release.id });
+      
+        const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
+          [
+            Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
+            hubRelease.hub.toBuffer(),
+            hubRelease.release.toBuffer(),
+          ],
+          NinaProcessor.program.programId
+        )
+        const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        await hubRelease.query().patch({
+          visible: hubContent.visible
+        })
+      }
       if (transactionRecord) {
         await transactionRecord.$query().patch(transactionObject)
       } else {
