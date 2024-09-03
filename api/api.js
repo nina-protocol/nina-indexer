@@ -1714,7 +1714,7 @@ export default (router) => {
           NinaProcessor.program.programId
         )
         const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-        await hubRelease.query().patch({
+        await hubRelease.$query().patch({
           visible: hubContent.visible
         })
       } else if (hub && !release) {
