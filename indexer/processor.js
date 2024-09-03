@@ -815,7 +815,7 @@ class NinaProcessor {
         )
         const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
         await hubRelease.$query().patch({
-          visible: hubContent.visible
+          visible: hubContent.account.visible
         })
       }
       if (transactionRecord) {
