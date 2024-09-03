@@ -1695,6 +1695,7 @@ export default (router) => {
 
   router.get('/hubs/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
     try {
+      console.log('in it')
       const hub = await hubForPublicKeyOrHandle(ctx)
       const release = await Release
         .query()
