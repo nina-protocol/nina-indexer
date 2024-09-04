@@ -273,6 +273,10 @@ class NinaProcessor {
 
   async processExchangesAndTransactions(isInitialRun = false) {
     try {
+      const latestSignatureFromDb = await Transaction.query().orderBy('id', 'desc').first()
+      if (latestSignatureFromDb) {
+        this.latestSignature = latestSignatureFromDb.txid
+      }
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
       for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
@@ -581,9 +585,11 @@ class NinaProcessor {
       if (this.isFileServicePayer(accounts)) {
         accountPublicKey = accounts[1].toBase58()
         hubPublicKey = accounts[2].toBase58()
+        releasePublicKey = accounts[4].toBase58()
       } else {
         accountPublicKey = accounts[0].toBase58()
         hubPublicKey = accounts[1].toBase58()
+        releasePublicKey = accounts[3].toBase58()
       }
     } else if (tx.meta.logMessages.some(log => log.includes('HubRemoveCollaborator'))) {
       transactionObject.type = 'HubRemoveCollaborator'

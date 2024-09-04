@@ -59,13 +59,13 @@ const startProcessing = async () => {
 
   cron.schedule('*/10 * * * * *', async() => {
     
-    console.log(`${new Date()} Cron job starting: Sync Hubs + Releases`);
+    console.log(`${new Date()} Cron job starting: Sync Transactions`);
     if (arg[2]=="--heap-stats") {
       runHeapDiagnostics() // Verbose heap diagnostics if option enabled
     }
     console.log(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
     await NinaProcessor.runProcessExchangesAndTransactions(false)
-    console.log(`${new Date()} Cron job ended: Sync Hubs + Releases`);
+    console.log(`${new Date()} Cron job ended: Sync Transactions`);
   });
   
   cron.schedule('0 * * * *', async() => {
