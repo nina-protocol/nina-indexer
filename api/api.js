@@ -990,12 +990,17 @@ export default (router) => {
 
       if (txid) {
         let tx
+        let i = 0
         await NinaProcessor.init()
-        while (i < 50 || !transaction) {
-          tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-            commitment: 'confirmed',
-            maxSupportedTransactionVersion: 0
-          })
+        while (i < 50 || !tx) {
+          try {
+            tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+              commitment: 'confirmed',
+              maxSupportedTransactionVersion: 0
+            })
+          } catch (error) {
+            i++
+          }
         }
         const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
         const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
@@ -1956,14 +1961,19 @@ export default (router) => {
         let hub
         let hubPublicKey
         let tx
+        let i = 0
         if (txid) {
           while (i < 50 || !tx) {
-            tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-              commitment: 'confirmed',
-              maxSupportedTransactionVersion: 0
-            })
+            try {
+              tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+                commitment: 'confirmed',
+                maxSupportedTransactionVersion: 0
+              })
+            } catch (error) {
+              i++
+            }
           }
-            console.log('tx', tx)
+          console.log('tx', tx)
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           hubPublicKey = accounts[1].toBase58()
         }
