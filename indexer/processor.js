@@ -87,9 +87,9 @@ class NinaProcessor {
         await this.processHubs();
         console.log(`${new Date()} Completed processHubs()`)
 
-        console.log(`${new Date()} Running processSubscriptions()`)
-        await this.processSubscriptions();
-        console.log(`${new Date()} Completed processSubscriptions()`)
+        // console.log(`${new Date()} Running processSubscriptions()`)
+        // await this.processSubscriptions();
+        // console.log(`${new Date()} Completed processSubscriptions()`)
 
         console.log(`${new Date()} Running processVerifications()`)
         await this.processVerifications();
@@ -783,6 +783,28 @@ class NinaProcessor {
       if (transactionObject.type === 'SubscriptionUnsubscribe') {
         await Subscription.query().delete().where('publicKey', accounts[2].toBase58())
       }
+
+      if (transactionObject.type === 'SubscriptionSubscribeAccount') {
+        await Subscription.query().insert({
+          publicKey: accounts[2].toBase58(),
+          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+          from: accountPublicKey,
+          to: toAccountPublicKey,
+          subscriptionType: 'account',
+        });
+      }
+
+      if (transactionObject.type === 'SubscriptionSubscribeHub') {
+        await Subscription.query().insert({
+          publicKey: accounts[2].toBase58(),
+          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+          from: accountPublicKey,
+          to: toHubPublicKey,
+          subscriptionType: 'hub',
+        });
+      }
+
+
 
       // Note: madjestic kasuals releases didnt have a hubId set in their db.Release record,
       // looked into it and noticed that their hubContent.publishedThroughHub was set to false
