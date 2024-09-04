@@ -273,10 +273,12 @@ class NinaProcessor {
 
   async processExchangesAndTransactions(isInitialRun = false) {
     try {
-      const latestSignatureFromDb = await Transaction.query().orderBy('id', 'desc').first()
-      if (latestSignatureFromDb) {
-        this.latestSignature = latestSignatureFromDb.txid
-      }
+      const latestSignatureInDatabase = await Transaction.query().orderBy('id', 'desc').first();
+      if (latestSignatureInDatabase) {
+        this.latestSignature = {
+          signature: latestSignatureInDatabase.txid
+        }
+      } 
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
       for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
@@ -351,7 +353,6 @@ class NinaProcessor {
           } catch (error) {
             console.log('error processing tx', error)
           }
-
           this.latestSignature = page[i]
           i++
         }
@@ -791,26 +792,32 @@ class NinaProcessor {
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeAccount') {
-        await Subscription.query().insert({
-          publicKey: accounts[2].toBase58(),
-          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-          from: accountPublicKey,
-          to: toAccountPublicKey,
-          subscriptionType: 'account',
-        });
+        try {
+          await Subscription.query().insert({
+            publicKey: accounts[2].toBase58(),
+            datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+            from: accountPublicKey,
+            to: toAccountPublicKey,
+            subscriptionType: 'account',
+          });
+        } catch (error) {
+          console.log('error creating SubscriptionSubscribeAccount in processTransaction:',  accounts[2].toBase58())
+        }
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeHub') {
-        await Subscription.query().insert({
-          publicKey: accounts[2].toBase58(),
-          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-          from: accountPublicKey,
-          to: toHubPublicKey,
-          subscriptionType: 'hub',
-        });
+        try {
+          await Subscription.query().insert({
+            publicKey: accounts[2].toBase58(),
+            datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+            from: accountPublicKey,
+            to: toHubPublicKey,
+            subscriptionType: 'hub',
+          });
+        } catch (error) {
+          console.log('error creating SubscriptionSubscribeHub in processTransaction:',  accounts[2].toBase58())
+        }
       }
-
-
 
       // Note: madjestic kasuals releases didnt have a hubId set in their db.Release record,
       // looked into it and noticed that their hubContent.publishedThroughHub was set to false
