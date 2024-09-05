@@ -65,9 +65,9 @@ export default class Release extends Model {
     let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
     let json
     try {
-      json = (await axios.get(metadataAccount.uri)).data
+      json = (await axios.get(metadataAccount.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
     } catch (error) {
-      json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
+      json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
     }
 
     const slug = await this.generateSlug(json);
