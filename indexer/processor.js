@@ -279,7 +279,7 @@ class NinaProcessor {
           signature: latestSignatureInDatabase.txid	
         }	
       } 	
-      
+
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
       for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
@@ -667,9 +667,9 @@ class NinaProcessor {
       let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
       let json
       try {
-        json = (await axios.get(metadataAccount.uri)).data
+        json = (await axios.get(metadataAccount.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
       } catch (error) {
-        json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
+        json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
       }
       const release = await Release.query().findOne({ publicKey: releasePublicKey })
       const tagsBefore = await release.$relatedQuery('tags')
@@ -1351,10 +1351,11 @@ class NinaProcessor {
     if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
       let data 
       try {
-        data = (await axios.get(hubAccount.account.uri)).data;
+        data = (await axios.get(hubAccount.account.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
       } catch (error) {
-        data = (await axios.get(hubAccount.account.uri.replace('arweave.net', 'ar-io.net'))).data;
+        data = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
       }
+
       await hub.$query().patch({
         data,
         dataUri: hubAccount.account.uri,
