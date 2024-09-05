@@ -1842,7 +1842,7 @@ export default (router) => {
         try {
           data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
         } catch (error) {
-          data = await axios.get(uri..replace('gateway.irys.xyz', 'arweave.net'))
+          data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
         }
         const publisher = await Account.findOrCreate(postAccount.author.toBase58());
         post = await Post.query().insertGraph({
