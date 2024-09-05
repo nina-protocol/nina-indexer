@@ -989,20 +989,12 @@ export default (router) => {
       }
 
       if (txid) {
-        let tx
-        let i = 0
         await NinaProcessor.init()
-        while (i < 50 && !tx) {
-          try {
-            tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-              commitment: 'confirmed',
-              maxSupportedTransactionVersion: 0
-            })
-          } catch (error) {
-            i++
-            await sleep(1500)
-          }
-        }
+        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
         const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
         const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
   
@@ -1961,20 +1953,11 @@ export default (router) => {
         }
         let hub
         let hubPublicKey
-        let tx
-        let i = 0
         if (txid) {
-          while (i < 50 && !tx) {
-            try {
-              tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-                commitment: 'confirmed',
-                maxSupportedTransactionVersion: 0
-              })
-            } catch (error) {
-              i++
-              await sleep(1500)
-            }
-          }
+          const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
+            commitment: 'confirmed',
+            maxSupportedTransactionVersion: 0
+          })
           console.log('tx', tx)
           const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
           hubPublicKey = accounts[1].toBase58()
@@ -2132,22 +2115,13 @@ export default (router) => {
   router.get('/exchanges/:publicKey', async (ctx) => {
     try {
       await NinaProcessor.init()
-      const transactionID = ctx.query.transactionId
       let transaction
-      if (transactionID) {
-        let i = 0
-        while (i < 50 && !transaction) {
-          try {
-            transaction = await NinaProcessor.provider.connection.getParsedTransaction(transactionID, {
-              commitment: 'confirmed',
-              maxSupportedTransactionVersion: 0
-            })
-          } catch (error) {
-            i++
-            await sleep(1500)
-          }
-        }
-        logger(`GET /exchanges/:publicKey ${transactionID}`)
+      if (ctx.query.transactionId) {
+        transaction = await NinaProcessor.provider.connection.getParsedTransaction(ctx.query.transactionId, {
+          commitment: 'confirmed',
+          maxSupportedTransactionVersion: 0
+        })
+        logger(`GET /exchanges/:publicKey ${ctx.query.transactionId}`)
       }
       let exchange = await Exchange.query().findOne({publicKey: ctx.params.publicKey})
       
@@ -2848,19 +2822,10 @@ const getReleaseSearchSubQuery = (query) => {
 const processReleaseCollectedTransaction = async (txId) => {
   try {
     await NinaProcessor.init();
-    let i = 0
-    let tx
-     while (i < 50 && !tx) {
-      try {
-        tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-          commitment: 'confirmed',
-          maxSupportedTransactionVersion: 0
-        })
-      } catch (error) {
-        i++
-        await sleep(1500)
-      }
-    }
+    const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
+      commitment: 'confirmed',
+      maxSupportedTransactionVersion: 0
+    })
     if (tx) {
       let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
       if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
