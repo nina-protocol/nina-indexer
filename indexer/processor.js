@@ -273,12 +273,6 @@ class NinaProcessor {
 
   async processExchangesAndTransactions(isInitialRun = false) {
     try {
-      const latestSignatureInDatabase = await Transaction.query().orderBy('id', 'desc').first();
-      if (latestSignatureInDatabase) {
-        this.latestSignature = {
-          signature: latestSignatureInDatabase.txid
-        }
-      } 
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
       for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
@@ -353,6 +347,7 @@ class NinaProcessor {
           } catch (error) {
             console.log('error processing tx', error)
           }
+
           this.latestSignature = page[i]
           i++
         }
@@ -440,7 +435,6 @@ class NinaProcessor {
       const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
     }
-
     let hubPublicKey
     let accountPublicKey
     let releasePublicKey
@@ -587,11 +581,9 @@ class NinaProcessor {
       if (this.isFileServicePayer(accounts)) {
         accountPublicKey = accounts[1].toBase58()
         hubPublicKey = accounts[2].toBase58()
-        releasePublicKey = accounts[4].toBase58()
       } else {
         accountPublicKey = accounts[0].toBase58()
         hubPublicKey = accounts[1].toBase58()
-        releasePublicKey = accounts[3].toBase58()
       }
     } else if (tx.meta.logMessages.some(log => log.includes('HubRemoveCollaborator'))) {
       transactionObject.type = 'HubRemoveCollaborator'
@@ -793,44 +785,26 @@ class NinaProcessor {
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeAccount') {
-        const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
-        if (!existingSubscription) {
-          try {
-            const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(accounts[2].toBase58(), 'confirmed')
-            if (subscriptionAccount) {
-              await Subscription.query().insert({
-                publicKey: accounts[2].toBase58(),
-                datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-                from: accountPublicKey,
-                to: toAccountPublicKey,
-                subscriptionType: 'account',
-              });
-            }
-          } catch (error) {
-            console.log('error creating SubscriptionSubscribeAccount in processTransaction:',  accounts[2].toBase58(), error)
-          }
-        }
+        await Subscription.query().insert({
+          publicKey: accounts[2].toBase58(),
+          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+          from: accountPublicKey,
+          to: toAccountPublicKey,
+          subscriptionType: 'account',
+        });
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeHub') {
-        const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
-        if (!existingSubscription) {
-          try {
-            const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(accounts[2].toBase58(), 'confirmed')
-            if (subscriptionAccount) {
-              await Subscription.query().insert({
-                publicKey: accounts[2].toBase58(),
-                datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-                from: accountPublicKey,
-                to: toHubPublicKey,
-                subscriptionType: 'hub',
-              });
-            }
-          } catch (error) {
-            console.log('error creating SubscriptionSubscribeHub in processTransaction:',  accounts[2].toBase58(), error)
-          }
-        }
+        await Subscription.query().insert({
+          publicKey: accounts[2].toBase58(),
+          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+          from: accountPublicKey,
+          to: toHubPublicKey,
+          subscriptionType: 'hub',
+        });
       }
+
+
 
       // Note: madjestic kasuals releases didnt have a hubId set in their db.Release record,
       // looked into it and noticed that their hubContent.publishedThroughHub was set to false
