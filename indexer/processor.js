@@ -792,26 +792,38 @@ class NinaProcessor {
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeAccount') {
-        await Subscription.query().insert({
-          publicKey: accounts[2].toBase58(),
-          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-          from: accountPublicKey,
-          to: toAccountPublicKey,
-          subscriptionType: 'account',
-        });
+        const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
+        if (!existingSubscription) {
+          try {
+            await Subscription.query().insert({
+              publicKey: accounts[2].toBase58(),
+              datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+              from: accountPublicKey,
+              to: toAccountPublicKey,
+              subscriptionType: 'account',
+            });
+          } catch (error) {
+            console.log('error creating SubscriptionSubscribeAccount in processTransaction:',  accounts[2].toBase58())
+          }
+        }
       }
 
       if (transactionObject.type === 'SubscriptionSubscribeHub') {
-        await Subscription.query().insert({
-          publicKey: accounts[2].toBase58(),
-          datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-          from: accountPublicKey,
-          to: toHubPublicKey,
-          subscriptionType: 'hub',
-        });
+        const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
+        if (!existingSubscription) {
+          try {
+            await Subscription.query().insert({
+              publicKey: accounts[2].toBase58(),
+              datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+              from: accountPublicKey,
+              to: toHubPublicKey,
+              subscriptionType: 'hub',
+            });
+          } catch (error) {
+            console.log('error creating SubscriptionSubscribeHub in processTransaction:',  accounts[2].toBase58())
+          }
+        }
       }
-
-
 
       // Note: madjestic kasuals releases didnt have a hubId set in their db.Release record,
       // looked into it and noticed that their hubContent.publishedThroughHub was set to false
