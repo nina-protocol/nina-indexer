@@ -2529,15 +2529,23 @@ export default (router) => {
       await NinaProcessor.init();
       let transaction
       const transactionId = ctx.query.transactionId
+
+      let subscription
       if (transactionId) {
-        transaction =
-          await NinaProcessor.provider.connection.getParsedTransaction(
-            transactionId, {
+        let i = 0
+        while (i < 50 && !transaction) {
+          try {
+            transaction = await NinaProcessor.provider.connection.getParsedTransaction(transactionId, {
               commitment: 'confirmed',
               maxSupportedTransactionVersion: 0
-            }
-          );
-        if (transaction) {
+            })
+          } catch (error) {
+            i++
+            console.log('unable to find subscription account tx retrying...', i, error)
+            await sleep(1500)
+          }
+        }
+        if (transaction && transaction.meta.logMessages.some(log => log.includes('SubscriptionUnsubscribe'))) {
           const ninaInstruction = transaction.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
           const accounts = ninaInstruction?.accounts
           const blocktime = transaction.blockTime
@@ -2547,34 +2555,30 @@ export default (router) => {
             message: 'Unfollow success',
           }
           return     
+        } else if (transaction.meta.logMessages.some(log => log.includes('SubscriptionSubscribe'))) {
+          subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
+          if (!subscription) {
+            const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+            if (subscriptionAccount) {
+              await Account.findOrCreate(subscriptionAccount.from.toBase58());
+              subscription = await Subscription.findOrCreate({
+                publicKey: ctx.params.publicKey,
+                from: subscriptionAccount.from.toBase58(),
+                to: subscriptionAccount.to.toBase58(),
+                datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
+                subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
+              })
+              
+              await subscription.format();
+              ctx.body = {
+                subscription,
+              }      
+            }
+          }
         }
       }
-      let subscription = await Subscription.query().findOne({publicKey: ctx.params.publicKey})
-      if (!subscription && !transaction) {
-        const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
-        console.log(2)
-
-        if (subscriptionAccount) {
-          //CREATE ENTRY
-          console.log(3)
-          await Account.findOrCreate(subscriptionAccount.from.toBase58());
-          subscription = await Subscription.findOrCreate({
-            publicKey: ctx.params.publicKey,
-            from: subscriptionAccount.from.toBase58(),
-            to: subscriptionAccount.to.toBase58(),
-            datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
-            subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
-          })
-        } else {
-          throw("Subscription not found")
-        }
-      } 
-      if (subscription) {
-        await subscription.format();
-        ctx.body = {
-          subscription,
-        }  
-      } else {
+      subscription = await Subscription.query().where('publicKey', ctx.params.publicKey)
+      if (!subscription){
         ctx.body = {
           message: 'Subscription not found',
         }  
