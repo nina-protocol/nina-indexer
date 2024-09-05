@@ -273,6 +273,13 @@ class NinaProcessor {
 
   async processExchangesAndTransactions(isInitialRun = false) {
     try {
+      const latestSignatureInDatabase = await Transaction.query().orderBy('id', 'desc').first();	
+      if (latestSignatureInDatabase) {	
+        this.latestSignature = {	
+          signature: latestSignatureInDatabase.txid	
+        }	
+      } 	
+      
       const signatures = (await this.getSignatures(this.provider.connection, this.latestSignature, this.latestSignature === null)).reverse()
       const pages = []
       for (let i = 0; i < signatures.length; i += MAX_PARSED_TRANSACTIONS) {
