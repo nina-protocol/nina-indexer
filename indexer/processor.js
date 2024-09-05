@@ -667,7 +667,7 @@ class NinaProcessor {
       let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
       let json
       try {
-        json = (await axios.get(metadataAccount.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
+        json = (await axios.get(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz'))).data
       } catch (error) {
         json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
       }
@@ -1363,7 +1363,7 @@ class NinaProcessor {
     if (!hub.dataUri || hub.dataUri !== hubAccount.account.uri) {
       let data 
       try {
-        data = (await axios.get(hubAccount.account.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
+        data = (await axios.get(hubAccount.account.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz'))).data
       } catch (error) {
         data = (await axios.get(hubAccount.account.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
       }

@@ -11,9 +11,9 @@ export const uriExtractor = (uri) => {
 export const fetchFromArweave = async (uri) => {
   let response;
   try {
-    response = await axios.get(uri).then(response => response.data);
-  } catch (error) {
     response = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz')).then(response => response.data);
+  } catch (error) {
+    response = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net')).then(response => response.data);
   }
   return response;
 }
