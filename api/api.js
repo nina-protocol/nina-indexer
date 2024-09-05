@@ -1289,8 +1289,13 @@ export default (router) => {
           const authorityPublicKey = hubAccount.authority.toBase58()
           const authority = await Account.findOrCreate(authorityPublicKey);
           const uri = decode(hubAccount.uri)
-          const data = await axios.get(uri)
-          hub = await Hub.query().insertGraph({
+          let data
+          try {
+            data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
+          } catch (error) {
+            data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
+          }
+            hub = await Hub.query().insertGraph({
             publicKey,
             handle: decode(hubAccount.handle),
             data: data.data,
@@ -1406,7 +1411,12 @@ export default (router) => {
       const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
       if (hub && hubAccount) {
         const uri = decode(hubAccount.uri)
-        const data = await axios.get(uri)
+        let data
+        try {
+          data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
+        } catch (error) {
+          data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
+        }
         await  Hub.query().patch({
           data: data.data,
           dataUri: uri,
@@ -1828,7 +1838,12 @@ export default (router) => {
         const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
         const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
         const uri = decode(postAccount.uri)
-        const data = await axios.get(uri)
+        let data
+        try {
+          data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
+        } catch (error) {
+          data = await axios.get(uri..replace('gateway.irys.xyz', 'arweave.net'))
+        }
         const publisher = await Account.findOrCreate(postAccount.author.toBase58());
         post = await Post.query().insertGraph({
           publicKey: hubPostAccount.post.toBase58(),
