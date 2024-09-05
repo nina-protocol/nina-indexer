@@ -440,7 +440,7 @@ class NinaProcessor {
       const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
       restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
     }
-    console.log('tx', tx)
+
     let hubPublicKey
     let accountPublicKey
     let releasePublicKey
@@ -796,13 +796,16 @@ class NinaProcessor {
         const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
         if (!existingSubscription) {
           try {
-            await Subscription.query().insert({
-              publicKey: accounts[2].toBase58(),
-              datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-              from: accountPublicKey,
-              to: toAccountPublicKey,
-              subscriptionType: 'account',
-            });
+            const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(accounts[2].toBase58(), 'confirmed')
+            if (subscriptionAccount) {
+              await Subscription.query().insert({
+                publicKey: accounts[2].toBase58(),
+                datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+                from: accountPublicKey,
+                to: toAccountPublicKey,
+                subscriptionType: 'account',
+              });
+            }
           } catch (error) {
             console.log('error creating SubscriptionSubscribeAccount in processTransaction:',  accounts[2].toBase58(), error)
           }
@@ -813,13 +816,16 @@ class NinaProcessor {
         const existingSubscription = await Subscription.query().where('publicKey', accounts[2].toBase58())
         if (!existingSubscription) {
           try {
-            await Subscription.query().insert({
-              publicKey: accounts[2].toBase58(),
-              datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
-              from: accountPublicKey,
-              to: toHubPublicKey,
-              subscriptionType: 'hub',
-            });
+            const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(accounts[2].toBase58(), 'confirmed')
+            if (subscriptionAccount) {
+              await Subscription.query().insert({
+                publicKey: accounts[2].toBase58(),
+                datetime: new Date(transactionObject.blocktime * 1000).toISOString(),
+                from: accountPublicKey,
+                to: toHubPublicKey,
+                subscriptionType: 'hub',
+              });
+            }
           } catch (error) {
             console.log('error creating SubscriptionSubscribeHub in processTransaction:',  accounts[2].toBase58(), error)
           }

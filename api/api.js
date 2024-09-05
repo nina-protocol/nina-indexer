@@ -2555,7 +2555,7 @@ export default (router) => {
       await NinaProcessor.init();
       let transaction
       const transactionId = ctx.query.transactionId
-      console.log('transactionId', ctx.query.transactionId)
+
       let subscription
       if (transactionId) {
         let i = 0
