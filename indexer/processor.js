@@ -1528,7 +1528,7 @@ class NinaProcessor {
             await axios.post('https://api.imgix.com/api/v1/purge', {
               data: {
                 attributes: {
-                  url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image)}`
+                  url: `${process.env.IMGIX_SOURCE_DOMAIN}/${encodeURIComponent(image.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))}`
                 },
                 type: 'purges'
               }
