@@ -1353,7 +1353,7 @@ class NinaProcessor {
       try {
         data = (await axios.get(hubAccount.account.uri).replace('www.','').replace('arweave.net', 'gateway.irys.xyz')).data
       } catch (error) {
-        data = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
+        data = (await axios.get(hubAccount.account.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
       }
 
       await hub.$query().patch({
