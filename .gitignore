@@ -1,8 +1,6 @@
 node_modules
 .env
-.env.local*
-.env.dev
-.env.production
+.env.*
 *.pem
 dist
 .DS_Store
