@@ -2533,12 +2533,24 @@ export default (router) => {
     }
   })
 
+  const createSubscription = async (publicKey, subscriptionRecord, subscriptionAccount) => {
+    await Account.findOrCreate(subscriptionAccount.from.toBase58());
+    subscriptionRecord = await Subscription.findOrCreate({
+      publicKey,
+      from: subscriptionAccount.from.toBase58(),
+      to: subscriptionAccount.to.toBase58(),
+      datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
+      subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
+    })
+    return subscriptionRecord
+  }
+
   router.get('/subscriptions/:publicKey', async (ctx) => {
     try {
       await NinaProcessor.init();
       let transaction
       const transactionId = ctx.query.transactionId
-
+      console.log('transactionId', transactionId)
       let subscription
       if (transactionId) {
         let i = 0
@@ -2569,15 +2581,7 @@ export default (router) => {
           if (!subscription) {
             const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
             if (subscriptionAccount) {
-              await Account.findOrCreate(subscriptionAccount.from.toBase58());
-              subscription = await Subscription.findOrCreate({
-                publicKey: ctx.params.publicKey,
-                from: subscriptionAccount.from.toBase58(),
-                to: subscriptionAccount.to.toBase58(),
-                datetime: new Date(subscriptionAccount.datetime.toNumber() * 1000).toISOString(),
-                subscriptionType: Object.keys(subscriptionAccount.subscriptionType)[0],
-              })
-              
+              subscription = await createSubscription(ctx.params.publicKey, subscription, subscriptionAccount)
               await subscription.format();
               ctx.body = {
                 subscription,
@@ -2585,12 +2589,34 @@ export default (router) => {
             }
           }
         }
-      }
-      subscription = await Subscription.query().where('publicKey', ctx.params.publicKey)
-      if (!subscription){
-        ctx.body = {
-          message: 'Subscription not found',
-        }  
+      } else {
+        try {
+          subscription = await Subscription.query().where('publicKey', ctx.params.publicKey).first()
+        } catch (error) {
+          console.log('no subscription in db for ', ctx.params.publicKey)
+        }
+        if (subscription){
+          await subscription.format();
+          ctx.body = {
+            subscription
+          }
+    
+        } else {
+          const subscriptionAccount = await NinaProcessor.program.account.subscription.fetch(ctx.params.publicKey, 'confirmed')
+          if (subscriptionAccount) {
+            subscription = await createSubscription(ctx.params.publicKey, subscription, subscriptionAccount)
+            
+            await subscription.format();
+            ctx.body = {
+              subscription,
+            }
+  
+          } else {
+            ctx.body = {
+              message: 'Subscription not found',
+            }  
+          }
+        }
       }
     } catch (err) {
       console.log(err)
