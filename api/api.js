@@ -935,11 +935,9 @@ export default (router) => {
       let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
       column = formatColumnForJsonFields(column);
 
-      const releases = await Release
-        .query()  
-        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      const releases = await Release.query()
+        .where('archived', false)
+        .whereIn('id', getReleaseSearchSubQuery(query))
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -2204,12 +2202,8 @@ export default (router) => {
       }
   
       const releases = await Release.query()
-        .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
-        .orWhereIn('publisherId', getPublisherSubQuery(query))
+        .where('archived', false)
+        .whereIn('id', getReleaseSearchSubQuery(query))
         .orderBy('datetime', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
   
