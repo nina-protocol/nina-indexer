@@ -1337,7 +1337,7 @@ class NinaProcessor {
       } else if (!isBefore && tx) {
         options.until = tx.signature
       }
-      const newSignatures = await connection.getConfirmedSignaturesForAddress2(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
+      const newSignatures = await connection.getSignaturesForAddress(new anchor.web3.PublicKey(process.env.NINA_PROGRAM_ID), options)
       let signature
       if (isBefore) {
         signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
