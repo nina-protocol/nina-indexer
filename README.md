@@ -1,6 +1,6 @@
 ![image](img/nina.png)
 
-# nina-file-service
+# nina-indexer
 Nina Indexer
 
 1. [About](#About)
