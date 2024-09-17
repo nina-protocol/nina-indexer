@@ -4,6 +4,8 @@ import { environmentIsSetup } from "../scripts/env_check.js";
 import v8 from 'node:v8';
 import os from 'os';
 import { logTimestampedMessage } from '../utils/logging.js';
+import { initDb, config } from '@nina-protocol/nina-db';
+import NinaProcessor from './processor.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -13,27 +15,31 @@ function getUsedHeapSize() {
 }
 
 const runHeapDiagnostics = () => {
-    console.log("Memory Diagnostics at " + new Date(Date.now()) + ": ");
-    console.log("   os.freemem():  " + os.freemem());
-    console.log("   os.totalmem(): " + os.totalmem());
-    console.log("process.memoryUsage(): ");
-    console.log(process.memoryUsage());
-    console.log("v8.getHeapSpaceStatistics(): ");
-    console.log(v8.getHeapSpaceStatistics());
-    console.log("v8.getHeapStatistics(): ");
-    console.log(v8.getHeapStatistics());
+    logTimestampedMessage("Memory Diagnostics at " + new Date(Date.now()) + ": ");
+    logTimestampedMessage("   os.freemem():  " + os.freemem());
+    logTimestampedMessage("   os.totalmem(): " + os.totalmem());
+    logTimestampedMessage("process.memoryUsage(): ");
+    logTimestampedMessage(process.memoryUsage());
+    logTimestampedMessage("v8.getHeapSpaceStatistics(): ");
+    logTimestampedMessage(v8.getHeapSpaceStatistics());
+    logTimestampedMessage("v8.getHeapStatistics(): ");
+    logTimestampedMessage(v8.getHeapStatistics());
 }
 
 const startProcessing = async () => {
-    logTimestampedMessage(`${new Date()} Indexer Starting Up`);
-    logTimestampedMessage('Indexer Started - DB and Processor Initialized');
-
+    logTimestampedMessage('Indexer processing started.');
+    await initDb(config);
+    logTimestampedMessage('initDb completed.');
+    await NinaProcessor.initialize();
+    logTimestampedMessage('NinaProcessor initialized.');
     cron.schedule('* * * * *', async() => {
-        logTimestampedMessage(`${new Date()} Synchronizing Transactions`);
-      if (process.argv[2] === "--heap-stats") {
-        runHeapDiagnostics(); // verbose heap diagnostics if option enabled
-      }
-      logTimestampedMessage(`${new Date()} Indexer heap size (MB): `, getUsedHeapSize());
+        logTimestampedMessage(`Synchronizing Transactions`);
+        await NinaProcessor.processRecentTx();
+
+        if (process.argv[2] === "--heap-stats") {
+            runHeapDiagnostics(); // verbose heap diagnostics if option enabled
+        }
+        logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
     });
 };
 

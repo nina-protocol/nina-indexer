@@ -3,8 +3,9 @@ import { Program, AnchorProvider } from '@project-serum/anchor';
 import {
   Account
 } from '@nina-protocol/nina-db';
+import { logTimestampedMessage } from '../utils/logging.js';
 
-class Processor {
+class NinaProcessor {
   constructor() {
     this.connection = null;
     this.provider = null;
@@ -14,7 +15,7 @@ class Processor {
   // initialize solana connection, anchor provider and nina program
   async initialize() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
-
+    logTimestampedMessage('NinaProcessor initialized connection to cluster');
     this.provider = new AnchorProvider(
       this.connection,
       {},
@@ -25,15 +26,15 @@ class Processor {
     this.program = await Program.at(programId, this.provider);
   }
 
-  async processTransactions() {
-    console.log('Processing accounts and recent transcations...');
+  async processRecentTx() {
+    logTimestampedMessage('Processing accounts and recent transactions...');
 
     const accounts = await Account.query();
-    console.log(`Found ${accounts.length} accounts`);
+    logTimestampedMessage(`Found ${accounts.length} accounts`);
 
-    const recentTxs = await this.connection.getRecentBlockhash();
-    console.log('Recent blockhash:', recentTxs.blockhash);
+    const recentTxs = await this.connection.getLatestBlockhash();
+    logTimestampedMessage(`Recent blockhash: ${recentTxs.blockhash}`);
   }
 }
 
-export default new Processor();
+export default new NinaProcessor();
