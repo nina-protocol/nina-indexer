@@ -1,37 +1,16 @@
 {
-  "name": "@nina-protocol/nina-indexer",
-  "version": "0.0.1",
-  "description": "",
-  "source": "api/index.js",
+  "name": "nina-indexer",
+  "version": "2.0.0",
+  "description": "Nina Indexer",
   "type": "module",
-  "scripts": {
-    "start:indexer": "node indexer/index.js",
-    "start:indexer:heapstats": "node indexer/index.js --heap-stats",
-    "start:indexer:prod": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer",
-    "start:indexer:prod:heapstats": "pm2 start yarn --interpreter bash --name nina-indexer -- start:indexer:heapstats",
-    "restart:indexer": "pm2 stop nina-indexer && pm2 delete nina-indexer && yarn start:indexer:prod",
-    "start:api": "yarn && node api/index.js",
-    "start:api:prod": "pm2 start yarn --interpreter bash --name nina-api -- start:api",
-    "restart:api": "pm2 stop nina-api && pm2 delete nina-api && yarn start:api:prod",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "test:local": "NODE_ENV=local mocha --timeout 180000 --recursive",
-    "connect": "ssh -i \"nina.pem\" ec2-user@ec2-3-16-216-16.us-east-2.compute.amazonaws.com",
-    "connect-dev": "ssh -i \"nina.pem\" ec2-user@ec2-13-58-48-193.us-east-2.compute.amazonaws.com",
-    "docs": "redocly preview-docs docs/openapi/openapi.yaml",
-    "docs:test": "redocly lint /docs/openapi/openapi.yaml",
-    "docs:build": "redocly bundle /docs/openapi/openapi.yaml --output docs/dist/openapi.json",
-    "docs:prod": "npx redoc-cli bundle docs/openapi/openapi.yaml -o docs/index.html"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nina-protocol/nina-indexer.git"
-  },
+  "main": "api/index.js",
+  "repository": "git@github.com:nina-protocol/nina-indexer.git",
   "author": "contact@ninaprotocol.com",
   "license": "Apache-2.0",
-  "bugs": {
-    "url": "https://github.com/nina-protocol/nina-indexer/issues"
+  "scripts": {
+    "start": "node indexer/index.js",
+    "test:local": "mocha 'test/**/*.test.js'"
   },
-  "homepage": "https://github.com/nina-protocol/nina-indexer#readme",
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
     "@koa/cors": "^3.3.0",
@@ -41,7 +20,8 @@
     "@redocly/cli": "^1.0.0-beta.108",
     "@solana/web3.js": "^1.73.2",
     "axios": "^1.5.1",
-    "chai": "^5.1.1",
+    "chai": "^4.3.7",
+    "commander": "^9.5.0",
     "dotenv": "^16.0.1",
     "ethereum-ens": "^0.8.0",
     "form-urlencoded": "^6.1.0",
@@ -49,12 +29,21 @@
     "koa-bodyparser": "^4.3.0",
     "koa-ratelimit": "^5.0.1",
     "koa-router": "^12.0.0",
+    "mocha": "^10.2.0",
     "node-cron": "^3.0.2",
     "striptags": "^3.2.0",
     "web3": "^1.8.0"
   },
   "resolutions": {
     "@metaplex-foundation/mpl-candy-machine": "5.0.0",
-    "@solana/web3.js": "^1.73.2"
+    "@solana/web3.js": "^1.73.2",
+    "commander": "9.5.0",
+    "@bundlr-network/client/commander": "9.5.0",
+    "jayson/commander": "9.5.0",
+    "knex/commander": "9.5.0",
+    "@solana/errors/commander": "9.5.0"
+  },
+  "engines": {
+    "node": ">=16.0.0 <18.0.0"
   }
 }
