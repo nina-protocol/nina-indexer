@@ -2206,6 +2206,7 @@ export default (router) => {
   
       const releases = await Release.query()
         .where('archived', false)
+        .whereNotIn('publisherId', idList)
         .whereIn('id', getReleaseSearchSubQuery(query))
         .orderBy('datetime', sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
@@ -2288,6 +2289,7 @@ export default (router) => {
       }
       const releases = await Release.query()
         .where('archived', false)
+        .whereNotIn('publisherId', idList)
         .whereIn('id', getReleaseSearchSubQuery(query))
       
       const formattedReleasesResponse = []
