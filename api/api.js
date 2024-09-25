@@ -21,7 +21,9 @@ import ratelimit from 'koa-ratelimit';
 // BIG_LIMIT is a temporary solution to allow us to still return all 
 // results in applications that haven't implemented pagination yet
 const BIG_LIMIT = 5000;
-
+const idList = [
+  '13572',
+]
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
@@ -937,6 +939,7 @@ export default (router) => {
 
       const releases = await Release.query()
         .where('archived', false)
+        .whereNotIn('publisherId', idList)
         .whereIn('id', getReleaseSearchSubQuery(query))
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
