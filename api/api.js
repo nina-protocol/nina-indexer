@@ -1492,7 +1492,7 @@ export default (router) => {
 
       ctx.body = { 
         all: all.slice(Number(offset), Number(offset) + Number(limit)),
-        total: all.length,
+        total: releases.total + posts.length,
         publicKey: hub.publicKey,
         query,
       };
