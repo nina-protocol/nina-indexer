@@ -15,15 +15,17 @@ function getUsedHeapSize() {
 }
 
 const runHeapDiagnostics = () => {
-    logTimestampedMessage("Memory Diagnostics at " + new Date(Date.now()) + ": ");
-    logTimestampedMessage("   os.freemem():  " + os.freemem());
-    logTimestampedMessage("   os.totalmem(): " + os.totalmem());
-    logTimestampedMessage("process.memoryUsage(): ");
-    logTimestampedMessage(process.memoryUsage());
-    logTimestampedMessage("v8.getHeapSpaceStatistics(): ");
-    logTimestampedMessage(v8.getHeapSpaceStatistics());
-    logTimestampedMessage("v8.getHeapStatistics(): ");
-    logTimestampedMessage(v8.getHeapStatistics());
+    const now = new Date(Date.now());
+    const diagnosticInfo = {
+        "Memory Diagnostics at": now.toString(),
+        "os.freemem()": os.freemem(),
+        "os.totalmem()": os.totalmem(),
+        "process.memoryUsage()": process.memoryUsage(),
+        "v8.getHeapSpaceStatistics()": v8.getHeapSpaceStatistics(),
+        "v8.getHeapStatistics()": v8.getHeapStatistics()
+    };
+
+    logTimestampedMessage(JSON.stringify(diagnosticInfo, null, 2));
 }
 
 const startProcessing = async () => {
