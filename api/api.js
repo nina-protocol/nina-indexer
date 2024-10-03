@@ -1468,7 +1468,7 @@ export default (router) => {
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
-      
+
       let posts = await hub.$relatedQuery('posts')
         .orderBy(formatColumnForJsonFields(column, 'data'), sort)
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
@@ -1491,7 +1491,7 @@ export default (router) => {
       }
 
       ctx.body = { 
-        all: all.slice(Number(offset), Number(offset) + Number(limit)),
+        all: all.slice(0, Number(limit)),
         total: releases.total + posts.length,
         publicKey: hub.publicKey,
         query,
