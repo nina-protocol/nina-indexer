@@ -5,7 +5,7 @@ import v8 from 'node:v8';
 import os from 'os';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
-import NinaProcessor from './processor.js';
+import TransactionSyncer from './transactionSyncer.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -32,11 +32,11 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
-    await NinaProcessor.initialize();
-    logTimestampedMessage('NinaProcessor initialized.');
+    await TransactionSyncer.syncTransactions(); // initial sync
+
     cron.schedule('* * * * *', async() => {
-        logTimestampedMessage(`Synchronizing Transactions`);
-        await NinaProcessor.processRecentTx();
+        logTimestampedMessage(`Starting scheduled transaction sync`);
+        await TransactionSyncer.syncTransactions();
 
         if (process.argv[2] === "--heap-stats") {
             runHeapDiagnostics(); // verbose heap diagnostics if option enabled
