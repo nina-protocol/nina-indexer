@@ -1,4 +1,4 @@
-import "dotenv/config.js";
+import 'dotenv/config';
 import cron from 'node-cron';
 import { environmentIsSetup } from "../scripts/env_check.js";
 import v8 from 'node:v8';
