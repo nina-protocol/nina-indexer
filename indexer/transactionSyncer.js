@@ -62,15 +62,18 @@ class TransactionSyncer {
     for (const txInfo of txInfos) {
       if (txInfo === null) continue;
 
-      const authority = txInfo.transaction.message.accountKeys[0].pubkey.toBase58(); // determined by transaction type
-      let authorityId = await this.getOrCreateAuthorityId(authority);
+      const type = this.determineTransactionType(txInfo);
+      const accounts = this.getRelevantAccounts(txInfo);
+      let accountPublicKey = this.getAccountPublicKey(accounts, type);
+
+      let authorityId = await this.getOrCreateAuthorityId(accountPublicKey);
 
       transactionsToInsert.push({
         txid: txInfo.transaction.signatures[0],
         blocktime: txInfo.blockTime,
-        type: this.determineTransactionType(txInfo),
+        type: type,
         authorityId: authorityId,
-        // more fields to come
+         // more fields to come
       });
     }
 
@@ -90,8 +93,40 @@ class TransactionSyncer {
   }
 
   determineTransactionType(txInfo) {
-    // todo add logic to determine transaction type
+    const logMessages = txInfo.meta.logMessages;
+
+    if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
+    if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
+    if (logMessages.some(log => log.includes('ReleasePurchase'))) return 'ReleasePurchase';
+     // more tx to come
+
     return 'Unknown';
+  }
+
+  getRelevantAccounts(txInfo) {
+    const ninaInstruction = txInfo.transaction.message.instructions.find(
+      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
+    );
+    return ninaInstruction ? ninaInstruction.accounts : [];
+  }
+
+  getAccountPublicKey(accounts, type) {
+    switch (type) {
+      case 'ReleaseInitViaHub':
+        return this.isFileServicePayer(accounts) ? accounts[18].toBase58() : accounts[0].toBase58();
+      case 'ReleasePurchaseViaHub':
+        return accounts[1].toBase58();
+      case 'ReleasePurchase':
+        return accounts[1].toBase58();
+      // more tx to come
+      default:
+        return accounts[0].toBase58();
+    }
+  }
+
+  isFileServicePayer(accounts) {
+    const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
+    return accounts[0].toBase58() === FILE_SERVICE_ADDRESS || accounts[0].toBase58() === accounts[1].toBase58();
   }
 }
 
