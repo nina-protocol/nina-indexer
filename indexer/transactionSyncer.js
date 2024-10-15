@@ -14,24 +14,23 @@ class TransactionSyncer {
 
     let lastSyncedSignature = await this.getLastSyncedSignature();
     let hasMore = true;
+    let totalFetchedSignatures = 0;
+    let totalInsertedTransactions = 0;
 
     while (hasMore) {
       const { signatures, newLastSignature } = await this.fetchSignatures(lastSyncedSignature);
-      logTimestampedMessage(`Fetched ${signatures.length} signatures`);
+      totalFetchedSignatures += signatures.length;
 
       if (signatures.length === 0) {
         hasMore = false;
         continue;
       }
-
-      await this.processAndInsertTransactions(signatures);
-      logTimestampedMessage('Processed and inserted transactions.');
-
-      lastSyncedSignature = newLastSignature; // Update last synced signature
-      logTimestampedMessage(`Updated last synced signature: ${lastSyncedSignature}`);
+      const insertedCount = await this.processAndInsertTransactions(signatures);
+      totalInsertedTransactions += insertedCount;
+      lastSyncedSignature = newLastSignature; // Update the last synced signature
     }
 
-    logTimestampedMessage('Transaction sync completed');
+    logTimestampedMessage(`Transaction sync completed. Fetched ${totalFetchedSignatures} signatures, inserted ${totalInsertedTransactions} new transactions.`);
   }
 
   async getLastSyncedSignature() {
@@ -41,17 +40,32 @@ class TransactionSyncer {
     return lastSignature;
   }
 
-  async fetchSignatures(lastSignature) {
+  async fetchSignatures(lastSignature, beforeSignature = null) {
     const options = { limit: this.batchSize };
-    if (lastSignature) options.before = lastSignature;
+    if (beforeSignature) options.before = beforeSignature;
 
-    // Fetch signatures from Solana
+    // Fetch the latest signatures
     const signatures = await this.connection.getSignaturesForAddress(this.programId, options);
-    logTimestampedMessage(`Fetched ${signatures.length} signatures from Solana.`);
+    // logTimestampedMessage(`Fetched ${signatures.length} signatures from Solana.`);
 
-    // Determine the new last signature for the next batch
-    const newLastSignature = signatures.length > 0 ? signatures[signatures.length - 1].signature : null;
-    return { signatures, newLastSignature };
+    const newSignatures = [];
+    let hasReachedLastSignature = false;
+
+    for (const signatureInfo of signatures) {
+      if (signatureInfo.signature === lastSignature) {
+        hasReachedLastSignature = true;
+        break; // Stop processing when the last synced signature is reached
+      }
+      newSignatures.push(signatureInfo);
+    }
+
+    const newBeforeSignature = signatures.length > 0 ? signatures[signatures.length - 1].signature : null;
+
+    return {
+      signatures: newSignatures,
+      hasMore: !hasReachedLastSignature && signatures.length === this.batchSize,
+      beforeSignature: newBeforeSignature,
+    };
   }
 
   async processAndInsertTransactions(signatures) {
@@ -96,15 +110,16 @@ class TransactionSyncer {
 
     if (transactionsToInsert.length > 0) {
       await Transaction.query().insert(transactionsToInsert).onConflict('txid').ignore(); // Ignore duplicate txid values
-      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions`);
+      return transactionsToInsert.length;
     }
+    return 0;  // Return 0 if no transactions were inserted
   }
 
   async getOrCreateAuthorityId(publicKey) {
     let account = await Account.query().where('publicKey', publicKey).first();
     if (!account) {
       account = await Account.query().insert({ publicKey });
-      logTimestampedMessage(`Created new account for public key: ${publicKey}`);
+      // logTimestampedMessage(`Created new account for public key: ${publicKey}`);
     }
     return account.id;
   }
