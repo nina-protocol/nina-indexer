@@ -12,10 +12,12 @@ import {
   Tag,
   Transaction,
   Verification,
+  config,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
 import { decode, fetchFromArweave } from '../indexer/utils.js';
 import ratelimit from 'koa-ratelimit';
+import Knex from 'knex'
 
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -24,6 +26,8 @@ const BIG_LIMIT = 5000;
 const idList = [
   '13572',
 ]
+const db = Knex(config.development)
+
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
@@ -2737,18 +2741,29 @@ export default (router) => {
   router.get('/tags', async (ctx) => {
     try {
       let { offset=0, limit=20, sort='desc', query='' } = ctx.query;
-      const tags = await Tag.query()
-        .where('value', 'ilike', `%${query}%`)
-        .orderBy('value', sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
-
-      for await (let tag of tags.results) {
-        // const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
-        tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
-        await tag.format();
+      
+      const tags = await db.raw(`
+        SELECT tags.*, COUNT(tags_releases."tagId") as count
+        FROM tags
+        JOIN tags_releases ON tags.id = tags_releases."tagId"
+        WHERE tags.value ILIKE '%${query}%'
+        GROUP BY tags.id
+        ORDER BY count ${sort}
+        LIMIT ${limit}
+        OFFSET ${offset}
+      `)
+        
+      const total = await Tag.query().where('value', 'ilike', `%${query}%`).resultSize()
+    
+      for await (let tag of tags.rows) {
+        tag.count = Number(tag.count)
+        delete tag.id
       }
       ctx.body = {
-        tags
+        tags: {
+          results: tags.rows,
+          total,
+        }
       }
     } catch (error) {
       console.warn(error)
@@ -2850,6 +2865,7 @@ const getReleaseSearchSubQuery = (query) => {
   const releases = Release.query()
     .select('id')
     .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+    .orWhere(db.raw(`SIMILARITY(metadata->\'properties\'->>\'title\', '${query}') > 0.3`))
     .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
     .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
     .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
