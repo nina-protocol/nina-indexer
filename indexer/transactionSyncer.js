@@ -17,15 +17,18 @@ class TransactionSyncer {
 
     while (hasMore) {
       const { signatures, newLastSignature } = await this.fetchSignatures(lastSyncedSignature);
-      
+      logTimestampedMessage(`Fetched ${signatures.length} signatures`);
+
       if (signatures.length === 0) {
         hasMore = false;
         continue;
       }
 
       await this.processAndInsertTransactions(signatures);
+      logTimestampedMessage('Processed and inserted transactions.');
 
-      lastSyncedSignature = newLastSignature;
+      lastSyncedSignature = newLastSignature; // Update last synced signature
+      logTimestampedMessage(`Updated last synced signature: ${lastSyncedSignature}`);
     }
 
     logTimestampedMessage('Transaction sync completed');
@@ -33,21 +36,21 @@ class TransactionSyncer {
 
   async getLastSyncedSignature() {
     const lastTransaction = await Transaction.query().orderBy('blocktime', 'desc').first();
-    return lastTransaction ? lastTransaction.txid : null;
+    const lastSignature = lastTransaction ? lastTransaction.txid : null;
+    logTimestampedMessage(`Last synced signature from DB: ${lastSignature}`);
+    return lastSignature;
   }
 
   async fetchSignatures(lastSignature) {
-    const options = {
-      limit: this.batchSize,
-    };
+    const options = { limit: this.batchSize };
+    if (lastSignature) options.before = lastSignature;
 
-    if (lastSignature) {
-      options.until = lastSignature;
-    }
-
+    // Fetch signatures from Solana
     const signatures = await this.connection.getSignaturesForAddress(this.programId, options);
-    const newLastSignature = signatures.length > 0 ? signatures[signatures.length - 1].signature : null;
+    logTimestampedMessage(`Fetched ${signatures.length} signatures from Solana.`);
 
+    // Determine the new last signature for the next batch
+    const newLastSignature = signatures.length > 0 ? signatures[signatures.length - 1].signature : null;
     return { signatures, newLastSignature };
   }
 
@@ -67,14 +70,14 @@ class TransactionSyncer {
         const accounts = this.getRelevantAccounts(txInfo);
 
         if (!accounts || accounts.length === 0) {
-          logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
+          // logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
           continue;
         }
 
         let accountPublicKey = this.getAccountPublicKey(accounts, type);
 
         if (!accountPublicKey) {
-          logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
+          // logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
           continue;
         }
 
@@ -92,7 +95,7 @@ class TransactionSyncer {
     }
 
     if (transactionsToInsert.length > 0) {
-      await Transaction.query().insert(transactionsToInsert);
+      await Transaction.query().insert(transactionsToInsert).onConflict('txid').ignore(); // Ignore duplicate txid values
       logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions`);
     }
   }
@@ -101,7 +104,7 @@ class TransactionSyncer {
     let account = await Account.query().where('publicKey', publicKey).first();
     if (!account) {
       account = await Account.query().insert({ publicKey });
-      logTimestampedMessage(`Created new account for ${publicKey}`);
+      logTimestampedMessage(`Created new account for public key: ${publicKey}`);
     }
     return account.id;
   }
