@@ -118,37 +118,24 @@ class TransactionSyncer {
           type: type,
           authorityId: authorityId,
         });
+
+        logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
+
       } catch (error) {
         logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
       }
     }
 
     if (transactionsToInsert.length > 0) {
-      // Get the txids of transactions to insert
-      const txids = transactionsToInsert.map(tx => tx.txid);
+      await Transaction.query().insert(transactionsToInsert).onConflict('txid').ignore();
 
-      // Fetch existing txids from the database
-      const existingTxids = await Transaction.query().whereIn('txid', txids).select('txid');
-      const existingTxidSet = new Set(existingTxids.map(tx => tx.txid));
+      transactionsToInsert.forEach(tx => {
+        logTimestampedMessage(`Inserted transaction ${tx.txid}`);
+      });
+        logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
 
-      // Filter out transactions that already exist
-      const newTransactionsToInsert = transactionsToInsert.filter(tx => !existingTxidSet.has(tx.txid));
-
-      if (newTransactionsToInsert.length > 0) {
-        // Insert new transactions
-        await Transaction.query().insert(newTransactionsToInsert);
-
-        // Log the inserted transactions
-        newTransactionsToInsert.forEach(tx => {
-          logTimestampedMessage(`Inserted transaction ${tx.txid}`);
-        });
-
-        return newTransactionsToInsert.length;
-      } else {
-        logTimestampedMessage('No new transactions to insert in this batch.');
-      }
+      return transactionsToInsert.length;
     }
-
     return 0;  // Return 0 if no transactions were inserted
   }
 
