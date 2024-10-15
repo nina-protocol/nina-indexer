@@ -31,6 +31,10 @@ class TransactionSyncer {
         continue;
       }
 
+      signatures.forEach(signatureInfo => {
+        logTimestampedMessage(`Fetched signature ${signatureInfo.signature}`);
+      });
+
       const insertedCount = await this.processAndInsertTransactions(signatures);
       totalInsertedTransactions += insertedCount;
 
@@ -271,6 +275,6 @@ class TransactionSyncer {
     const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
     return accounts.length > 0 && (accounts[0].toBase58() === FILE_SERVICE_ADDRESS || (accounts.length > 1 && accounts[0].toBase58() === accounts[1].toBase58()));
   }
-} // Ensure the class ends here
+}
 
-export default new TransactionSyncer(); // Export an instance of the class
+export default new TransactionSyncer();
