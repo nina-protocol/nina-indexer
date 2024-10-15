@@ -16,18 +16,32 @@ class TransactionSyncer {
     let hasMore = true;
     let totalFetchedSignatures = 0;
     let totalInsertedTransactions = 0;
+    let beforeSignature = null;
 
     while (hasMore) {
-      const { signatures, newLastSignature } = await this.fetchSignatures(lastSyncedSignature);
-      totalFetchedSignatures += signatures.length;
+      const { signatures, hasMore: moreSignatures, beforeSignature: newBeforeSignature } =
+        await this.fetchSignatures(lastSyncedSignature, beforeSignature);
 
-      if (signatures.length === 0) {
+      const fetchedCount = signatures.length;
+      totalFetchedSignatures += fetchedCount;
+
+      if (fetchedCount === 0) {
         hasMore = false;
+        // logTimestampedMessage('No new signatures found.');
         continue;
       }
+
       const insertedCount = await this.processAndInsertTransactions(signatures);
       totalInsertedTransactions += insertedCount;
-      lastSyncedSignature = newLastSignature; // Update the last synced signature
+
+      logTimestampedMessage(`Processed batch: fetched ${fetchedCount} signatures, inserted ${insertedCount} new transactions.`);
+
+      if (!beforeSignature && signatures.length > 0) {
+        lastSyncedSignature = signatures[0].signature; // The most recent signature
+      }
+
+      beforeSignature = newBeforeSignature;
+      hasMore = moreSignatures;
     }
 
     logTimestampedMessage(`Transaction sync completed. Fetched ${totalFetchedSignatures} signatures, inserted ${totalInsertedTransactions} new transactions.`);
@@ -54,6 +68,7 @@ class TransactionSyncer {
     for (const signatureInfo of signatures) {
       if (signatureInfo.signature === lastSignature) {
         hasReachedLastSignature = true;
+        // logTimestampedMessage(`Reached last synced signature: ${lastSignature}`);
         break; // Stop processing when the last synced signature is reached
       }
       newSignatures.push(signatureInfo);
@@ -109,9 +124,31 @@ class TransactionSyncer {
     }
 
     if (transactionsToInsert.length > 0) {
-      await Transaction.query().insert(transactionsToInsert).onConflict('txid').ignore(); // Ignore duplicate txid values
-      return transactionsToInsert.length;
+      // Get the txids of transactions to insert
+      const txids = transactionsToInsert.map(tx => tx.txid);
+
+      // Fetch existing txids from the database
+      const existingTxids = await Transaction.query().whereIn('txid', txids).select('txid');
+      const existingTxidSet = new Set(existingTxids.map(tx => tx.txid));
+
+      // Filter out transactions that already exist
+      const newTransactionsToInsert = transactionsToInsert.filter(tx => !existingTxidSet.has(tx.txid));
+
+      if (newTransactionsToInsert.length > 0) {
+        // Insert new transactions
+        await Transaction.query().insert(newTransactionsToInsert);
+
+        // Log the inserted transactions
+        newTransactionsToInsert.forEach(tx => {
+          logTimestampedMessage(`Inserted transaction ${tx.txid}`);
+        });
+
+        return newTransactionsToInsert.length;
+      } else {
+        logTimestampedMessage('No new transactions to insert in this batch.');
+      }
     }
+
     return 0;  // Return 0 if no transactions were inserted
   }
 
@@ -247,6 +284,6 @@ class TransactionSyncer {
     const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
     return accounts.length > 0 && (accounts[0].toBase58() === FILE_SERVICE_ADDRESS || (accounts.length > 1 && accounts[0].toBase58() === accounts[1].toBase58()));
   }
-}
+} // Ensure the class ends here
 
-export default new TransactionSyncer();
+export default new TransactionSyncer(); // Export an instance of the class
