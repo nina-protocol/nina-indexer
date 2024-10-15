@@ -12,10 +12,12 @@ import {
   Tag,
   Transaction,
   Verification,
+  config,
 } from '@nina-protocol/nina-db';
 import NinaProcessor from '../indexer/processor.js';
 import { decode, fetchFromArweave } from '../indexer/utils.js';
 import ratelimit from 'koa-ratelimit';
+import Knex from 'knex'
 
 // NOTE: originally many endpoints were lacking pagination
 // BIG_LIMIT is a temporary solution to allow us to still return all 
@@ -24,6 +26,8 @@ const BIG_LIMIT = 5000;
 const idList = [
   '13572',
 ]
+const db = Knex(config.development)
+
 export default (router) => {
   router.get('/accounts', async(ctx) => {
     try {
@@ -2850,6 +2854,7 @@ const getReleaseSearchSubQuery = (query) => {
   const releases = Release.query()
     .select('id')
     .where(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+    .orWhere(db.raw(`SIMILARITY(metadata->\'properties\'->>\'title\', '${query}') > 0.3`))
     .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
     .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
     .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
