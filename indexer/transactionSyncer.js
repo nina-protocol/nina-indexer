@@ -188,13 +188,12 @@ class TransactionSyncer {
     return 'Unknown';
   }
 
-  getRelevantAccounts(txInfo) {
-    let allAccounts = [];
-    txInfo.transaction.message.instructions.forEach(instruction => {
-      allAccounts = allAccounts.concat(instruction.accounts);
-    });
-    return allAccounts;
-  }
+getRelevantAccounts(txInfo) {
+  const ninaInstruction = txInfo.transaction.message.instructions.find(
+    i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
+  );
+  return ninaInstruction ? ninaInstruction.accounts : [];
+}
 
   getAccountPublicKey(accounts, type) {
     if (!accounts || accounts.length === 0) {
