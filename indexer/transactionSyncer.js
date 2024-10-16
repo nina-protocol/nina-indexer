@@ -103,14 +103,14 @@ class TransactionSyncer {
         const accounts = this.getRelevantAccounts(txInfo);
 
         if (!accounts || accounts.length === 0) {
-          // logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
+          logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
           continue;
         }
 
         let accountPublicKey = this.getAccountPublicKey(accounts, type);
 
         if (!accountPublicKey) {
-          // logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
+          logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
           continue;
         }
 
@@ -123,7 +123,7 @@ class TransactionSyncer {
           authorityId: authorityId,
         });
 
-        logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
+        // logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
 
       } catch (error) {
         logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
