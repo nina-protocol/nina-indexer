@@ -189,10 +189,11 @@ class TransactionSyncer {
   }
 
   getRelevantAccounts(txInfo) {
-    const ninaInstruction = txInfo.transaction.message.instructions.find(
-      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
-    );
-    return ninaInstruction ? ninaInstruction.accounts : [];
+    let allAccounts = [];
+    txInfo.transaction.message.instructions.forEach(instruction => {
+      allAccounts = allAccounts.concat(instruction.accounts);
+    });
+    return allAccounts;
   }
 
   getAccountPublicKey(accounts, type) {
