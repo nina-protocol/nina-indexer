@@ -1,11 +1,11 @@
-import "dotenv/config.js";
+import 'dotenv/config';
 import cron from 'node-cron';
 import { environmentIsSetup } from "../scripts/env_check.js";
 import v8 from 'node:v8';
 import os from 'os';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
-import NinaProcessor from './processor.js';
+import TransactionSyncer from './transactionSyncer.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -15,26 +15,28 @@ function getUsedHeapSize() {
 }
 
 const runHeapDiagnostics = () => {
-    logTimestampedMessage("Memory Diagnostics at " + new Date(Date.now()) + ": ");
-    logTimestampedMessage("   os.freemem():  " + os.freemem());
-    logTimestampedMessage("   os.totalmem(): " + os.totalmem());
-    logTimestampedMessage("process.memoryUsage(): ");
-    logTimestampedMessage(process.memoryUsage());
-    logTimestampedMessage("v8.getHeapSpaceStatistics(): ");
-    logTimestampedMessage(v8.getHeapSpaceStatistics());
-    logTimestampedMessage("v8.getHeapStatistics(): ");
-    logTimestampedMessage(v8.getHeapStatistics());
+    const now = new Date(Date.now());
+    const diagnosticInfo = {
+        "Memory Diagnostics at": now.toString(),
+        "os.freemem()": os.freemem(),
+        "os.totalmem()": os.totalmem(),
+        "process.memoryUsage()": process.memoryUsage(),
+        "v8.getHeapSpaceStatistics()": v8.getHeapSpaceStatistics(),
+        "v8.getHeapStatistics()": v8.getHeapStatistics()
+    };
+
+    logTimestampedMessage(JSON.stringify(diagnosticInfo, null, 2));
 }
 
 const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
-    await NinaProcessor.initialize();
-    logTimestampedMessage('NinaProcessor initialized.');
+    await TransactionSyncer.syncTransactions(); // initial sync
+
     cron.schedule('* * * * *', async() => {
-        logTimestampedMessage(`Synchronizing Transactions`);
-        await NinaProcessor.processRecentTx();
+        logTimestampedMessage(`Starting scheduled transaction sync`);
+        await TransactionSyncer.syncTransactions();
 
         if (process.argv[2] === "--heap-stats") {
             runHeapDiagnostics(); // verbose heap diagnostics if option enabled
