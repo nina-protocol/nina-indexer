@@ -1,5 +1,5 @@
 import { Connection, PublicKey } from '@solana/web3.js';
-import { Transaction, Account } from '@nina-protocol/nina-db';
+import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 
 class TransactionSyncer {
@@ -27,7 +27,6 @@ class TransactionSyncer {
 
       if (fetchedCount === 0) {
         hasMore = false;
-        // logTimestampedMessage('No new signatures found.');
         continue;
       }
 
@@ -62,9 +61,7 @@ class TransactionSyncer {
     const options = { limit: this.batchSize };
     if (beforeSignature) options.before = beforeSignature;
 
-    // Fetch the latest signatures
     const signatures = await this.connection.getSignaturesForAddress(this.programId, options);
-    // logTimestampedMessage(`Fetched ${signatures.length} signatures from Solana.`);
 
     const newSignatures = [];
     let hasReachedLastSignature = false;
@@ -99,7 +96,7 @@ class TransactionSyncer {
       if (txInfo === null) continue;
 
       try {
-        const type = this.determineTransactionType(txInfo);
+        let type = this.determineTransactionType(txInfo);
         const accounts = this.getRelevantAccounts(txInfo);
 
         if (!accounts || accounts.length === 0) {
@@ -107,7 +104,9 @@ class TransactionSyncer {
           continue;
         }
 
-        let accountPublicKey = this.getAccountPublicKey(accounts, type);
+        // Update accountPublicKey and type based on the new detection logic
+        let { accountPublicKey, updatedType } = await this.getAccountPublicKey(accounts, type);
+        type = updatedType;
 
         if (!accountPublicKey) {
           logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
@@ -136,7 +135,7 @@ class TransactionSyncer {
       transactionsToInsert.forEach(tx => {
         logTimestampedMessage(`Inserted transaction ${tx.txid}`);
       });
-        logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
+      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
 
       return transactionsToInsert.length;
     }
@@ -211,58 +210,97 @@ class TransactionSyncer {
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
-  getAccountPublicKey(accounts, type) {
+  async getAccountPublicKey(accounts, type) {
     if (!accounts || accounts.length === 0) {
-      return null;
+      return { accountPublicKey: null, updatedType: type };
     }
 
     switch (type) {
       case 'ReleaseInitViaHub':
-        return this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58();
+        return {
+          accountPublicKey: this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58(),
+          updatedType: type
+        };
       case 'ReleasePurchaseViaHub':
-        return accounts.length > 1 ? accounts[1].toBase58() : null;
       case 'ReleasePurchase':
-        return accounts.length > 1 ? accounts[1].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+          updatedType: type
+        };
       case 'HubInitWithCredit':
-        return accounts.length > 0 ? accounts[0].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+          updatedType: type
+        };
       case 'ReleaseInitWithCredit':
-        return accounts.length > 4 ? accounts[4].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 4 ? accounts[4].toBase58() : null,
+          updatedType: type
+        };
       case 'HubAddCollaborator':
-        if (this.isFileServicePayer(accounts)) {
-          return accounts.length > 1 ? accounts[1].toBase58() : null;
-        } else {
-          return accounts.length > 0 ? accounts[0].toBase58() : null;
-        }
       case 'HubAddRelease':
         if (this.isFileServicePayer(accounts)) {
-          return accounts.length > 1 ? accounts[1].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+            updatedType: type
+          };
         } else {
-          return accounts.length > 0 ? accounts[0].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+            updatedType: type
+          };
         }
       case 'PostInitViaHubWithReferenceRelease':
       case 'PostInitViaHub':
         if (this.isFileServicePayer(accounts)) {
-          return accounts.length > 8 ? accounts[8].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 8 ? accounts[8].toBase58() : null,
+            updatedType: type
+          };
         } else {
-          return accounts.length > 0 ? accounts[0].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+            updatedType: type
+          };
         }
       case 'PostUpdateViaHubPost':
-        return accounts.length > 1 ? accounts[1].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+          updatedType: type
+        };
       case 'SubscriptionSubscribeAccount':
       case 'SubscriptionSubscribeHub':
-        return accounts.length > 1 ? accounts[1].toBase58() : (accounts.length > 0 ? accounts[0].toBase58() : null);
+        return {
+          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : (accounts.length > 0 ? accounts[0].toBase58() : null),
+          updatedType: type
+        };
       case 'SubscriptionUnsubscribe':
-        return accounts.length > 1 ? accounts[1].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+          updatedType: type
+        };
       case 'ReleaseClaim':
-        return accounts.length > 3 ? accounts[3].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 3 ? accounts[3].toBase58() : null,
+          updatedType: type
+        };
       case 'HubInit':
         if (this.isFileServicePayer(accounts)) {
-          return accounts.length > 1 ? accounts[1].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+            updatedType: type
+          };
         } else {
-          return accounts.length > 0 ? accounts[0].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+            updatedType: type
+          };
         }
       case 'ReleaseInit':
-        return accounts.length > 4 ? accounts[4].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 4 ? accounts[4].toBase58() : null,
+          updatedType: type
+        };
       case 'ReleaseCloseEdition':
       case 'HubContentToggleVisibility':
       case 'HubRemoveCollaborator':
@@ -274,16 +312,56 @@ class TransactionSyncer {
       case 'ReleaseUpdateMetadata':
       case 'HubWithdraw':
         if (this.isFileServicePayer(accounts)) {
-          return accounts.length > 1 ? accounts[1].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
+            updatedType: type
+          };
         } else {
-          return accounts.length > 0 ? accounts[0].toBase58() : null;
+          return {
+            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+            updatedType: type
+          };
         }
       case 'ExchangeInit':
       case 'ExchangeCancel':
       case 'ExchangeAccept':
-        return accounts.length > 0 ? accounts[0].toBase58() : null;
+        return {
+          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+          updatedType: type
+        };
       default:
-        return accounts.length > 0 ? accounts[0].toBase58() : null;
+        // Special detection logic for to handle special case where accounts with length === 10
+        if (accounts?.length === 10) {
+          if (accounts[0].toBase58() === accounts[1].toBase58()) {
+            try {
+              const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() });
+              if (release) {
+                return {
+                  accountPublicKey: accounts[0].toBase58(),
+                  updatedType: 'ReleasePurchase'
+                };
+              }
+            } catch (error) {
+              console.log(error);
+            }
+          } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
+            try {
+              const release = await Release.query().findOne({ publicKey: accounts[0].toBase58() });
+              if (release) {
+                return {
+                  accountPublicKey: accounts[3].toBase58(),
+                  updatedType: 'ReleasePurchase'
+                };
+              }
+            } catch (error) {
+              console.log(error);
+            }
+          }
+        }
+        return {
+          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
+          updatedType: type
+        };
     }
   }
 
