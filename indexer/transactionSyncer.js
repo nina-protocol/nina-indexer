@@ -188,12 +188,28 @@ class TransactionSyncer {
     return 'Unknown';
   }
 
-getRelevantAccounts(txInfo) {
-  const ninaInstruction = txInfo.transaction.message.instructions.find(
-    i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
-  );
-  return ninaInstruction ? ninaInstruction.accounts : [];
-}
+  getRelevantAccounts(txInfo) {
+    let ninaInstruction = txInfo.transaction.message.instructions.find(
+      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
+    );
+
+    if (!ninaInstruction) {
+      if (txInfo.meta && txInfo.meta.innerInstructions) {
+        for (let innerInstruction of txInfo.meta.innerInstructions) {
+          for (let instruction of innerInstruction.instructions) {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
+              logTimestampedMessage('Found Nina instruction in inner instructions');
+              ninaInstruction = instruction;
+              break;
+            }
+          }
+          if (ninaInstruction) break;
+        }
+      }
+    }
+
+    return ninaInstruction ? ninaInstruction.accounts : [];
+  }
 
   getAccountPublicKey(accounts, type) {
     if (!accounts || accounts.length === 0) {
