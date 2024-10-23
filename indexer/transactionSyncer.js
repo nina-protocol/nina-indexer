@@ -1,7 +1,8 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
-
+import { releaseProcessor } from './releaseProcessor.js';
+import { hubProcessor } from './hubProcessor.js';
 class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
@@ -91,11 +92,13 @@ class TransactionSyncer {
     );
 
     const transactionsToInsert = [];
+    const processorQueue = []; // Queue up processor tasks
 
     for (const txInfo of txInfos) {
       if (txInfo === null) continue;
 
       try {
+        // Update accountPublicKey and type based on the new detection logic
         let type = this.determineTransactionType(txInfo);
         const accounts = this.getRelevantAccounts(txInfo);
 
@@ -104,7 +107,6 @@ class TransactionSyncer {
           continue;
         }
 
-        // Update accountPublicKey and type based on the new detection logic
         let { accountPublicKey, updatedType } = await this.getAccountPublicKey(accounts, type);
         type = updatedType;
 
@@ -114,15 +116,26 @@ class TransactionSyncer {
         }
 
         let authorityId = await this.getOrCreateAuthorityId(accountPublicKey);
+        const txid = txInfo.transaction.signatures[0];
 
-        transactionsToInsert.push({
-          txid: txInfo.transaction.signatures[0],
+        // Prepare transaction record
+        const transactionRecord = {
+          txid,
           blocktime: txInfo.blockTime,
           type: type,
           authorityId: authorityId,
-        });
+        };
 
         // logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
+        transactionsToInsert.push(transactionRecord);
+
+        // Queue up processor task based on type
+        processorQueue.push({
+          type,
+          txid,
+          accounts,
+          txInfo
+        });
 
       } catch (error) {
         logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
@@ -137,6 +150,20 @@ class TransactionSyncer {
       });
       logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
 
+      // Process with domain processors
+      for (const task of processorQueue) {
+        try {
+          if (releaseProcessor.canProcessTransaction(task.type)) {
+            await releaseProcessor.processTransaction(task.txid);
+          } else if (hubProcessor.canProcessTransaction(task.type)) {
+            await hubProcessor.processTransaction(task.txid);
+          }
+        } catch (error) {
+          logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
+        }
+      }
+
+      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
       return transactionsToInsert.length;
     }
     return 0;  // Return 0 if no transactions were inserted
