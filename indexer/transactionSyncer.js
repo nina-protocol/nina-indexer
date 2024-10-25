@@ -3,6 +3,7 @@ import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { releaseProcessor } from './releaseProcessor.js';
 import { hubProcessor } from './hubProcessor.js';
+
 class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);

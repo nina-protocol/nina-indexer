@@ -1,4 +1,5 @@
 // BaseProcessor.js
+import { Connection } from '@solana/web3.js';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { Account, Hub, Release, Transaction } from '@nina-protocol/nina-db';
 import axios from 'axios';
