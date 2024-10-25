@@ -1,5 +1,5 @@
-import { BaseProcessor } from './baseProcessor.js';
-import { Release, Account, Hub } from '@nina-protocol/nina-db';
+import { BaseProcessor } from './base/BaseProcessor.js';
+import { Account, Hub, Release } from '@nina-protocol/nina-db';
 
 export class ReleaseProcessor extends BaseProcessor {
     constructor() {
@@ -58,10 +58,8 @@ export class ReleaseProcessor extends BaseProcessor {
           });
           break;
         }
-  
-        // need more release transaction handlers
       }
     }
-  }
+}
 
-  export const releaseProcessor = new ReleaseProcessor();
+export const releaseProcessor = new ReleaseProcessor();

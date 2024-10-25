@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import cron from 'node-cron';
-import { environmentIsSetup } from "../scripts/env_check.js";
+import { environmentIsSetup } from '../../scripts/env_check.js';
 import v8 from 'node:v8';
 import os from 'os';
-import { logTimestampedMessage } from '../utils/logging.js';
+import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './transactionSyncer.js';
+import { hubDataService } from './services/hubData.js';
+import { releaseDataService } from './services/releaseData.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -32,6 +34,8 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
+    await hubDataService.initialize();
+    await releaseDataService.initialize();
     await TransactionSyncer.syncTransactions(); // initial sync
 
     cron.schedule('* * * * *', async() => {
@@ -52,3 +56,5 @@ try {
     console.error('Environment is not properly setup.');
     console.error(error);
 }
+
+export { TransactionSyncer, hubDataService, releaseDataService };

@@ -1,8 +1,8 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
-import { logTimestampedMessage } from '../utils/logging.js';
-import { releaseProcessor } from './releaseProcessor.js';
-import { hubProcessor } from './hubProcessor.js';
+import { releaseProcessor } from './processors/ReleaseProcessor.js';
+import { hubProcessor } from './processors/HubProcessor.js';
+import { logTimestampedMessage } from './utils/logging.js';
 
 class TransactionSyncer {
   constructor() {

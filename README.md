@@ -9,6 +9,30 @@ Nina Indexer 2.0
 ## About
 Nina Indexer synchronizes on-chain Nina Protocol transactions.
 
+Structure:
+```
+indexer/
+├── src/
+│   ├── services/
+│   │   ├── hubData.js         # Hub data fetching service
+│   │   ├── releaseData.js     # Release data fetching service
+│   │   └── index.js           # Service exports
+│   ├── processors/
+│   │   ├── base/
+│   │   │   └── BaseProcessor.js
+│   │   ├── HubProcessor.js
+│   │   ├── ReleaseProcessor.js
+│   │   └── index.js           # Processor exports
+│   ├── utils/
+│   │   ├── logging.js         # Logging utilities
+│   │   ├── helpers.js         # General helpers
+│   │   └── index.js           # Utils exports
+│   ├── TransactionSyncer.js   # Main transaction syncer
+│   └── index.js               # Main entry point
+├── package.json
+└── README.md
+```
+
 ## Run manually
 ```
 pm2 start src/index.js --name "nina-indexer"
