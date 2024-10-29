@@ -2777,7 +2777,7 @@ export default (router) => {
   router.get('/tags/:value', async (ctx) => {
     try {
       let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
-      const tag = await Tag.query().findOne({value: ctx.params.value})
+      const tag = await Tag.query().findOne({value: ctx.params.value.toLowerCase()})
       const releases = await Tag.relatedQuery('releases').for(tag.id)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
