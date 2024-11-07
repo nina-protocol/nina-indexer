@@ -556,6 +556,56 @@ export default (router) => {
     }
   });
 
+  router.get('/accounts/:publicKeyOrHandle/following/:followingPublicKeyOrHandle', async (ctx) => {
+    try {
+      const { publicKeyOrHandle, followingPublicKeyOrHandle } = ctx.params;
+      let account = await Account.query().findOne({publicKey: publicKeyOrHandle});
+      if (!account) {
+        account = await Account.query().findOne({handle: publicKeyOrHandle});
+        if (!account) {
+          ctx.status = 404
+          ctx.body = {
+            success: false,
+            following:false,
+            message: `Account not found with publicKey: ${publicKeyOrHandle}`
+          }
+          return;
+        }
+      }
+
+      let followingAccount = await Account.query().findOne({publicKey: followingPublicKeyOrHandle});
+      if (!followingAccount) {
+        followingAccount = await Account.query().findOne({handle: followingPublicKeyOrHandle});
+        if (!followingAccount) {
+          ctx.status = 404
+          ctx.body = {
+            success: false,
+            following:false,
+            message: `Account not found with publicKey: ${followingPublicKeyOrHandle}`
+          }
+          return;
+        }
+      }
+      const publicKey = account.publicKey
+      const followingPublicKey = followingAccount.publicKey
+      const subscriptions = await Subscription.query()
+        .where('from', publicKey)
+        .andWhere('to', followingPublicKey)
+
+      ctx.body = {
+        success: true,
+        isFollowing : subscriptions.length > 0,
+      };
+    } catch (err) {
+      console.log(err)
+      ctx.status = 400
+      ctx.body = {
+        message: 'Error fetching user following status',
+        success: false,
+      }
+    }
+  });
+
   router.get('/accounts/:publicKeyOrHandle/followers', async (ctx) => {
     try {
       let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
@@ -2809,6 +2859,7 @@ const hubPostNotFound = (ctx) => {
 const accountNotFound = (ctx) => {
   ctx.status = 404
   ctx.body = {
+    success: false,
     message: `Account not found with publicKey: ${ctx.params.publicKey}`
   }
 }
