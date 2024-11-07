@@ -577,13 +577,19 @@ export default (router) => {
       if (!followingAccount) {
         followingAccount = await Account.query().findOne({handle: followingPublicKeyOrHandle});
         if (!followingAccount) {
-          ctx.status = 404
-          ctx.body = {
-            success: false,
-            following:false,
-            message: `Account not found with publicKey: ${followingPublicKeyOrHandle}`
+          followingAccount = await Hub.query().findOne({publicKey: followingPublicKeyOrHandle});
+          if (!followingAccount) {
+            followingAccount = await Hub.query().findOne({handle: followingPublicKeyOrHandle});
           }
-          return;
+          if (!followingAccount) {
+            ctx.status = 404
+            ctx.body = {
+              success: false,
+              following:false,
+              message: `Account not found with publicKey: ${followingPublicKeyOrHandle}`
+            }
+            return;
+          }
         }
       }
       const publicKey = account.publicKey
