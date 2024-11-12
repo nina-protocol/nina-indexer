@@ -5,7 +5,7 @@ import v8 from 'node:v8';
 import os from 'os';
 import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
-import TransactionSyncer from './transactionSyncer.js';
+import TransactionSyncer from './TransactionSyncer.js';
 import { hubDataService } from './services/hubData.js';
 import { releaseDataService } from './services/releaseData.js';
 

@@ -3,6 +3,7 @@ import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import { releaseProcessor } from './processors/ReleaseProcessor.js';
 import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
+import { postsProcessor } from './processors/PostsProcessor.js';
 
 class TransactionSyncer {
   constructor() {
@@ -158,6 +159,8 @@ class TransactionSyncer {
             await releaseProcessor.processTransaction(task.txid);
           } else if (hubProcessor.canProcessTransaction(task.type)) {
             await hubProcessor.processTransaction(task.txid);
+          } else if (postsProcessor.canProcessTransaction(task.type)) {
+            await postsProcessor.processTransaction(task.txid);
           }
         } catch (error) {
           logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
