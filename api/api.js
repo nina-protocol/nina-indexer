@@ -2796,13 +2796,29 @@ export default (router) => {
 
   router.get('/tags', async (ctx) => {
     try {
-      let { offset=0, limit=20, sort='desc', query='' } = ctx.query;
+      let { offset=0, limit=20, sort='desc', query='', type="fuzzy" } = ctx.query;
       
+      let queryString
+      switch (type) {
+        case "fuzzy":
+          queryString = `%${query}%`
+          break;
+        case "exact":
+          queryString = query
+          break;
+        case "autocomplete":
+          queryString = `${query}%`
+          break;
+        default:
+          queryString = `%${query}%`
+          break;
+      }
+
       const tags = await db.raw(`
         SELECT tags.*, COUNT(tags_releases."tagId") as count
         FROM tags
         JOIN tags_releases ON tags.id = tags_releases."tagId"
-        WHERE tags.value ILIKE '%${query}%'
+        WHERE tags.value ILIKE '${queryString}%'
         GROUP BY tags.id
         ORDER BY count ${sort}
         LIMIT ${limit}
