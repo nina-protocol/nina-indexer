@@ -2251,7 +2251,7 @@ export default (router) => {
 
   router.get('/search/all', async (ctx) => {
     try {
-      let { offset=0, limit=2, sort='desc', query='' } = ctx.query;
+      let { offset=0, limit=2, sort='desc', query='', includePosts='false' } = ctx.query;
 
       const accounts = await Account.query()
         .where('displayName', 'ilike', `%${query}%`)
@@ -2286,18 +2286,22 @@ export default (router) => {
         hub.type = 'hub'
         await hub.format()
       }
-  
-      // const posts = await Post.query()
-      //   .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-      //   .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      //   .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
-      //   .orderBy('datetime', sort)
-      //   .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      // for await (let post of posts.results) {
-      //   post.type = 'post'
-      //   await post.format();
-      // }
+      let posts = []
+  
+      if (includePosts === 'true') {
+        posts = await Post.query()
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+          .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+          .orderBy('datetime', sort)
+          .range(Number(offset), Number(offset) + Number(limit) - 1);
+  
+        for await (let post of posts.results) {
+          post.type = 'post'
+          await post.format();
+        }
+      }
 
       const exactMatch = await Tag.query()
         .where('value', `${query}`)
@@ -2318,14 +2322,16 @@ export default (router) => {
       }
 
       tags.results.sort((a, b) => b.count - a.count)
-  
-      ctx.body = {
+      const response = {
         accounts,
         releases,
         hubs,
-        // posts,
         tags,
-      };
+      }
+      if (includePosts === 'true') {
+        response.posts = posts
+      }
+      ctx.body = response;
     } catch (error) {
       console.log(error)
       ctx.status = 400
