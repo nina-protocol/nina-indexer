@@ -2,65 +2,85 @@ import { BaseProcessor } from './base/BaseProcessor.js';
 import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { decode, fetchFromArweave } from '../utils/index.js';
+import * as anchor from '@project-serum/anchor';
 
 export class PostsProcessor extends BaseProcessor {
     constructor() {
       super();
+      this.program = null;
       this.POST_TRANSACTION_TYPES = new Set([
         'PostInitViaHubWithReferenceRelease',
         'PostInitViaHub',
         'PostUpdateViaHubPost'
       ]);
     }
-  
+
+    async initialize() {
+      if (!this.program) {
+        const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+        const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
+        this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
+      }
+    }
+
     canProcessTransaction(type) {
       return this.POST_TRANSACTION_TYPES.has(type);
     }
 
-    async processReferenceReleases(post, releasePublicKeys) {
-      try {
-        for (const releasePublicKey of releasePublicKeys) {
-          const release = await Release.query().findOne({ publicKey: releasePublicKey });
-          if (release) {
-            const relatedRelease = await Post.relatedQuery('releases')
-              .for(post.id)
-              .where('releaseId', release.id)
-              .first();
-            
-            if (!relatedRelease) {
-              await Post.relatedQuery('releases').for(post.id).relate(release.id);
-              logTimestampedMessage(`Related Release ${releasePublicKey} to Post ${post.publicKey}`);
-            }
+    async processPostContent(data, postId) {
+      if (data.blocks) {
+        for (const block of data.blocks) {
+          switch (block.type) {
+            case 'image':
+              break;
+
+            case 'release':
+              for (const release of block.data) {
+                try {
+                  const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
+                  if (releaseRecord) {
+                    const relatedRelease = await Post.relatedQuery('releases')
+                      .for(postId)
+                      .where('releaseId', releaseRecord.id)
+                      .first();
+
+                    if (!relatedRelease) {
+                      await Post.relatedQuery('releases').for(postId).relate(releaseRecord.id);
+                      logTimestampedMessage(`Related Release ${release.publicKey} to Post ${postId}`);
+                    }
+                  }
+                } catch (error) {
+                  logTimestampedMessage(`Error processing release in post content: ${error.message}`);
+                }
+              }
+              break;
+
+            case 'featuredRelease':
+              try {
+                const releaseRecord = await Release.query().findOne({ publicKey: block.data });
+                if (releaseRecord) {
+                  const relatedRelease = await Post.relatedQuery('releases')
+                    .for(postId)
+                    .where('releaseId', releaseRecord.id)
+                    .first();
+
+                  if (!relatedRelease) {
+                    await Post.relatedQuery('releases').for(postId).relate(releaseRecord.id);
+                    logTimestampedMessage(`Related Featured Release ${block.data} to Post ${postId}`);
+                  }
+                }
+              } catch (error) {
+                logTimestampedMessage(`Error processing featured release in post content: ${error.message}`);
+              }
+              break;
           }
         }
-      } catch (error) {
-        logTimestampedMessage(`Error processing reference releases: ${error.message}`);
-      }
-    }
-
-    async processPostData(uri, publisher, hubId = null) {
-      try {
-        const data = await fetchFromArweave(decode(uri).replace('}', ''));
-        
-        // Prepare post data with version check
-        const version = data.blocks ? '0.0.2' : '0.0.1';
-        
-        const postData = {
-          data,
-          datetime: new Date().toISOString(),
-          publisherId: publisher.id,
-          version,
-          hubId
-        };
-
-        return postData;
-      } catch (error) {
-        logTimestampedMessage(`Error processing post data: ${error.message}`);
-        throw error;
       }
     }
 
     async processTransaction(txid) {
+      await this.initialize();
+
       const txData = await this.processTransactionRecord(txid);
       if (!txData) return;
 
@@ -78,96 +98,44 @@ export class PostsProcessor extends BaseProcessor {
 
       try {
         switch (transaction.type) {
-          case 'PostInitViaHubWithReferenceRelease': {
-            const postPublicKey = accounts[2].toBase58();
-            const releasePublicKey = accounts[7].toBase58();
-            const hubPublicKey = accounts[1].toBase58();
-            
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            if (!hub) {
-              logTimestampedMessage(`Hub not found for PostInitViaHubWithReferenceRelease ${txid}`);
-              return;
-            }
-
-            // Get post data from program
-            const postAccount = await this.program.account.post.fetch(
-              new anchor.web3.PublicKey(postPublicKey)
-            );
-
-            const postData = await this.processPostData(postAccount.uri, authority, hub.id);
-            
-            // Create post
-            const post = await Post.query().insertGraph({
-              publicKey: postPublicKey,
-              ...postData
-            });
-
-            // Process releases if post has blocks
-            if (post.data.blocks) {
-              const releasePublicKeys = [];
-              
-              // Collect release public keys from blocks
-              for (const block of post.data.blocks) {
-                if (block.type === 'release') {
-                  releasePublicKeys.push(...block.data.map(release => release.publicKey));
-                } else if (block.type === 'featuredRelease' && block.data) {
-                  releasePublicKeys.push(block.data);
-                }
-              }
-
-              await this.processReferenceReleases(post, releasePublicKeys);
-            }
-
-            // Add referenced release if provided
-            if (releasePublicKey) {
-              await this.processReferenceReleases(post, [releasePublicKey]);
-            }
-
-            // Update transaction reference
-            await this.updateTransactionReferences(transaction, {
-              postId: post.id,
-              hubId: hub.id
-            });
-
-            break;
-          }
-
+          case 'PostInitViaHubWithReferenceRelease':
           case 'PostInitViaHub': {
             const postPublicKey = accounts[2].toBase58();
             const hubPublicKey = accounts[1].toBase58();
+            const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
+              accounts[7].toBase58() : null;
             
             const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
             if (!hub) {
-              logTimestampedMessage(`Hub not found for PostInitViaHub ${txid}`);
+              logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
               return;
             }
 
-            // Get post data from program
+            // Fetch post data from program
             const postAccount = await this.program.account.post.fetch(
               new anchor.web3.PublicKey(postPublicKey)
             );
 
-            const postData = await this.processPostData(postAccount.uri, authority, hub.id);
+            // Process post data
+            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
+            const version = postData.blocks ? '0.0.2' : '0.0.1';
             
             // Create post
             const post = await Post.query().insertGraph({
               publicKey: postPublicKey,
-              ...postData
+              data: postData,
+              datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+              publisherId: authority.id,
+              hubId: hub.id,
+              version
             });
 
-            // Process releases if post has blocks
-            if (post.data.blocks) {
-              const releasePublicKeys = [];
-              
-              for (const block of post.data.blocks) {
-                if (block.type === 'release') {
-                  releasePublicKeys.push(...block.data.map(release => release.publicKey));
-                } else if (block.type === 'featuredRelease' && block.data) {
-                  releasePublicKeys.push(block.data);
-                }
-              }
+            // Process post content
+            await this.processPostContent(postData, post.id);
 
-              await this.processReferenceReleases(post, releasePublicKeys);
+            // Process reference release if provided
+            if (releasePublicKey) {
+              await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
             }
 
             // Update transaction reference
@@ -196,12 +164,19 @@ export class PostsProcessor extends BaseProcessor {
               new anchor.web3.PublicKey(postPublicKey)
             );
 
-            const postData = await this.processPostData(postAccount.uri, authority, hub.id);
+            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
+            const version = postData.blocks ? '0.0.2' : '0.0.1';
             
             // Update post
             await Post.query()
-              .patch(postData)
+              .patch({
+                data: postData,
+                version
+              })
               .where('id', post.id);
+
+            // Reprocess post content
+            await this.processPostContent(postData, post.id);
 
             // Update transaction reference
             await this.updateTransactionReferences(transaction, {

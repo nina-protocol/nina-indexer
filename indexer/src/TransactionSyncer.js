@@ -173,11 +173,58 @@ class TransactionSyncer {
     return 0;  // Return 0 if no transactions were inserted
   }
 
+  async processAccountMetadata(publicKey) {
+    try {
+      const anchor = await import('@project-serum/anchor');
+      const provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
+      const program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
+
+      const ninaAccount = await program.account.user.fetchNullable(new anchor.web3.PublicKey(publicKey));
+      if (!ninaAccount) {
+        return null;
+      }
+
+      const { profileMetadata, handle } = ninaAccount;
+      if (!profileMetadata) {
+        return null;
+      }
+
+      const metadata = await fetchFromArweave(profileMetadata);
+      return {
+        image: metadata.image || null,
+        description: metadata.description || null,
+        displayName: metadata.name || handle || null,
+        handle: handle || null,
+      };
+    } catch (error) {
+      logTimestampedMessage(`Error processing account metadata for ${publicKey}: ${error.message}`);
+      return null;
+    }
+  }
+
   async getOrCreateAuthorityId(publicKey) {
     let account = await Account.query().where('publicKey', publicKey).first();
     if (!account) {
-      account = await Account.query().insert({ publicKey });
-      // logTimestampedMessage(`Created new account for public key: ${publicKey}`);
+        const metadata = await this.processAccountMetadata(publicKey);
+        account = await Account.query().insert({
+            publicKey,
+            image: metadata?.image || null,
+            description: metadata?.description || null,
+            displayName: metadata?.displayName || null,
+            handle: metadata?.handle || null,
+        });
+        logTimestampedMessage(`Created new account with metadata for public key: ${publicKey}`);
+    } else if (!account.image && !account.displayName) {
+        const metadata = await this.processAccountMetadata(publicKey);
+        if (metadata) {
+            await Account.query().patch({
+                image: metadata.image,
+                description: metadata.description,
+                displayName: metadata.displayName,
+                handle: metadata.handle,
+            }).where('id', account.id);
+            logTimestampedMessage(`Updated account metadata for public key: ${publicKey}`);
+        }
     }
     return account.id;
   }
