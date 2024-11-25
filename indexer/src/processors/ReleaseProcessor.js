@@ -60,6 +60,59 @@ export class ReleaseProcessor extends BaseProcessor {
             break;
           }
 
+          case 'ReleasePurchase': {
+            try {
+              // Handle both standard and special case account layouts
+              let releasePublicKey;
+              let collectorPublicKey;
+
+              if (accounts.length === 10) {
+                // Special case handling
+                if (accounts[0].toBase58() === accounts[1].toBase58()) {
+                  releasePublicKey = accounts[2].toBase58();
+                  collectorPublicKey = accounts[0].toBase58();
+                } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
+                  releasePublicKey = accounts[0].toBase58();
+                  collectorPublicKey = accounts[3].toBase58();
+                } else {
+                  releasePublicKey = accounts[2].toBase58();
+                  collectorPublicKey = accounts[1].toBase58();
+                }
+              } else {
+                // Standard case
+                releasePublicKey = accounts[2].toBase58();
+                collectorPublicKey = accounts[1].toBase58();
+              }
+
+              // Ensure the release exists
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleasePurchase ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              // Add collector relationship
+              const collector = await Account.findOrCreate(collectorPublicKey);
+
+              // Add collector to release's collectors
+              await Release.relatedQuery('collectors')
+                .for(release.id)
+                .relate(collector.id)
+                .onConflict(['releaseId', 'accountId'])
+                .ignore();
+
+              // Update transaction references
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleasePurchase ${txid} for release ${releasePublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleasePurchase for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+
           case 'ReleasePurchaseViaHub': {
             try {
               const releasePublicKey = accounts[2].toBase58();
