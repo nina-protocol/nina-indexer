@@ -60,6 +60,40 @@ export class ReleaseProcessor extends BaseProcessor {
             break;
           }
 
+          case 'ReleaseClaim': {
+            try {
+              const releasePublicKey = accounts[1].toBase58();
+              const collectorPublicKey = accounts[3].toBase58();
+
+              // Ensure the release exists
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseClaim ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              // Create or find the collector account
+              const collector = await Account.findOrCreate(collectorPublicKey);
+
+              // Add collector to release's collectors
+              await Release.relatedQuery('collectors')
+                .for(release.id)
+                .relate(collector.id)
+                .onConflict(['releaseId', 'accountId'])
+                .ignore();
+
+              // Update transaction references
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleaseClaim ${txid} for release ${releasePublicKey} claimed by ${collectorPublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseClaim for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+
           case 'ReleasePurchase': {
             try {
               // Handle both standard and special case account layouts
