@@ -23,7 +23,40 @@ export class ReleaseProcessor extends BaseProcessor {
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
     }
-  
+
+    async processRevenueShares(release, releaseAccount) {
+      try {
+        const royaltyRecipients = releaseAccount.account?.royaltyRecipients || releaseAccount.royaltyRecipients;
+        for (const recipient of royaltyRecipients) {
+          try {
+            const recipientPublicKey = recipient.recipientAuthority.toBase58();
+            if (recipientPublicKey !== "11111111111111111111111111111111") {
+              const recipientAccount = await Account.findOrCreate(recipientPublicKey);
+              const revenueShares = (await recipientAccount.$relatedQuery('revenueShares')).map(revenueShare => revenueShare.id);
+
+              const percentShare = recipient.percentShare.toNumber();
+              if (!revenueShares.includes(release.id) && percentShare > 0) {
+                await Account.relatedQuery('revenueShares')
+                  .for(recipientAccount.id)
+                  .relate(release.id);
+                logTimestampedMessage(`Added revenue share for ${recipientPublicKey} on release ${release.publicKey}`);
+              } else if (revenueShares.includes(release.id) && percentShare === 0) {
+                await Account.relatedQuery('revenueShares')
+                  .for(recipientAccount.id)
+                  .unrelate()
+                  .where('id', release.id);
+                logTimestampedMessage(`Removed revenue share for ${recipientPublicKey} on release ${release.publicKey}`);
+              }
+            }
+          } catch (error) {
+            logTimestampedMessage(`Error processing individual royalty recipient: ${error.message}`);
+          }
+        }
+      } catch (error) {
+        logTimestampedMessage(`Error processing revenue shares: ${error.message}`);
+      }
+    }
+
     async processTransaction(txid) {
       try {
         const txData = await this.processTransactionRecord(txid);
@@ -235,6 +268,114 @@ export class ReleaseProcessor extends BaseProcessor {
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInitViaHub for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+          case 'ReleaseRevenueShareCollect': {
+            try {
+              const releasePublicKey = this.isFileServicePayer(accounts) ?
+                accounts[5].toBase58() : accounts[4].toBase58();
+
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseRevenueShareCollect ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              const releaseAccount = await this.program.account.release.fetch(
+                new anchor.web3.PublicKey(releasePublicKey),
+                'confirmed'
+              );
+
+              if (!releaseAccount) {
+                logTimestampedMessage(`Release account not found on-chain for ${releasePublicKey}`);
+                return;
+              }
+
+              await this.processRevenueShares(release, releaseAccount);
+
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollect ${txid} for release ${releasePublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseRevenueShareCollect for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+          case 'ReleaseRevenueShareCollectViaHub': {
+            try {
+              const releasePublicKey = this.isFileServicePayer(accounts) ?
+                accounts[3].toBase58() : accounts[2].toBase58();
+
+              const hubPublicKey = this.isFileServicePayer(accounts) ?
+                accounts[6].toBase58() : accounts[5].toBase58();
+
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseRevenueShareCollectViaHub ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              if (!hub) {
+                logTimestampedMessage(`Hub not found for ReleaseRevenueShareCollectViaHub ${txid} with publicKey ${hubPublicKey}`);
+                return;
+              }
+              const releaseAccount = await this.program.account.release.fetch(
+                new anchor.web3.PublicKey(releasePublicKey),
+                'confirmed'
+              );
+
+              if (!releaseAccount) {
+                logTimestampedMessage(`Release account not found on-chain for ${releasePublicKey}`);
+                return;
+              }
+
+              await this.processRevenueShares(release, releaseAccount);
+
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id,
+                hubId: hub.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollectViaHub ${txid} for release ${releasePublicKey} via hub ${hubPublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseRevenueShareCollectViaHub for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+          case 'ReleaseRevenueShareTransfer': {
+            try {
+              const releasePublicKey = this.isFileServicePayer(accounts) ?
+                accounts[5].toBase58() : accounts[4].toBase58();
+
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseRevenueShareTransfer ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              const releaseAccount = await this.program.account.release.fetch(
+                new anchor.web3.PublicKey(releasePublicKey),
+                'confirmed'
+              );
+
+              if (!releaseAccount) {
+                logTimestampedMessage(`Release account not found on-chain for ${releasePublicKey}`);
+                return;
+              }
+
+              await this.processRevenueShares(release, releaseAccount);
+
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleaseRevenueShareTransfer ${txid} for release ${releasePublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseRevenueShareTransfer for ${txid}: ${error.message}`);
             }
             break;
           }
