@@ -1,6 +1,9 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
-import { logTimestampedMessage } from '../utils/logging.js';
+import { releaseProcessor } from './processors/ReleaseProcessor.js';
+import { hubProcessor } from './processors/HubProcessor.js';
+import { logTimestampedMessage } from './utils/logging.js';
+import { postsProcessor } from './processors/PostsProcessor.js';
 
 class TransactionSyncer {
   constructor() {
@@ -91,11 +94,13 @@ class TransactionSyncer {
     );
 
     const transactionsToInsert = [];
+    const processorQueue = []; // Queue up processor tasks
 
     for (const txInfo of txInfos) {
       if (txInfo === null) continue;
 
       try {
+        // Update accountPublicKey and type based on the new detection logic
         let type = this.determineTransactionType(txInfo);
         const accounts = this.getRelevantAccounts(txInfo);
 
@@ -104,7 +109,6 @@ class TransactionSyncer {
           continue;
         }
 
-        // Update accountPublicKey and type based on the new detection logic
         let { accountPublicKey, updatedType } = await this.getAccountPublicKey(accounts, type);
         type = updatedType;
 
@@ -114,15 +118,26 @@ class TransactionSyncer {
         }
 
         let authorityId = await this.getOrCreateAuthorityId(accountPublicKey);
+        const txid = txInfo.transaction.signatures[0];
 
-        transactionsToInsert.push({
-          txid: txInfo.transaction.signatures[0],
+        // Prepare transaction record
+        const transactionRecord = {
+          txid,
           blocktime: txInfo.blockTime,
           type: type,
           authorityId: authorityId,
-        });
+        };
 
         // logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
+        transactionsToInsert.push(transactionRecord);
+
+        // Queue up processor task based on type
+        processorQueue.push({
+          type,
+          txid,
+          accounts,
+          txInfo
+        });
 
       } catch (error) {
         logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
@@ -137,16 +152,79 @@ class TransactionSyncer {
       });
       logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
 
+      // Process with domain processors
+      for (const task of processorQueue) {
+        try {
+          if (releaseProcessor.canProcessTransaction(task.type)) {
+            await releaseProcessor.processTransaction(task.txid);
+          } else if (hubProcessor.canProcessTransaction(task.type)) {
+            await hubProcessor.processTransaction(task.txid);
+          } else if (postsProcessor.canProcessTransaction(task.type)) {
+            await postsProcessor.processTransaction(task.txid);
+          }
+        } catch (error) {
+          logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
+        }
+      }
+
+      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
       return transactionsToInsert.length;
     }
     return 0;  // Return 0 if no transactions were inserted
   }
 
+  async processAccountMetadata(publicKey) {
+    try {
+      const anchor = await import('@project-serum/anchor');
+      const provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
+      const program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
+
+      const ninaAccount = await program.account.user.fetchNullable(new anchor.web3.PublicKey(publicKey));
+      if (!ninaAccount) {
+        return null;
+      }
+
+      const { profileMetadata, handle } = ninaAccount;
+      if (!profileMetadata) {
+        return null;
+      }
+
+      const metadata = await fetchFromArweave(profileMetadata);
+      return {
+        image: metadata.image || null,
+        description: metadata.description || null,
+        displayName: metadata.name || handle || null,
+        handle: handle || null,
+      };
+    } catch (error) {
+      logTimestampedMessage(`Error processing account metadata for ${publicKey}: ${error.message}`);
+      return null;
+    }
+  }
+
   async getOrCreateAuthorityId(publicKey) {
     let account = await Account.query().where('publicKey', publicKey).first();
     if (!account) {
-      account = await Account.query().insert({ publicKey });
-      // logTimestampedMessage(`Created new account for public key: ${publicKey}`);
+        const metadata = await this.processAccountMetadata(publicKey);
+        account = await Account.query().insert({
+            publicKey,
+            image: metadata?.image || null,
+            description: metadata?.description || null,
+            displayName: metadata?.displayName || null,
+            handle: metadata?.handle || null,
+        });
+        logTimestampedMessage(`Created new account with metadata for public key: ${publicKey}`);
+    } else if (!account.image && !account.displayName) {
+        const metadata = await this.processAccountMetadata(publicKey);
+        if (metadata) {
+            await Account.query().patch({
+                image: metadata.image,
+                description: metadata.description,
+                displayName: metadata.displayName,
+                handle: metadata.handle,
+            }).where('id', account.id);
+            logTimestampedMessage(`Updated account metadata for public key: ${publicKey}`);
+        }
     }
     return account.id;
   }
