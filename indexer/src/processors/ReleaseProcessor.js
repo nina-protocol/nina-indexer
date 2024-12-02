@@ -118,6 +118,7 @@ export class ReleaseProcessor extends BaseProcessor {
                   await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
                 }
 
+                await this.processRevenueShares(release, releaseAccount);
                 await this.updateTransactionReferences(transaction, {
                   releaseId: release.id
                 });
@@ -299,6 +300,7 @@ export class ReleaseProcessor extends BaseProcessor {
                   await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
                 }
 
+                await this.processRevenueShares(release, releaseAccount);
                 await this.updateTransactionReferences(transaction, {
                   releaseId: release.id,
                   hubId: hub.id
