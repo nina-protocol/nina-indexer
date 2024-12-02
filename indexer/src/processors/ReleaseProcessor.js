@@ -1,6 +1,8 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
-import { Account, Hub, Release } from '@nina-protocol/nina-db';
+import { Account, Hub, Release, Tag } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
+import { decode, fetchFromArweave } from '../utils/index.js';
+import * as anchor from '@project-serum/anchor';
 
 export class ReleaseProcessor extends BaseProcessor {
     constructor() {
@@ -20,6 +22,13 @@ export class ReleaseProcessor extends BaseProcessor {
       ]);
     }
   
+    async initialize() {
+      if (!this.program) {
+        const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+        const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
+        this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
+      }
+    }
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
     }
@@ -379,10 +388,75 @@ export class ReleaseProcessor extends BaseProcessor {
             }
             break;
           }
+          case 'ReleaseUpdateMetadata': {
+            try {
+              const releasePublicKey = this.isFileServicePayer(accounts) ?
+                accounts[2].toBase58() : accounts[1].toBase58();
+
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseUpdateMetadata ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              // Get the release account and metadata from chain
+              const releaseAccount = await this.program.account.release.fetch(
+                new anchor.web3.PublicKey(releasePublicKey),
+                'confirmed'
+              );
+
+              // Fetch metadata JSON using fetchFromArweave utility
+              const json = await fetchFromArweave(decode(releaseAccount.uri));
+
+              // Process tags
+              const tagsBefore = await release.$relatedQuery('tags');
+              const newTags = json.properties.tags.filter(tag =>
+                !tagsBefore.find(t => t.value === tag)
+              );
+              const deletedTags = tagsBefore.filter(tag =>
+                !json.properties.tags.find(t => t === tag.value)
+              );
+
+              // Update release metadata
+              await release.$query().patch({
+                metadata: json,
+              });
+
+              // Add new tags
+              for (const tag of newTags) {
+                const tagRecord = await Tag.findOrCreate(tag);
+                await Release.relatedQuery('tags')
+                  .for(release.id)
+                  .relate(tagRecord.id);
+                logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+              }
+
+              // Remove deleted tags
+              for (const tag of deletedTags) {
+                const tagRecord = await Tag.findOrCreate(tag.value);
+                await Release.relatedQuery('tags')
+                  .for(release.id)
+                  .unrelate()
+                  .where('tagId', tagRecord.id);
+                logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+              }
+
+              // Update transaction references
+              await this.updateTransactionReferences(transaction, {
+                releaseId: release.id
+              });
+
+              logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseUpdateMetadata for ${txid}: ${error.message}`);
+            }
+            break;
+          }
         }
       } catch (error) {
         logTimestampedMessage(`Error in processTransaction for ${txid}: ${error.message}`);
       }
+
     }
 }
 
