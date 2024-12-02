@@ -33,6 +33,20 @@ export class ReleaseProcessor extends BaseProcessor {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
     }
 
+    async processReleaseTags(releaseId, tags, releasePublicKey) {
+      try {
+        for (const tag of tags) {
+          const tagRecord = await Tag.findOrCreate(tag);
+          await Release.relatedQuery('tags')
+            .for(releaseId)
+            .relate(tagRecord.id);
+          logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+        }
+      } catch (error) {
+        logTimestampedMessage(`Error processing tags: ${error.message}`);
+      }
+    }
+
     async processRevenueShares(release, releaseAccount) {
       try {
         const royaltyRecipients = releaseAccount.account?.royaltyRecipients || releaseAccount.royaltyRecipients;
@@ -92,9 +106,23 @@ export class ReleaseProcessor extends BaseProcessor {
               const releasePublicKey = accounts[0].toBase58();
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
+                const releaseAccount = await this.program.account.release.fetch(
+                  new anchor.web3.PublicKey(releasePublicKey),
+                  'confirmed'
+                );
+
+                const json = await fetchFromArweave(decode(releaseAccount.uri));
+
+                // Process tags if they exist
+                if (json.properties && json.properties.tags) {
+                  await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
+                }
+
                 await this.updateTransactionReferences(transaction, {
                   releaseId: release.id
                 });
+
+                logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInit for ${txid}: ${error.message}`);
@@ -259,6 +287,18 @@ export class ReleaseProcessor extends BaseProcessor {
               }
 
               if (release) {
+                const releaseAccount = await this.program.account.release.fetch(
+                  new anchor.web3.PublicKey(releasePublicKey),
+                  'confirmed'
+                );
+
+                const json = await fetchFromArweave(decode(releaseAccount.uri));
+
+                // Process tags if they exist
+                if (json.properties && json.properties.tags) {
+                  await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
+                }
+
                 await this.updateTransactionReferences(transaction, {
                   releaseId: release.id,
                   hubId: hub.id
