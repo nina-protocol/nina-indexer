@@ -1381,17 +1381,18 @@ export default (router) => {
         }
       }
 
-      
+      let releases = await hub.$relatedQuery('releases')
+      console.log('total releases', releases)
       if (hubOnly === 'true') {
         await hub.format();
         ctx.body = {
           hub,
+          total: releases.length,
         }
         return
       }
 
       const collaborators = await hub.$relatedQuery('collaborators')
-      let releases = await hub.$relatedQuery('releases')
       for (let release of releases) {
         await release.format();
       }
