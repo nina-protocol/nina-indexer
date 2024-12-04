@@ -37,7 +37,7 @@ const MAX_TRANSACTION_SIGNATURES = 1000
 const CACHE_RESET_TIME = 1200000 // 20 minutes
 
 const DISPATCHER_ADDRESS = 'BnhxwsrY5aaeMehsTRoJzX2X4w5sKMhMfBs2MCKUqMC'
-const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd'
+const FILE_SERVICE_ADDRESS = 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6'
 
 const nameAccountSkipList = [
   '79k2rLEdyzgMyyztSXxk3BsZoyysxt4SKv7h47iv4qBo',
