@@ -1382,7 +1382,6 @@ export default (router) => {
       }
 
       let releases = await hub.$relatedQuery('releases')
-      console.log('total releases', releases)
       if (hubOnly === 'true') {
         await hub.format();
         ctx.body = {
