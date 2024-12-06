@@ -36,7 +36,7 @@ app.use(ratelimit({
 
     return false;
   },
-  max: 200,
+  max: 500,
   disableHeader: false,
 }));
 
