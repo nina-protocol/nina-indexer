@@ -1055,6 +1055,7 @@ export default (router) => {
           commitment: 'confirmed',
           maxSupportedTransactionVersion: 0
         })
+
         const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
         const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
   
