@@ -59,9 +59,9 @@ class NinaProcessor {
 
   async init() {
     const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-    this.provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+    this.provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
     const tokenIndexConnection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-    this.tokenIndexProvider = new anchor.AnchorProvider(tokenIndexConnection, {commitment: 'processed'});
+    this.tokenIndexProvider = new anchor.AnchorProvider(tokenIndexConnection, {commitment: 'confirmed'});
     this.program = await anchor.Program.at(
       process.env.NINA_PROGRAM_ID,
       this.provider,
