@@ -55,7 +55,7 @@ export default class Release extends Model {
     }
 
     const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-    const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+    const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
     const program = await anchor.Program.at(
       process.env.NINA_PROGRAM_ID,
       provider,
