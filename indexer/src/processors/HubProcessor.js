@@ -118,6 +118,45 @@ export class HubProcessor extends BaseProcessor {
           }
           break;
         }
+        case 'HubAddCollaborator': {
+          try {
+            const hubPublicKey = this.isFileServicePayer(accounts) ?
+              accounts[3].toBase58() : accounts[2].toBase58();
+            const collaboratorPublicKey = this.isFileServicePayer(accounts) ?
+              accounts[5].toBase58() : accounts[4].toBase58();
+
+            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+            if (!hub) {
+              logTimestampedMessage(`Hub not found for HubAddCollaborator ${txid}`);
+              return;
+            }
+
+            const collaborator = await Account.findOrCreate(collaboratorPublicKey);
+            if (!collaborator) {
+              logTimestampedMessage(`Could not create collaborator account for ${collaboratorPublicKey}`);
+              return;
+            }
+
+            const hubCollaboratorPublicKey = txInfo.transaction.signatures[0];
+
+            await Hub.relatedQuery('collaborators')
+              .for(hub.id)
+              .relate({
+                id: collaborator.id,
+                hubCollaboratorPublicKey
+              });
+
+            await this.updateTransactionReferences(transaction, {
+              hubId: hub.id,
+              toAccountId: collaborator.id
+            });
+
+            logTimestampedMessage(`Successfully processed HubAddCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
+          } catch (error) {
+            logTimestampedMessage(`Error processing HubAddCollaborator for ${txid}: ${error.message}`);
+          }
+          break;
+        }
       }
     }
 }
