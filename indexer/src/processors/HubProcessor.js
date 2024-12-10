@@ -1,6 +1,7 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
 import { hubDataService } from '../services/hubData.js';
 import { Account, Hub } from '@nina-protocol/nina-db';
+import { logTimestampedMessage } from '../utils/logging.js';
 
 export class HubProcessor extends BaseProcessor {
     constructor() {
@@ -74,6 +75,46 @@ export class HubProcessor extends BaseProcessor {
             await this.updateTransactionReferences(transaction, { hubId: newHub.id });
           } else {
             await this.updateTransactionReferences(transaction, { hubId: hub.id });
+          }
+          break;
+        }
+        case 'HubAddRelease': {
+          try {
+            const hubPublicKey = this.isFileServicePayer(accounts) ?
+              accounts[1].toBase58() : accounts[0].toBase58();
+            const releasePublicKey = this.isFileServicePayer(accounts) ?
+              accounts[2].toBase58() : accounts[1].toBase58();
+
+            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+            if (!hub) {
+              logTimestampedMessage(`Hub not found for HubAddRelease ${txid} with publicKey ${hubPublicKey}`);
+              return;
+            }
+
+            const release = await Release.query().findOne({ publicKey: releasePublicKey });
+            if (!release) {
+              logTimestampedMessage(`Release not found for HubAddRelease ${txid} with publicKey ${releasePublicKey}`);
+              return;
+            }
+
+            await Hub.relatedQuery('releases')
+              .for(hub.id)
+              .relate({
+                id: release.id,
+                visible: true,
+                hubReleasePublicKey: `${hubPublicKey}-${releasePublicKey}`
+              })
+              .onConflict(['hubId', 'releaseId'])
+              .merge(['visible']);
+
+            await this.updateTransactionReferences(transaction, {
+              hubId: hub.id,
+              releaseId: release.id
+            });
+
+            logTimestampedMessage(`Successfully processed HubAddRelease ${txid} for hub ${hubPublicKey} and release ${releasePublicKey}`);
+          } catch (error) {
+            logTimestampedMessage(`Error processing HubAddRelease for ${txid}: ${error.message}`);
           }
           break;
         }
