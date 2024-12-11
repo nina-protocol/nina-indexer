@@ -29,6 +29,20 @@ const idList = [
 const db = Knex(config.development)
 
 export default (router) => {
+  router.get('/solPrice', async (ctx) => {
+    try {
+      const priceResult = await axios.get(
+        `https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112`,
+      )
+      return ctx.body = priceResult.data
+    } catch (error) {
+      console.log('err', err)
+      ctx.status = 404
+      ctx.body = {
+        message: err
+      }
+    }
+  })
   router.get('/accounts', async(ctx) => {
     try {
       const { offset=0, limit=20, sort='desc', query= '' } = ctx.query;
