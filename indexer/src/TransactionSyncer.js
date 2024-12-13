@@ -5,6 +5,7 @@ import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
 import { postsProcessor } from './processors/PostsProcessor.js';
 import * as anchor from '@project-serum/anchor';
+import { hubDataService } from './services/hubData.js';
 
 const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
@@ -19,7 +20,10 @@ class TransactionSyncer {
 
   async initialize() {
     this.program = await anchor.Program.at(this.programId, this.provider);
-    await releaseProcessor.initialize();
+    await hubDataService.initialize(this.program);
+    await releaseProcessor.initialize(this.program);
+    await hubProcessor.initialize(this.program);
+    await postsProcessor.initialize(this.program);
   }
 
   async syncTransactions() {
@@ -34,7 +38,7 @@ class TransactionSyncer {
       let lastSyncedSignature = await this.getLastSyncedSignature();
   
       const signatures =
-        (await this.fetchSignatures(lastSyncedSignature, lastSyncedSignature === null)).reverse();
+        (await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)).reverse();
   
       signatures.forEach(signatureInfo => {
         logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
@@ -56,27 +60,37 @@ class TransactionSyncer {
     return lastSignature;
   }
 
-  async fetchSignatures (tx=undefined, isBefore=true, existingSignatures=[]) {
+  async fetchSignatures (tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
+    console.log(`fetchSignatures: ${tx} ${isBefore} ${existingSignatures.length}`)
     try {
       const options = {}
       if (tx && isBefore) {
-        options.before = tx.signature
+        options.before = tx
       } else if (!isBefore && tx) {
-        options.until = tx.signature
+        options.until = tx
+        if (lastTx) {
+          options.before = lastTx
+        }
       }
+      console.log('options: ', options)
       const newSignatures = await this.connection.getSignaturesForAddress(this.programId, options)
+      for (let i = 0; i < newSignatures.length; i ++) {
+        console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
+      }
       let signature
       if (isBefore) {
         signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
       } else if (tx) {
-        signature = tx.signature  
+        signature = tx
+        lastTx = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
       }
+      console.log(newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b))
       if (newSignatures.length > 0) {
         existingSignatures.push(...newSignatures)
       }
-      logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`)
+      logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
       if (existingSignatures.length % this.batchSize === 0 && newSignatures.length > 0) {
-        return await this.fetchSignatures(signature, isBefore, existingSignatures)
+        return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
       }
       return existingSignatures
     } catch (error) {
@@ -144,7 +158,7 @@ class TransactionSyncer {
           });
   
         } catch (error) {
-          logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
+          logTimestampedMessage(`❌ Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
         }
       }
   
@@ -154,13 +168,20 @@ class TransactionSyncer {
         for (const task of processorQueue) {
           try {
             if (releaseProcessor.canProcessTransaction(task.type)) {
-              const { releaseId, hubId } = await releaseProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
-              if (releaseId) task.transactionRecord.releaseId = releaseId;
-              if (hubId) task.transactionRecord.hubId = hubId;
+              const ids = await releaseProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts, task.txInfo);
+              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
             } else if (hubProcessor.canProcessTransaction(task.type)) {
-              // await hubProcessor.processTransaction(task.txid);
+              const ids = await hubProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
+              if (ids.toAccountId) task.transactionRecord.toAccountId = ids.toAccountId;
+              if (ids.postId) task.transactionRecord.postId = ids.postId;
             } else if (postsProcessor.canProcessTransaction(task.type)) {
-              // await postsProcessor.processTransaction(task.txid);
+              const ids = await postsProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
+              if (ids.postId) task.transactionRecord.postId = ids.postId;
+              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
             }
 
             await Transaction.query().insert(task.transactionRecord).onConflict('txid').ignore();

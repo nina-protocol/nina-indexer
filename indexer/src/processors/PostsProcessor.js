@@ -11,16 +11,12 @@ export class PostsProcessor extends BaseProcessor {
       this.POST_TRANSACTION_TYPES = new Set([
         'PostInitViaHubWithReferenceRelease',
         'PostInitViaHub',
-        'PostUpdateViaHubPost'
+        // 'PostUpdateViaHubPost'
       ]);
     }
 
-    async initialize() {
-      if (!this.program) {
-        const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-        const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
-        this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
-      }
+    async initialize(program) {
+      this.program = program;
     }
 
     canProcessTransaction(type) {
@@ -78,17 +74,8 @@ export class PostsProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid) {
-      await this.initialize();
-
-      const txData = await this.processTransactionRecord(txid);
-      if (!txData) return;
-
-      const { transaction, accounts, txInfo } = txData;
-      
-      if (!this.canProcessTransaction(transaction.type)) {
-        return;
-      }
+    async processTransaction(txid, transaction, accounts) {      
+      if (!this.canProcessTransaction(transaction.type)) return;
 
       const authority = await Account.query().findById(transaction.authorityId);
       if (!authority) {
@@ -134,58 +121,55 @@ export class PostsProcessor extends BaseProcessor {
             await this.processPostContent(postData, post.id);
 
             // Process reference release if provided
+            let releaseId = null;
             if (releasePublicKey) {
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              releaseId = release.id;
               await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
             }
 
-            // Update transaction reference
-            await this.updateTransactionReferences(transaction, {
-              postId: post.id,
-              hubId: hub.id
-            });
-
-            break;
+            return { postId: post.id, hubId: hub.id, releaseId };
           }
 
-          case 'PostUpdateViaHubPost': {
-            const postPublicKey = accounts[3].toBase58();
-            const hubPublicKey = accounts[2].toBase58();
+          // case 'PostUpdateViaHubPost': {
+          //   const postPublicKey = accounts[3].toBase58();
+          //   const hubPublicKey = accounts[2].toBase58();
             
-            const post = await Post.query().findOne({ publicKey: postPublicKey });
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+          //   const post = await Post.query().findOne({ publicKey: postPublicKey });
+          //   const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
             
-            if (!post || !hub) {
-              logTimestampedMessage(`Post or Hub not found for PostUpdateViaHubPost ${txid}`);
-              return;
-            }
+          //   if (!post || !hub) {
+          //     logTimestampedMessage(`Post or Hub not found for PostUpdateViaHubPost ${txid}`);
+          //     return;
+          //   }
 
-            // Get updated post data
-            const postAccount = await this.program.account.post.fetch(
-              new anchor.web3.PublicKey(postPublicKey)
-            );
+          //   // Get updated post data
+          //   const postAccount = await this.program.account.post.fetch(
+          //     new anchor.web3.PublicKey(postPublicKey)
+          //   );
 
-            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
-            const version = postData.blocks ? '0.0.2' : '0.0.1';
+          //   const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
+          //   const version = postData.blocks ? '0.0.2' : '0.0.1';
             
-            // Update post
-            await Post.query()
-              .patch({
-                data: postData,
-                version
-              })
-              .where('id', post.id);
+          //   // Update post
+          //   await Post.query()
+          //     .patch({
+          //       data: postData,
+          //       version
+          //     })
+          //     .where('id', post.id);
 
-            // Reprocess post content
-            await this.processPostContent(postData, post.id);
+          //   // Reprocess post content
+          //   await this.processPostContent(postData, post.id);
 
-            // Update transaction reference
-            await this.updateTransactionReferences(transaction, {
-              postId: post.id,
-              hubId: hub.id
-            });
+          //   // Update transaction reference
+          //   await this.updateTransactionReferences(transaction, {
+          //     postId: post.id,
+          //     hubId: hub.id
+          //   });
 
-            break;
-          }
+          //   break;
+          // }
         }
       } catch (error) {
         logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);

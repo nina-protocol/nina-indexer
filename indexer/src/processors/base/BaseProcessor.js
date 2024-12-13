@@ -8,6 +8,10 @@ export class BaseProcessor {
   constructor() {
     this.FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
   }
+  
+  async initialize(program) {
+    this.program = program;
+  }
 
   isFileServicePayer(accounts) {
     return accounts[0].toBase58() === this.FILE_SERVICE_ADDRESS || 

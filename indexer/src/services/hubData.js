@@ -1,30 +1,21 @@
-import solanaWeb3 from '@solana/web3.js';
-import * as anchor from '@project-serum/anchor';
+import { PublicKey } from '@solana/web3.js';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { decode } from '../utils/index.js';
 import axios from 'axios';
 
-const { Connection, PublicKey } = solanaWeb3;
 
 class HubDataService {
   constructor() {
-    this.connection = null;
-    this.provider = null;
     this.program = null;
   }
 
-  async initialize() {
-    if (!this.connection) {
-      this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
-      this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
-      this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, this.provider);
-    }
+  async initialize(program) {
+    this.program = program;
   }
 
   async fetchHubData(hubPublicKey) {
     try {
-      await this.initialize();
-
+      console.log('fetchHubData', hubPublicKey);
       const hubAccount = await this.program.account.hub.fetch(
         new PublicKey(hubPublicKey),
         'confirmed'
@@ -100,6 +91,31 @@ class HubDataService {
       logTimestampedMessage(`Error fetching hub contents for ${hubPublicKey}: ${error.message}`);
       throw error;
     }
+  }
+  async buildHubReleasePublicKey(hubPublicKey, releasePublicKey) {
+    const [hubReleasePublicKey] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from('nina-hub-release'),
+        new PublicKey(hubPublicKey).toBuffer(),
+        new PublicKey(releasePublicKey).toBuffer()
+      ],
+      this.program.programId
+    );
+
+    return hubReleasePublicKey.toBase58();
+  }  
+
+  async buildHubContentPublicKey(hubPublicKey, contentAccount) {
+    const [hubContentPublicKey] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from('nina-hub-content'),
+        new PublicKey(hubPublicKey).toBuffer(),
+        new PublicKey(contentAccount).toBuffer()
+      ],
+      this.program.programId
+    );
+
+    return hubContentPublicKey.toBase58();
   }
 }
 

@@ -3,6 +3,7 @@ import { Account, Hub, Release, Tag } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { decode, fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
+import { hubDataService } from '../services/hubData.js';
 
 export class ReleaseProcessor extends BaseProcessor {
     constructor() {
@@ -22,12 +23,6 @@ export class ReleaseProcessor extends BaseProcessor {
       ]);
     }
   
-    async initialize() {
-      const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-      const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
-      this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
-    }
-
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
     }
@@ -79,12 +74,9 @@ export class ReleaseProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid, transaction, accounts) {
+    async processTransaction(txid, transaction, accounts, txInfo) {
       try {
-
-        if (!this.canProcessTransaction(transaction.type)) {
-          return;
-        }
+        if (!this.canProcessTransaction(transaction.type)) return;
 
         // Verify authority exists
         const authority = await Account.query().findById(transaction.authorityId);
@@ -98,7 +90,43 @@ export class ReleaseProcessor extends BaseProcessor {
           case 'ReleaseInitWithCredit':
             try {
               let releasePublicKey;
-              if (accounts.length === 14) {
+              if (txInfo?.meta.logMessages?.some(log => log.includes('ReleaseInitWithCredit'))) {
+                try {
+                  const release = await this.program.account.release.fetch(accounts[1]);
+                  if (release) {
+                    console.log(`found release at index 1: ${accounts[1].toBase58()}`);
+                    releasePublicKey = accounts[1].toBase58();
+                  }
+                } catch (error) {
+                  console.log('Error fetching release for ReleaseInitWithCredit at index 1, trying index 2');
+                  try {
+                    const release = await this.program.account.release.fetch(accounts[2]);
+                    if (release) {
+                      console.log(`found release at index 2: ${accounts[2].toBase58()}`);
+                      releasePublicKey = accounts[2].toBase58();
+                    }
+                  } catch (error) {
+                    console.log('Error fetching release for ReleaseInitWithCredit at index 2, trying index 4');
+                    try {
+                      const release = await this.program.account.release.fetch(accounts[4]);
+                      if (release) {
+                        console.log(`found release at index 4: ${accounts[4].toBase58()}`);
+                        releasePublicKey = accounts[4].toBase58();
+                      }
+                    } catch (error) {
+                      try {
+                        const release = await this.program.account.release.fetch(accounts[0]);
+                        if (release) {
+                          console.log(`found release at index 0: ${accounts[0].toBase58()}`);
+                          releasePublicKey = accounts[0].toBase58();
+                        }
+                      } catch (error) {
+                        logTimestampedMessage(`Error fetching release for ReleaseInitWithCredit ${txid}: ${error.message}`);
+                      }
+                    }
+                  }
+                }
+              } else if (accounts.length === 14) {
                 releasePublicKey = accounts[0].toBase58();
               } else if (accounts.length === 16) {
                 releasePublicKey = accounts[5].toBase58();
@@ -258,8 +286,26 @@ export class ReleaseProcessor extends BaseProcessor {
 
           case 'ReleaseInitViaHub': {
             try {
-              const releasePublicKey = accounts[1].toBase58();
-              const hubPublicKey = accounts[4].toBase58();
+              let releasePublicKey;
+              let hubPublicKey;
+              try {
+                const release = await this.program.account.release.fetch(accounts[1]);
+                if (release) {
+                  releasePublicKey = accounts[1].toBase58();
+                  hubPublicKey = accounts[4].toBase58();
+                }
+              } catch (error) {
+                try {
+                  console.log('Error fetching release for ReleaseInitViaHub at index 1, trying index 4');
+                  const release = await this.program.account.release.fetch(accounts[4]);
+                  if (release) {
+                    releasePublicKey = accounts[4].toBase58();
+                    hubPublicKey = accounts[10].toBase58();
+                  }
+                } catch (error) {
+                  logTimestampedMessage(`Error fetching release for ReleaseInitViaHub at index 1: ${error.message}`);
+                }
+              }
 
               // First ensure hub exists
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
@@ -283,27 +329,14 @@ export class ReleaseProcessor extends BaseProcessor {
               }
 
               if (release) {
-                const releaseAccount = await this.program.account.release.fetch(
-                  new anchor.web3.PublicKey(releasePublicKey),
-                  'confirmed'
-                );
-
-                const json = await fetchFromArweave(decode(releaseAccount.uri));
-
-                // Process tags if they exist
-                if (json.properties && json.properties.tags) {
-                  await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
-                }
-
-                await this.processRevenueShares(release, releaseAccount);
-
+                const hubReleasePublicKey = await hubDataService.buildHubReleasePublicKey(hubPublicKey, releasePublicKey);
                 // Double check hub relationship was established
                 await Hub.relatedQuery('releases')
                   .for(hub.id)
                   .relate({
                     id: release.id,
                     visible: true,
-                    hubReleasePublicKey: `${hub.publicKey}-${release.publicKey}`
+                    hubReleasePublicKey,
                   });
 
                 logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
@@ -470,6 +503,26 @@ export class ReleaseProcessor extends BaseProcessor {
               return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseUpdateMetadata for ${txid}: ${error.message}`);
+            }
+            break;
+          }
+          case 'ReleaseCloseEdition': {
+            try {
+              let releasePublicKey;
+              if (accounts[0].toBase58() === accounts[1].toBase58()) {
+                releasePublicKey = accounts[2].toBase58();
+              } else {
+                releasePublicKey = accounts[1].toBase58();
+              }
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                console.log('accounts', accounts);
+                logTimestampedMessage(`Release not found for ReleaseCloseEdition ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+              return { releaseId: release.id };
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseCloseEdition for ${txid}: ${error.message}`);
             }
             break;
           }

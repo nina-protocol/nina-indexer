@@ -6,7 +6,6 @@ import os from 'os';
 import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './TransactionSyncer.js';
-import { hubDataService } from './services/hubData.js';
 import { releaseDataService } from './services/releaseData.js';
 
 function getUsedHeapSize() {
@@ -34,7 +33,6 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
-    await hubDataService.initialize();
     await releaseDataService.initialize();
     await TransactionSyncer.initialize();
     await TransactionSyncer.syncTransactions(); // initial sync
@@ -58,4 +56,4 @@ try {
     console.error(error);
 }
 
-export { TransactionSyncer, hubDataService, releaseDataService };
+export { TransactionSyncer };
