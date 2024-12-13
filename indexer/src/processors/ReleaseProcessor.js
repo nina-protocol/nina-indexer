@@ -23,12 +23,11 @@ export class ReleaseProcessor extends BaseProcessor {
     }
   
     async initialize() {
-      if (!this.program) {
-        const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-        const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
-        this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
-      }
+      const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+      const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
+      this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
     }
+
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
     }
@@ -80,12 +79,8 @@ export class ReleaseProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid) {
+    async processTransaction(txid, transaction, accounts) {
       try {
-        const txData = await this.processTransactionRecord(txid);
-        if (!txData) return;
-
-        const { transaction, accounts, txInfo } = txData;
 
         if (!this.canProcessTransaction(transaction.type)) {
           return;
@@ -101,29 +96,42 @@ export class ReleaseProcessor extends BaseProcessor {
         // Process based on transaction type
         switch (transaction.type) {
           case 'ReleaseInitWithCredit':
+            try {
+              let releasePublicKey;
+              if (accounts.length === 14) {
+                releasePublicKey = accounts[0].toBase58();
+              } else if (accounts.length === 16) {
+                releasePublicKey = accounts[5].toBase58();
+              } else if (accounts.length === 18) {
+                releasePublicKey = accounts[7].toBase58();
+              } else if (accounts.length === 13) {        
+                let release;
+                try {
+                  release = await this.program.account.release.fetch(accounts[0])
+                  if (release) {
+                    releasePublicKey = accounts[0].toBase58();
+                  }
+                } catch (error) {
+                  logTimestampedMessage(`Error fetching release for ReleaseInitWithCredit ${txid}: ${error.message}`);
+                }
+              }
+              const release = await Release.findOrCreate(releasePublicKey);
+              if (release) {
+                logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
+                return { releaseId: release.id };
+              }
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseInitWithCredit for ${txid}: ${error.message}`);
+            }
+            break;
+
           case 'ReleaseInit': {
             try {
               const releasePublicKey = accounts[0].toBase58();
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
-                const releaseAccount = await this.program.account.release.fetch(
-                  new anchor.web3.PublicKey(releasePublicKey),
-                  'confirmed'
-                );
-
-                const json = await fetchFromArweave(decode(releaseAccount.uri));
-
-                // Process tags if they exist
-                if (json.properties && json.properties.tags) {
-                  await this.processReleaseTags(release.id, json.properties.tags, releasePublicKey);
-                }
-
-                await this.processRevenueShares(release, releaseAccount);
-                await this.updateTransactionReferences(transaction, {
-                  releaseId: release.id
-                });
-
                 logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
+                return { releaseId: release.id };
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInit for ${txid}: ${error.message}`);
@@ -153,12 +161,8 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              // Update transaction references
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleaseClaim ${txid} for release ${releasePublicKey} claimed by ${collectorPublicKey}`);
+              return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseClaim for ${txid}: ${error.message}`);
             }
@@ -206,12 +210,8 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              // Update transaction references
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleasePurchase ${txid} for release ${releasePublicKey}`);
+              return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchase for ${txid}: ${error.message}`);
             }
@@ -248,13 +248,8 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              // Update transaction references
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id,
-                hubId: hub.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleasePurchaseViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
+              return { releaseId: release.id, hubId: hub.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchaseViaHub for ${txid}: ${error.message}`);
             }
@@ -301,10 +296,6 @@ export class ReleaseProcessor extends BaseProcessor {
                 }
 
                 await this.processRevenueShares(release, releaseAccount);
-                await this.updateTransactionReferences(transaction, {
-                  releaseId: release.id,
-                  hubId: hub.id
-                });
 
                 // Double check hub relationship was established
                 await Hub.relatedQuery('releases')
@@ -316,6 +307,7 @@ export class ReleaseProcessor extends BaseProcessor {
                   });
 
                 logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
+                return { releaseId: release.id, hubId: hub.id };
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInitViaHub for ${txid}: ${error.message}`);
@@ -345,11 +337,8 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollect ${txid} for release ${releasePublicKey}`);
+              return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollect for ${txid}: ${error.message}`);
             }
@@ -386,17 +375,14 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id,
-                hubId: hub.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollectViaHub ${txid} for release ${releasePublicKey} via hub ${hubPublicKey}`);
+              return { releaseId: release.id, hubId: hub.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollectViaHub for ${txid}: ${error.message}`);
             }
             break;
           }
+
           case 'ReleaseRevenueShareTransfer': {
             try {
               const releasePublicKey = this.isFileServicePayer(accounts) ?
@@ -420,11 +406,8 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareTransfer ${txid} for release ${releasePublicKey}`);
+              return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareTransfer for ${txid}: ${error.message}`);
             }
@@ -483,12 +466,8 @@ export class ReleaseProcessor extends BaseProcessor {
                 logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
               }
 
-              // Update transaction references
-              await this.updateTransactionReferences(transaction, {
-                releaseId: release.id
-              });
-
               logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
+              return { releaseId: release.id };
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseUpdateMetadata for ${txid}: ${error.message}`);
             }

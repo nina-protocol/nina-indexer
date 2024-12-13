@@ -14,7 +14,7 @@ export class BaseProcessor {
            accounts[0].toBase58() === accounts[1].toBase58();
   }
 
-  // Process a single transaction record
+  // REMOVE THIS FUNCTION
   async processTransactionRecord(txid) {
     const transaction = await Transaction.query().findOne({ txid });
     if (!transaction) {
@@ -63,7 +63,7 @@ export class BaseProcessor {
         if (ninaInstruction) break;
       }
     }
-
+    console.log('ninaInstruction', ninaInstruction);
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
@@ -74,34 +74,6 @@ export class BaseProcessor {
     } catch (error) {
       logTimestampedMessage(`Error fetching restricted releases: ${error.message}`);
       return [];
-    }
-  }
-
-  // Add additional references to transaction record
-  async updateTransactionReferences(transaction, refs) {
-    try {
-      const updates = {};
-
-      if (refs.hubId) {
-        updates.hubId = refs.hubId;
-      }
-      if (refs.releaseId) {
-        updates.releaseId = refs.releaseId;
-      }
-      if (refs.toAccountId) {
-        updates.toAccountId = refs.toAccountId;
-      }
-      if (refs.toHubId) {
-        updates.toHubId = refs.toHubId;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await Transaction.query()
-          .patch(updates)
-          .where('id', transaction.id);
-      }
-    } catch (error) {
-      logTimestampedMessage(`Error updating transaction references: ${error.message}`);
     }
   }
 }
