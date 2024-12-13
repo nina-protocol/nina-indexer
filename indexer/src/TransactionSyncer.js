@@ -42,7 +42,7 @@ class TransactionSyncer {
   
       const insertedCount = await this.processAndInsertTransactions(signatures);
   
-      logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures, inserted ${insertedCount} new transactions.`);
+      logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);
     } catch (error) {
       logTimestampedMessage(`Error in syncTransactions: ${error.message}`);
     }
@@ -86,11 +86,14 @@ class TransactionSyncer {
 
   async processAndInsertTransactions(signatures) {
     const pages = []
+    let totalInsertedCount = 0
     for (let i = 0; i < signatures.length; i += this.batchSize) {
       pages.push(signatures.slice(i, i + this.batchSize))
     }
-
     for await (const page of pages) {
+      let pageInsertedCount = 0
+      const pageNumber = pages.indexOf(page) + 1;
+      logTimestampedMessage(`Processing page ${pageNumber} of ${pages.length}...`);
       const txInfos = await this.connection.getParsedTransactions(
         page.map(sig => sig.signature),
         { maxSupportedTransactionVersion: 0 }
@@ -161,17 +164,19 @@ class TransactionSyncer {
             }
 
             await Transaction.query().insert(task.transactionRecord).onConflict('txid').ignore();
+            pageInsertedCount++;
+            totalInsertedCount++;
             logTimestampedMessage(`Inserted transaction ${task.txid}`);
           } catch (error) {
             logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
           }
         }
   
-        logTimestampedMessage(`Inserted ${processorQueue.length} new transactions.`);
-        return processorQueue.length;
+        logTimestampedMessage(`Inserted ${pageInsertedCount} new transactions.`);
+        logTimestampedMessage(`Completed processing page ${pageNumber} of ${pages.length}...`);
       }
-      return 0;  // Return 0 if no transactions were inserted  
     }
+    return totalInsertedCount;
   }
 
   async determineTransactionType(txInfo) {
