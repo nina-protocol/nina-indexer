@@ -7,7 +7,7 @@ import { postsProcessor } from './processors/PostsProcessor.js';
 import * as anchor from '@project-serum/anchor';
 import { hubDataService } from './services/hubData.js';
 
-const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
+export const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
 class TransactionSyncer {
   constructor() {
@@ -37,16 +37,20 @@ class TransactionSyncer {
   
       let lastSyncedSignature = await this.getLastSyncedSignature();
   
-      const signatures =
-        (await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)).reverse();
-  
-      signatures.forEach(signatureInfo => {
-        logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
-      });
-  
-      const insertedCount = await this.processAndInsertTransactions(signatures);
-  
-      logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);
+      let signatures = await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)
+      if (signatures) {
+        signatures = signatures.reverse();  
+
+        signatures.forEach(signatureInfo => {
+          logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
+        });
+    
+        const insertedCount = await this.processAndInsertTransactions(signatures);
+    
+        logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);  
+      } else {
+        logTimestampedMessage('Unable to fetch signatures. Skipping sync.');
+      }
     } catch (error) {
       logTimestampedMessage(`Error in syncTransactions: ${error.message}`);
     }
@@ -117,7 +121,10 @@ class TransactionSyncer {
 
       for await (const txInfo of txInfos) {
         if (txInfo === null) continue;
-  
+        if (txInfo.meta.err) {
+          logTimestampedMessage(`Error in execution of transaction ${txInfo.transaction.signatures[0]}.  Skipping processing...`);
+          continue;
+        }
         try {
           const txid = txInfo.transaction.signatures[0];
 
@@ -168,20 +175,29 @@ class TransactionSyncer {
         for (const task of processorQueue) {
           try {
             if (releaseProcessor.canProcessTransaction(task.type)) {
-              const ids = await releaseProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts, task.txInfo);
-              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
-              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
+              const { ids, success } = await releaseProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts, task.txInfo);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
             } else if (hubProcessor.canProcessTransaction(task.type)) {
-              const ids = await hubProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
-              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
-              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
-              if (ids.toAccountId) task.transactionRecord.toAccountId = ids.toAccountId;
-              if (ids.postId) task.transactionRecord.postId = ids.postId;
+              const { ids, success } = await hubProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
+              if (ids?.toAccountId) task.transactionRecord.toAccountId = ids.toAccountId;
+              if (ids?.postId) task.transactionRecord.postId = ids.postId;
             } else if (postsProcessor.canProcessTransaction(task.type)) {
-              const ids = await postsProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
-              if (ids.hubId) task.transactionRecord.hubId = ids.hubId;
-              if (ids.postId) task.transactionRecord.postId = ids.postId;
-              if (ids.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              const { ids, success } = await postsProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
+              if (ids?.postId) task.transactionRecord.postId = ids.postId;
+              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
             }
 
             await Transaction.query().insert(task.transactionRecord).onConflict('txid').ignore();
@@ -189,7 +205,11 @@ class TransactionSyncer {
             totalInsertedCount++;
             logTimestampedMessage(`Inserted transaction ${task.txid}`);
           } catch (error) {
-            logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
+            if (task.type === 'ReleaseInitWithCredit' && error.message.includes('Cannot read properties of null (reading \'uri\')')) {
+              logTimestampedMessage('Release in transaction has no metadata and is not a successfully completed release. Skipping...');
+            } else {
+              logTimestampedMessage(`❌ Error in domain processing for ${task.txid}: ${error.message}`);
+            }
           }
         }
   
@@ -378,7 +398,7 @@ class TransactionSyncer {
   }
 
   isFileServicePayer(accounts) {
-    return accounts.length > 0 && (FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58()) || (accounts.length > 1 && accounts[0].toBase58() === accounts[1].toBase58()));
+    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58() || accounts[0].toBase58() === accounts[1].toBase58());
   }
 }
 

@@ -37,15 +37,15 @@ const startProcessing = async () => {
     await TransactionSyncer.initialize();
     await TransactionSyncer.syncTransactions(); // initial sync
 
-    // cron.schedule('* * * * *', async() => {
-    //     logTimestampedMessage(`Starting scheduled transaction sync`);
-    //     await TransactionSyncer.syncTransactions();
+    cron.schedule('* * * * *', async() => {
+        logTimestampedMessage(`Starting scheduled transaction sync`);
+        await TransactionSyncer.syncTransactions();
 
-    //     if (process.argv[2] === "--heap-stats") {
-    //         runHeapDiagnostics(); // verbose heap diagnostics if option enabled
-    //     }
-    //     logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
-    // });
+        if (process.argv[2] === "--heap-stats") {
+            runHeapDiagnostics(); // verbose heap diagnostics if option enabled
+        }
+        logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
+    });
 };
 
 try {

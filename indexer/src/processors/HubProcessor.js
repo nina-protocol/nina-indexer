@@ -44,7 +44,7 @@ export class HubProcessor extends BaseProcessor {
       return hub;
     }
 
-    async processTransaction(txid, transaction, accounts, txInfo) {
+    async processTransaction(txid, transaction, accounts) {
       try {
         if (!this.canProcessTransaction(transaction.type)) return;
     
@@ -57,70 +57,120 @@ export class HubProcessor extends BaseProcessor {
     
         switch (transaction.type) {
           case 'HubInitWithCredit':
-            let hubPublicKey;
             try {
-              const hub = await this.program.account.hub.fetch(accounts[3]);
-              if (hub) {
-                hubPublicKey = accounts[3].toBase58();
-              }
-            } catch (error) {
-              logTimestampedMessage(`HubInitWithCredit: Hub not found at index 3, trying index 1`);
+
+              let hubPublicKey;
               try {
-                const hub = await this.program.account.hub.fetch(accounts[1]);
+                const hub = await this.program.account.hub.fetch(accounts[3]);
                 if (hub) {
-                  hubPublicKey = accounts[1].toBase58();
+                  hubPublicKey = accounts[3].toBase58();
                 }
               } catch (error) {
-                logTimestampedMessage(`HubInitWithCredit: Hub not found at index 1, trying index 4`);
+                logTimestampedMessage(`HubInitWithCredit: Hub not found at index 3, trying index 1`);
                 try {
-                  const hub = await this.program.account.hub.fetch(accounts[4]);
+                  const hub = await this.program.account.hub.fetch(accounts[1]);
                   if (hub) {
-                    hubPublicKey = accounts[4].toBase58();
+                    hubPublicKey = accounts[1].toBase58();
                   }
                 } catch (error) {
-                  logTimestampedMessage(`HubInitWithCredit: Hub not found for txid ${txid}`);
-                  return;
+                  logTimestampedMessage(`HubInitWithCredit: Hub not found at index 1, trying index 4`);
+                  try {
+                    const hub = await this.program.account.hub.fetch(accounts[4]);
+                    if (hub) {
+                      hubPublicKey = accounts[4].toBase58();
+                    }
+                  } catch (error) {
+                    logTimestampedMessage(`HubInitWithCredit: Hub not found for txid ${txid}`);
+                    return;
+                  }
                 }
               }
-            }
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            if (!hub) {
-              console.log(`HubInitWithCredit: Creating hub for ${hubPublicKey}`);
-              const hubData = await hubDataService.fetchHubData(hubPublicKey);
-              const newHub = await Hub.query().insertGraph({
-                publicKey: hubPublicKey,
-                handle: hubData.handle,
-                data: hubData.metadata,
-                dataUri: hubData.uri,
-                datetime: new Date(transaction.blocktime * 1000).toISOString(),
-                authorityId: authority.id
-              });
-              return { hubId: newHub.id };
-            } else {
-              return { hubId: hub.id };
+              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              if (!hub) {
+                console.log(`HubInitWithCredit: Creating hub for ${hubPublicKey}`);
+                const hubData = await hubDataService.fetchHubData(hubPublicKey);
+                const newHub = await Hub.query().insertGraph({
+                  publicKey: hubPublicKey,
+                  handle: hubData.handle,
+                  data: hubData.metadata,
+                  dataUri: hubData.uri,
+                  datetime: new Date(transaction.blocktime * 1000).toISOString(),
+                  authorityId: authority.id
+                });
+
+                const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
+                  [
+                    Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-collaborator")), 
+                    new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
+                    new anchor.web3.PublicKey(authority.publicKey).toBuffer(),
+                  ],
+                  this.program.programId
+                );
+            
+                await Hub.relatedQuery('collaborators')
+                  .for(newHub.id)
+                  .relate({
+                    id: authority.id,
+                    hubCollaboratorPublicKey: hubCollaborator.toBase58()
+                  })
+                  .onConflict(['hubId', 'accountId'])
+                  .ignore();
+
+                return { success: true, ids: { hubId: newHub.id }};
+              } else {
+                return { success: true, ids: { hubId: hub.id }};
+              }
+            } catch (error) {
+              logTimestampedMessage(`HubInitWithCredit: Error processing transaction ${txid}: ${error.message}`);
+              return { success: false };
             }
           case 'HubInit': {
-            const hubPublicKey = this.isFileServicePayer(accounts) ? 
-              accounts[2].toBase58() : accounts[1].toBase58();
+            try {
+              const hubPublicKey = this.isFileServicePayer(accounts) ? 
+                accounts[2].toBase58() : accounts[1].toBase58();
+              
+              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              if (!hub) {
+                const hubData = await hubDataService.fetchHubData(hubPublicKey);
+                const newHub = await Hub.query().insertGraph({
+                  publicKey: hubPublicKey,
+                  handle: hubData.handle,
+                  data: hubData.metadata,
+                  dataUri: hubData.uri,
+                  datetime: new Date(transaction.blocktime * 1000).toISOString(),
+                  authorityId: authority.id
+                });
+
+                const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
+                  [
+                    Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-collaborator")), 
+                    new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
+                    new anchor.web3.PublicKey(authority.publicKey).toBuffer(),
+                  ],
+                  this.program.programId
+                );
             
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            if (!hub) {
-              const hubData = await hubDataService.fetchHubData(hubPublicKey);
-              const newHub = await Hub.query().insertGraph({
-                publicKey: hubPublicKey,
-                handle: hubData.handle,
-                data: hubData.metadata,
-                dataUri: hubData.uri,
-                datetime: new Date(transaction.blocktime * 1000).toISOString(),
-                authorityId: authority.id
-              });
-              return { hubId: newHub.id };
-            } else {
-              return { hubId: hub.id };
+                await Hub.relatedQuery('collaborators')
+                  .for(newHub.id)
+                  .relate({
+                    id: authority.id,
+                    hubCollaboratorPublicKey: hubCollaborator.toBase58()
+                  })
+                  .onConflict(['hubId', 'accountId'])
+                  .ignore();
+
+                return { success: true, ids: { hubId: newHub.id }};
+              } else {
+                return { success: true, ids: { hubId: hub.id }};
+              }
+            } catch (error) {
+              logTimestampedMessage(`HubInit: Error processing transaction ${txid}: ${error.message}`);
+              return { success: false };
             }
           }
           case 'HubAddRelease': {
             try {
+              console.log('HubAddRelease accounts', accounts);
               let hubPublicKey;
               let releasePublicKey;
               if (this.isFileServicePayer(accounts)) {
@@ -128,7 +178,6 @@ export class HubProcessor extends BaseProcessor {
                 releasePublicKey = accounts[6].toBase58();
               } else {
                 try {
-                  console.log('looking for hub at index 0');
                   const hub = await this.program.account.hub.fetch(accounts[0]);
                   if (hub) {
                     hubPublicKey = accounts[0].toBase58();
@@ -136,31 +185,27 @@ export class HubProcessor extends BaseProcessor {
                   }
                 } catch (error) {
                   try {
-                    console.log('looking for hub at index 1');
                     const hub = await this.program.account.hub.fetch(accounts[1]);
                     if (hub) {
                       hubPublicKey = accounts[1].toBase58();
                       try {
-                        console.log('looking for release at index 2');
                         const release = await this.program.account.release.fetch(accounts[2]);
                         if (release) {
                           releasePublicKey = accounts[2].toBase58();
                         }
                       } catch (error) {
                         try {
-                          console.log('looking for release index 5');
                           const release = await this.program.account.release.fetch(accounts[5]);
                           if (release) {
                             releasePublicKey = accounts[5].toBase58();
                           }  
                         } catch (error) {
-                          console.log('cannot find release')
+                          throw new Error('cannot find release')
                         }
                       }
                     }  
                   } catch (error) {
                     try {
-                      console.log('looking for hub at index 4');
                       const hub = await this.program.account.hub.fetch(accounts[4]);
                       if (hub) {
                         hubPublicKey = accounts[4].toBase58();
@@ -168,15 +213,13 @@ export class HubProcessor extends BaseProcessor {
                       }
                     } catch (error) {
                       try {
-                        console.log('looking for hub at index 5');
                         const hub = await this.program.account.hub.fetch(accounts[5]);
                         if (hub) {
                           hubPublicKey = accounts[5].toBase58();
                           releasePublicKey = accounts[4].toBase58();
                         }
                       } catch (error) {
-                        logTimestampedMessage(`HubAddRelease: Hub not found for txid ${txid}`);
-                        return;
+                        throw new Error(`HubAddRelease: Hub not found for txid ${txid}`);
                       }
                     }
                   }
@@ -185,18 +228,15 @@ export class HubProcessor extends BaseProcessor {
   
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubAddRelease ${txid} with publicKey ${hubPublicKey}`);
-                return;
+                throw new Error(`Hub not found for HubAddRelease ${txid} with publicKey ${hubPublicKey}`);
               }
   
               const release = await Release.query().findOne({ publicKey: releasePublicKey });
               if (!release) {
-                logTimestampedMessage(`Release not found for HubAddRelease ${txid} with publicKey ${releasePublicKey}`);
-                return;
+                throw new Error(`Release not found for HubAddRelease ${txid} with publicKey ${releasePublicKey}`);
               }
               
               const hubReleasePublicKey = await hubDataService.buildHubReleasePublicKey(hubPublicKey, releasePublicKey);
-              console.log('hubReleasePublicKey', hubReleasePublicKey);
               await Hub.relatedQuery('releases')
                 .for(hub.id)
                 .relate({
@@ -204,13 +244,15 @@ export class HubProcessor extends BaseProcessor {
                   visible: true,
                   hubReleasePublicKey,
                 })
+                .onConflict(['hubId', 'releaseId'])
+                .ignore();
     
               logTimestampedMessage(`Successfully processed HubAddRelease ${txid} for hub ${hubPublicKey} and release ${releasePublicKey}`);
-              return { hubId: hub.id, releaseId: release.id };
+              return {success: true, ids: { hubId: hub.id, releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubAddRelease for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'HubAddCollaborator': {
             try {
@@ -221,32 +263,39 @@ export class HubProcessor extends BaseProcessor {
   
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubAddCollaborator ${txid}`);
-                return;
+                throw new Error(`Hub not found for HubAddCollaborator ${txid}`);
               }
   
               const collaborator = await Account.findOrCreate(collaboratorPublicKey);
               if (!collaborator) {
-                logTimestampedMessage(`Could not create collaborator account for ${collaboratorPublicKey}`);
-                return;
+                throw new Error(`Could not create collaborator account for ${collaboratorPublicKey}`);
               }
               
-              const hubCollaboratorPublicKey = accounts[2].toBase58()
+              const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
+                [
+                  Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-collaborator")), 
+                  new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
+                  new anchor.web3.PublicKey(collaborator.publicKey).toBuffer(),
+                ],
+                this.program.programId
+              );
+
 
               await Hub.relatedQuery('collaborators')
                 .for(hub.id)
                 .relate({
                   id: collaborator.id,
-                  hubCollaboratorPublicKey
-                });
-  
+                  hubCollaboratorPublicKey: hubCollaborator.toBase58()
+                })
+                .onConflict(['hubId', 'accountId'])
+                .ignore();
                 
               logTimestampedMessage(`Successfully processed HubAddCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
-              return { hubId: hub.id, toAccountId: collaborator.id };
+              return {success: true, ids: { hubId: hub.id, toAccountId: collaborator.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubAddCollaborator for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'HubWithdraw': {
             try {
@@ -258,17 +307,17 @@ export class HubProcessor extends BaseProcessor {
               }
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubWithdraw ${txid}`);
-                console.log('accounts', accounts);
-                return;
+                throw new Error(`Hub not found for HubWithdraw ${txid}`);
               }
-              return { hubId: hub.id };
+              return {success: true, ids: { hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubWithdraw for ${txid}: ${error.message}`);
+              return { success: false };
             }
           }
           case 'HubUpdateConfig': {
             try {
+              console.log('HubUpdateConfig accounts', accounts);
               let hub;
               try {
                 hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
@@ -276,28 +325,38 @@ export class HubProcessor extends BaseProcessor {
                   hub = await Hub.query().findOne({ publicKey: accounts[1].toBase58() });
                 }
               } catch (error) {
-                logTimestampedMessage(`Hub not found for HubUpdateConfig ${txid}`);
+                throw new Error(`Hub not found for HubUpdateConfig ${txid}`);
               }
 
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubUpdateConfig ${txid}`);
-                return;
+                throw new Error(`Hub not found for HubUpdateConfig ${txid}`);
               }
-              return { hubId: hub.id };
+              return {success: true, ids: { hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubUpdateConfig for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'HubContentToggleVisibility': {
             try {
-              const hubPublicKey = accounts[1].toBase58();
-              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              let hubPublicKey = accounts[1].toBase58();
+              let contentPublicKey = accounts[3].toBase58();
+              let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubContentToggleVisibility ${txid}`);
-                return;
+                hub = await Hub.query().findOne({ publicKey: accounts[4].toBase58() });
+                if (hub) {
+                  hubPublicKey = accounts[4].toBase58();
+                  contentPublicKey = accounts[2].toBase58();
+                } else {
+                  hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
+                  if (hub) {
+                    hubPublicKey = accounts[2].toBase58();
+                    contentPublicKey = accounts[4].toBase58();
+                  } else {
+                    throw new Error(`Hub not found for HubContentToggleVisibility ${txid}`);
+                  }
+                }
               }
-              const contentPublicKey = accounts[3].toBase58();
               const hubContentPublicKey = await hubDataService.buildHubContentPublicKey(hubPublicKey, contentPublicKey);
               const hubContent = await this.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey));
 
@@ -312,8 +371,7 @@ export class HubProcessor extends BaseProcessor {
               }
 
               if (!content) {
-                logTimestampedMessage(`Content not found for HubContentToggleVisibility ${txid}`);
-                return;
+                throw new Error(`Content not found for HubContentToggleVisibility ${txid}`);
               }
 
               await Hub.relatedQuery(table)
@@ -326,18 +384,21 @@ export class HubProcessor extends BaseProcessor {
               logTimestampedMessage(`Successfully processed HubContentToggleVisibility ${txid} for hub ${hubPublicKey} and ${table} ${content}`);
                 
               const response = {
-                hubId: hub.id,
+                success: true,
+                ids: {
+                  hubId: hub.id,
+                }
               }
               if (table === 'releases') {
-                response.releaseId = content.id;
+                response.ids.releaseId = content.id;
               } else {
-                response.postId = content.id;
+                response.ids.postId = content.id;
               }
               return response;
             } catch (error) {
               logTimestampedMessage(`Error processing HubContentToggleVisibility for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'HubRemoveCollaborator': {
             try {
@@ -346,14 +407,12 @@ export class HubProcessor extends BaseProcessor {
 
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                logTimestampedMessage(`Hub not found for HubAddCollaborator ${txid}`);
-                return;
+                throw new Error(`Hub not found for HubAddCollaborator ${txid}`);
               }
   
               const collaborator = await Account.findOrCreate(collaboratorPublicKey);
               if (!collaborator) {
-                logTimestampedMessage(`Could not create collaborator account for ${collaboratorPublicKey}`);
-                return;
+                throw new Error(`Could not create collaborator account for ${collaboratorPublicKey}`);
               }
 
               await Hub.relatedQuery('collaborators')
@@ -361,11 +420,53 @@ export class HubProcessor extends BaseProcessor {
                 .unrelate()
                 .where('id', collaborator.id);
               logTimestampedMessage(`Successfully processed HubRemoveCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
-              return { hubId: hub.id, toAccountId: collaborator.id };
+              return {success: true, ids: { hubId: hub.id, toAccountId: collaborator.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubRemoveCollaborator for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
+          }
+          case 'HubUpdateCollaboratorPermissions': {
+            try {
+              let collaboratorPublicKey = accounts[3].toBase58();
+              let hubPublicKey;
+              let hub = await Hub.query().findOne({ publicKey: accounts[5].toBase58() });
+              if (hub) {
+                hubPublicKey = accounts[5].toBase58();
+              } else {
+                hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
+                if (hub) {
+                  hubPublicKey = accounts[2].toBase58();
+                } else {
+                   hub = await Hub.query().findOne({ publicKey: accounts[4].toBase58() });
+                  if (hub) {
+                    hubPublicKey = accounts[4].toBase58();
+                  } else {
+                    hub = await Hub.query().findOne({ publicKey: accounts[3].toBase58() });
+                    if (hub) {
+                      hubPublicKey = accounts[3].toBase58();
+                      collaboratorPublicKey = accounts[5].toBase58();
+                    } else {
+                      throw new Error(`Hub not found for HubUpdateCollaboratorPermissions ${txid}`);
+                    }
+                  }
+                }
+              }
+
+              if (!hub) {
+                throw new Error(`Hub not found for HubUpdateCollaboratorPermissions ${txid}`);
+              }
+
+              const collaborator = await Account.findOrCreate(collaboratorPublicKey);
+              if (!collaborator) {
+                throw new Error(`Could not create collaborator account for ${collaboratorPublicKey}`);
+              }
+
+              return {success: true, ids: { hubId: hub.id, toAccountId: collaborator.id }};
+            } catch (error) {
+              logTimestampedMessage(`Error processing HubUpdateCollaboratorPermissions for ${txid}: ${error.message}`);
+              return { success: false };
+            }
           }
         }  
       } catch (error) {

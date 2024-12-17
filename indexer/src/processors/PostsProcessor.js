@@ -87,48 +87,54 @@ export class PostsProcessor extends BaseProcessor {
         switch (transaction.type) {
           case 'PostInitViaHubWithReferenceRelease':
           case 'PostInitViaHub': {
-            const postPublicKey = accounts[2].toBase58();
-            const hubPublicKey = accounts[1].toBase58();
-            const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
-              accounts[7].toBase58() : null;
-            
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            if (!hub) {
-              logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
-              return;
+            try {
+
+              const postPublicKey = accounts[2].toBase58();
+              const hubPublicKey = accounts[1].toBase58();
+              const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
+                accounts[7].toBase58() : null;
+              
+              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              if (!hub) {
+                logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
+                return;
+              }
+  
+              // Fetch post data from program
+              const postAccount = await this.program.account.post.fetch(
+                new anchor.web3.PublicKey(postPublicKey)
+              );
+  
+              // Process post data
+              const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
+              const version = postData.blocks ? '0.0.2' : '0.0.1';
+              
+              // Create post
+              const post = await Post.query().insertGraph({
+                publicKey: postPublicKey,
+                data: postData,
+                datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+                publisherId: authority.id,
+                hubId: hub.id,
+                version
+              });
+  
+              // Process post content
+              await this.processPostContent(postData, post.id);
+  
+              // Process reference release if provided
+              let releaseId = null;
+              if (releasePublicKey) {
+                const release = await Release.query().findOne({ publicKey: releasePublicKey });
+                releaseId = release.id;
+                await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
+              }
+  
+              return {success: true, ids: { postId: post.id, hubId: hub.id, releaseId }};
+            } catch (error) {
+              logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);
+              return {success: false};
             }
-
-            // Fetch post data from program
-            const postAccount = await this.program.account.post.fetch(
-              new anchor.web3.PublicKey(postPublicKey)
-            );
-
-            // Process post data
-            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
-            const version = postData.blocks ? '0.0.2' : '0.0.1';
-            
-            // Create post
-            const post = await Post.query().insertGraph({
-              publicKey: postPublicKey,
-              data: postData,
-              datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
-              publisherId: authority.id,
-              hubId: hub.id,
-              version
-            });
-
-            // Process post content
-            await this.processPostContent(postData, post.id);
-
-            // Process reference release if provided
-            let releaseId = null;
-            if (releasePublicKey) {
-              const release = await Release.query().findOne({ publicKey: releasePublicKey });
-              releaseId = release.id;
-              await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
-            }
-
-            return { postId: post.id, hubId: hub.id, releaseId };
           }
 
           // case 'PostUpdateViaHubPost': {

@@ -1,12 +1,11 @@
 // BaseProcessor.js
 import { Connection } from '@solana/web3.js';
 import { logTimestampedMessage } from '../../utils/logging.js';
-import { Account, Hub, Release, Transaction } from '@nina-protocol/nina-db';
+import { Transaction } from '@nina-protocol/nina-db';
 import axios from 'axios';
-
+import { FILE_SERVICE_ADDRESSES } from '../../TransactionSyncer.js';
 export class BaseProcessor {
   constructor() {
-    this.FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
   }
   
   async initialize(program) {
@@ -14,8 +13,7 @@ export class BaseProcessor {
   }
 
   isFileServicePayer(accounts) {
-    return accounts[0].toBase58() === this.FILE_SERVICE_ADDRESS || 
-           accounts[0].toBase58() === accounts[1].toBase58();
+    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58() || accounts[0].toBase58() === accounts[1].toBase58());
   }
 
   // REMOVE THIS FUNCTION

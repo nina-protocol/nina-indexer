@@ -1,9 +1,10 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
 import { Account, Hub, Release, Tag } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
-import { decode, fetchFromArweave } from '../utils/index.js';
+import { fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
 import { hubDataService } from '../services/hubData.js';
+import { Metaplex } from '@metaplex-foundation/js';
 
 export class ReleaseProcessor extends BaseProcessor {
     constructor() {
@@ -22,6 +23,12 @@ export class ReleaseProcessor extends BaseProcessor {
         'ReleaseRevenueShareTransfer'
       ]);
     }
+
+    async initialize(program) {
+      super.initialize(program);
+      this.metaplex = new Metaplex(program.provider.connection);
+    }
+  
   
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
@@ -82,7 +89,7 @@ export class ReleaseProcessor extends BaseProcessor {
         const authority = await Account.query().findById(transaction.authorityId);
         if (!authority) {
           logTimestampedMessage(`Authority not found for transaction ${txid} with id ${transaction.authorityId}`);
-          return;
+          return { success: false };
         }
 
         // Process based on transaction type
@@ -146,12 +153,14 @@ export class ReleaseProcessor extends BaseProcessor {
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
-                return { releaseId: release.id };
+                return {success: true, ids: { releaseId: release.id }};
+              } else {
+                logTimestampedMessage(`Release not found for ReleaseInitWithCredit ${txid} with publicKey ${releasePublicKey}`);
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInitWithCredit for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
 
           case 'ReleaseInit': {
             try {
@@ -159,12 +168,12 @@ export class ReleaseProcessor extends BaseProcessor {
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
-                return { releaseId: release.id };
+                return {success: true, ids: { releaseId: release.id }};
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInit for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
 
           case 'ReleaseClaim': {
@@ -190,11 +199,11 @@ export class ReleaseProcessor extends BaseProcessor {
                 .ignore();
 
               logTimestampedMessage(`Successfully processed ReleaseClaim ${txid} for release ${releasePublicKey} claimed by ${collectorPublicKey}`);
-              return { releaseId: release.id };
+              return {success:true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseClaim for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
 
           case 'ReleasePurchase': {
@@ -239,11 +248,11 @@ export class ReleaseProcessor extends BaseProcessor {
                 .ignore();
 
               logTimestampedMessage(`Successfully processed ReleasePurchase ${txid} for release ${releasePublicKey}`);
-              return { releaseId: release.id };
+              return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchase for ${txid}: ${error.message}`);
+              return {success: false};
             }
-            break;
           }
 
           case 'ReleasePurchaseViaHub': {
@@ -277,11 +286,11 @@ export class ReleaseProcessor extends BaseProcessor {
                 .ignore();
 
               logTimestampedMessage(`Successfully processed ReleasePurchaseViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
-              return { releaseId: release.id, hubId: hub.id };
+              return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchaseViaHub for ${txid}: ${error.message}`);
+              return {success: false};
             }
-            break;
           }
 
           case 'ReleaseInitViaHub': {
@@ -340,10 +349,11 @@ export class ReleaseProcessor extends BaseProcessor {
                   });
 
                 logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
-                return { releaseId: release.id, hubId: hub.id };
+                return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
               }
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseInitViaHub for ${txid}: ${error.message}`);
+              return {success: false};
             }
             break;
           }
@@ -371,11 +381,11 @@ export class ReleaseProcessor extends BaseProcessor {
               await this.processRevenueShares(release, releaseAccount);
 
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollect ${txid} for release ${releasePublicKey}`);
-              return { releaseId: release.id };
+              return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollect for ${txid}: ${error.message}`);
+              return {success: false};
             }
-            break;
           }
           case 'ReleaseRevenueShareCollectViaHub': {
             try {
@@ -409,11 +419,11 @@ export class ReleaseProcessor extends BaseProcessor {
               await this.processRevenueShares(release, releaseAccount);
 
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollectViaHub ${txid} for release ${releasePublicKey} via hub ${hubPublicKey}`);
-              return { releaseId: release.id, hubId: hub.id };
+              return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollectViaHub for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
 
           case 'ReleaseRevenueShareTransfer': {
@@ -440,11 +450,11 @@ export class ReleaseProcessor extends BaseProcessor {
               await this.processRevenueShares(release, releaseAccount);
 
               logTimestampedMessage(`Successfully processed ReleaseRevenueShareTransfer ${txid} for release ${releasePublicKey}`);
-              return { releaseId: release.id };
+              return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareTransfer for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'ReleaseUpdateMetadata': {
             try {
@@ -453,8 +463,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
               const release = await Release.query().findOne({ publicKey: releasePublicKey });
               if (!release) {
-                logTimestampedMessage(`Release not found for ReleaseUpdateMetadata ${txid} with publicKey ${releasePublicKey}`);
-                return;
+                throw new Error(`Release not found for ReleaseUpdateMetadata ${txid} with publicKey ${releasePublicKey}`);
               }
 
               // Get the release account and metadata from chain
@@ -462,49 +471,54 @@ export class ReleaseProcessor extends BaseProcessor {
                 new anchor.web3.PublicKey(releasePublicKey),
                 'confirmed'
               );
+              let metadataAccount = (await this.metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
 
               // Fetch metadata JSON using fetchFromArweave utility
-              const json = await fetchFromArweave(decode(releaseAccount.uri));
-
-              // Process tags
-              const tagsBefore = await release.$relatedQuery('tags');
-              const newTags = json.properties.tags.filter(tag =>
-                !tagsBefore.find(t => t.value === tag)
-              );
-              const deletedTags = tagsBefore.filter(tag =>
-                !json.properties.tags.find(t => t === tag.value)
-              );
+              const json = await fetchFromArweave(metadataAccount.uri);
 
               // Update release metadata
               await release.$query().patch({
                 metadata: json,
               });
-
-              // Add new tags
-              for (const tag of newTags) {
-                const tagRecord = await Tag.findOrCreate(tag);
-                await Release.relatedQuery('tags')
-                  .for(release.id)
-                  .relate(tagRecord.id);
-                logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+              
+              // Process tags
+              const tagsBefore = await release.$relatedQuery('tags');
+              if (json.properties.tags) {
+                const newTags = json.properties.tags.filter(tag =>
+                  !tagsBefore.find(t => t.value === tag)
+                );  
+                // Add new tags
+                for (const tag of newTags) {
+                  const tagRecord = await Tag.findOrCreate(tag);
+                  await Release.relatedQuery('tags')
+                    .for(release.id)
+                    .relate(tagRecord.id)
+                    .onConflict(['tagId', 'releaseId'])
+                    .ignore();
+                  logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+                }
               }
-
-              // Remove deleted tags
-              for (const tag of deletedTags) {
-                const tagRecord = await Tag.findOrCreate(tag.value);
-                await Release.relatedQuery('tags')
-                  .for(release.id)
-                  .unrelate()
-                  .where('tagId', tagRecord.id);
-                logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+              if (tagsBefore.length > 0) {
+                const deletedTags = tagsBefore.filter(tag =>
+                  !json.properties.tags.find(t => t === tag.value)
+                );
+                // Remove deleted tags
+                for (const tag of deletedTags) {
+                  const tagRecord = await Tag.findOrCreate(tag.value);
+                  await Release.relatedQuery('tags')
+                    .for(release.id)
+                    .unrelate()
+                    .where('tagId', tagRecord.id);
+                  logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+                }
               }
 
               logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
-              return { releaseId: release.id };
+              return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseUpdateMetadata for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
           case 'ReleaseCloseEdition': {
             try {
@@ -516,19 +530,18 @@ export class ReleaseProcessor extends BaseProcessor {
               }
               const release = await Release.query().findOne({ publicKey: releasePublicKey });
               if (!release) {
-                console.log('accounts', accounts);
-                logTimestampedMessage(`Release not found for ReleaseCloseEdition ${txid} with publicKey ${releasePublicKey}`);
-                return;
+                throw new Error(`Release not found for ReleaseCloseEdition ${txid} with publicKey ${releasePublicKey}`);
               }
-              return { releaseId: release.id };
+              return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseCloseEdition for ${txid}: ${error.message}`);
+              return { success: false };
             }
-            break;
           }
         }
       } catch (error) {
         logTimestampedMessage(`Error in processTransaction for ${txid}: ${error.message}`);
+        return { success: false };
       }
 
     }
