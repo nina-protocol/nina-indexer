@@ -161,6 +161,7 @@ export class ReleaseProcessor extends BaseProcessor {
               logTimestampedMessage(`Error processing ReleaseInitWithCredit for ${txid}: ${error.message}`);
               return { success: false };
             }
+            break;
 
           case 'ReleaseInit': {
             try {
@@ -174,6 +175,7 @@ export class ReleaseProcessor extends BaseProcessor {
               logTimestampedMessage(`Error processing ReleaseInit for ${txid}: ${error.message}`);
               return { success: false };
             }
+            break
           }
 
           case 'ReleaseClaim': {

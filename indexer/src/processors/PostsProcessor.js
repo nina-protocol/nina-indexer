@@ -88,13 +88,12 @@ export class PostsProcessor extends BaseProcessor {
           case 'PostInitViaHubWithReferenceRelease':
           case 'PostInitViaHub': {
             try {
-
               const postPublicKey = accounts[2].toBase58();
               const hubPublicKey = accounts[1].toBase58();
               const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
                 accounts[7].toBase58() : null;
               
-              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
                 logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
                 return;

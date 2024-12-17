@@ -13,7 +13,7 @@ export class BaseProcessor {
   }
 
   isFileServicePayer(accounts) {
-    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58() || accounts[0].toBase58() === accounts[1].toBase58());
+    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58()) || accounts[0].toBase58() === accounts[1].toBase58();
   }
 
   // REMOVE THIS FUNCTION

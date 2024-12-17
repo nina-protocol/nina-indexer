@@ -87,7 +87,6 @@ export class HubProcessor extends BaseProcessor {
               }
               const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                console.log(`HubInitWithCredit: Creating hub for ${hubPublicKey}`);
                 const hubData = await hubDataService.fetchHubData(hubPublicKey);
                 const newHub = await Hub.query().insertGraph({
                   publicKey: hubPublicKey,
@@ -170,7 +169,6 @@ export class HubProcessor extends BaseProcessor {
           }
           case 'HubAddRelease': {
             try {
-              console.log('HubAddRelease accounts', accounts);
               let hubPublicKey;
               let releasePublicKey;
               if (this.isFileServicePayer(accounts)) {
@@ -317,10 +315,11 @@ export class HubProcessor extends BaseProcessor {
           }
           case 'HubUpdateConfig': {
             try {
-              console.log('HubUpdateConfig accounts', accounts);
               let hub;
               try {
-                hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
+                if (accounts.length > 2) {
+                  hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
+                }
                 if (!hub) {
                   hub = await Hub.query().findOne({ publicKey: accounts[1].toBase58() });
                 }
@@ -430,7 +429,10 @@ export class HubProcessor extends BaseProcessor {
             try {
               let collaboratorPublicKey = accounts[3].toBase58();
               let hubPublicKey;
-              let hub = await Hub.query().findOne({ publicKey: accounts[5].toBase58() });
+              let hub;
+              if (accounts.length > 5) {
+                hub = await Hub.query().findOne({ publicKey: accounts[5].toBase58() });
+              }
               if (hub) {
                 hubPublicKey = accounts[5].toBase58();
               } else {
