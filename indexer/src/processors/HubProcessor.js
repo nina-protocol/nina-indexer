@@ -44,8 +44,9 @@ export class HubProcessor extends BaseProcessor {
       return hub;
     }
 
-    async processTransaction(txid, transaction, accounts) {
+    async processTransaction(task) {
       try {
+        const { transaction, accounts, txid } = task;
         if (!this.canProcessTransaction(transaction.type)) return;
     
         // Verify authority exists
@@ -401,6 +402,7 @@ export class HubProcessor extends BaseProcessor {
           }
           case 'HubRemoveCollaborator': {
             try {
+              console.log('HubRemoveCollaborator', accounts);
               const collaboratorPublicKey = accounts[3].toBase58();
               const hubPublicKey = accounts[1].toBase58();
 
