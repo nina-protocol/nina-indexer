@@ -9,7 +9,8 @@
   "license": "Apache-2.0",
   "scripts": {
     "start": "node indexer/src/index.js",
-    "test:local": "mocha 'test/**/*.test.js'"
+    "test:local": "mocha 'test/**/*.test.js'",
+    "start:api": "yarn && node api/index.js"
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
@@ -27,6 +28,7 @@
     "form-urlencoded": "^6.1.0",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
+    "koa-combine-routers": "^4.0.2",
     "koa-ratelimit": "^5.0.1",
     "koa-router": "^12.0.0",
     "mocha": "^10.2.0",
