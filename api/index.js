@@ -8,6 +8,7 @@ import { connectDb } from '@nina-protocol/nina-db';
 
 import RootRouter from './routes/RootRouter.js'
 import { environmentIsSetup } from "../scripts/env_check.js";
+import TransactionSyncer from '../indexer/src/TransactionSyncer.js';
 
 const app = new Koa()
 app.use(cors())
@@ -45,6 +46,7 @@ try {
   environmentIsSetup()
   app.listen(process.env.PORT, async () => {
     await connectDb()
+    await TransactionSyncer.initialize()
     logTimestampedMessage(`Nina Api listening on port ${process.env.PORT}!`)
   })
 } catch (error) {

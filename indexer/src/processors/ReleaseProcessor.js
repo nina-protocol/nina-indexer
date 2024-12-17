@@ -81,8 +81,9 @@ export class ReleaseProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid, transaction, accounts, txInfo) {
+    async processTransaction(task) {
       try {
+        const { transaction, txid, accounts, txInfo } = task;
         if (!this.canProcessTransaction(transaction.type)) return;
 
         // Verify authority exists

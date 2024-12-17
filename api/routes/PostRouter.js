@@ -1,22 +1,16 @@
 import KoaRouter from 'koa-router'
 import { 
   Account,
-  Exchange,
   Hub,
   Post,
   Release,
-  Subscription,
-  Transaction,
-  config,
 } from '@nina-protocol/nina-db';
-import Knex from 'knex'
 import { ref } from 'objection'
 
 import {
-  formatColumnForJsonFields,
   getPublishedThroughHubSubQuery,
-  BIG_LIMIT
 } from '../utils.js';
+import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
 const router = new KoaRouter({
   prefix: '/posts'
@@ -79,86 +73,14 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
       post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
     }
     if (!post) {
-      postAccount = await NinaProcessor.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
+      postAccount = await TransactionSyncer.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
       if (!postAccount) {
         throw ('Post not found')
       }
-      let hub
-      let hubPublicKey
       if (txid) {
-        const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-          commitment: 'confirmed',
-          maxSupportedTransactionVersion: 0
-        })
-        console.log('tx', tx)
-        const accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
-        hubPublicKey = accounts[1].toBase58()
-      }
-      if (hubPublicKey) {
-        const [hubContentPublicKey] =
-        await anchor.web3.PublicKey.findProgramAddress(
-          [
-            Buffer.from(anchor.utils.bytes.utf8.encode(`nina-hub-content`)),
-            new anchor.web3.PublicKey(hubPublicKey).toBuffer(),
-            new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug).toBuffer(),
-          ],
-          NinaProcessor.program.programId,
-        )
-        const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey), 'confirmed');
-        if (hubContentAccount) {
-          hub = await Hub.query().findOne({ publicKey: hubContentAccount.hub.toBase58() });
-        }
-      }
-      const data = await fetchFromArweave(decode(postAccount.uri));
-      const publisher = await Account.findOrCreate(postAccount.author.toBase58());
-      const postData = {
-        publicKey: ctx.params.publicKeyOrSlug,
-        data: data,
-        datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
-        publisherId: publisher.id,
-        version: data.blocks ? '0.0.2' : '0.0.1'
-      }
-      if (hub) {
-        postData.hubId = hub.id
-      }
-      post = await Post.query().insertGraph(postData)
-      if (post.data.heroImage) {
-        NinaProcessor.warmCache(post.data.heroImage, 5000);
-      }
-      if (data.blocks) {
-        for await (let block of data.blocks) {
-          switch (block.type) {
-            case 'image':
-              try {
-                NinaProcessor.warmCache(block.data.image, 5000);
-              } catch (error) {
-                console.log(error)
-              }
-              break;
-
-            case 'release':
-              for await (let release of block.data) {
-                try {
-                  const releaseRecord = await Release.query().findOne({ publicKey: release.publicKey });
-                  await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
-                } catch (err) {
-                  console.log('error', err)
-                }
-              }
-              break;
-
-            case 'featuredRelease':
-              try {
-                const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-                await Post.relatedQuery('releases').for(post.id).relate(releaseRecord.id);
-              } catch (err) {
-                console.log('error', err)
-              }
-              break
-              
-            default:
-              break
-          }
+        const success = await TransactionSyncer.handleDomainProcessingForSingleTransaction(txid)
+        if (success) {
+          post = await Post.findOrCreate(ctx.params.publicKeyOrSlug)
         }
       }
     }
@@ -219,7 +141,5 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
     postNotFound(ctx)
   }
 })
-
-
 
 export default router

@@ -9,6 +9,8 @@ import {
   getReleaseSearchSubQuery,
   BIG_LIMIT
 } from '../utils.js';
+import { warmCache } from '../../indexer/src/utils/helpers.js';
+import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
 const idList = [
   '13572',
@@ -66,7 +68,6 @@ router.get('/sitemap', async (ctx) => {
   }
 });
 
-// TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrSlug', async (ctx) => {
   try {
     const { txid } = ctx.query;
@@ -76,30 +77,11 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
     }
 
     if (txid) {
-      await NinaProcessor.init()
-      const tx = await NinaProcessor.provider.connection.getParsedTransaction(txid, {
-
-        commitment: 'confirmed',
-        maxSupportedTransactionVersion: 0
-      })
-
-      const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
-      const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
-
-      if (tx && restrictedReleasesPublicKeys.indexOf(ctx.params.publicKeyOrSlug) === -1) {
-        try {
-          const ninaInstruction = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)
-          const accounts = ninaInstruction?.accounts
-          const blocktime = tx.blockTime
-          if (txid && accounts && blocktime) {
-            await NinaProcessor.processTransaction(tx, txid, blocktime, accounts)
-          }  
-        } catch (error) {
-          console.log(`tx already in db: ${txid}`)
-        }
+      const success = await TransactionSyncer.handleDomainProcessingForSingleTransaction(txid)
+      if (success) {
+        release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
+        warmCache(release.metadata.image, 5000);
       }
-      release = await Release.findOrCreate(ctx.params.publicKeyOrSlug)
-      NinaProcessor.warmCache(release.metadata.image, 5000);
     }
     
     if (release) {
@@ -150,11 +132,10 @@ router.get('/:publicKeyOrSlug/posts', async (ctx) => {
   }
 })
 
-// TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
   try {
     if (ctx.query.txId) {
-      await processReleaseCollectedTransaction(ctx.query.txId)
+      await TransactionSyncer.handleDomainProcessingForSingleTransaction(ctx.query.txId)
     }
 
     let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})

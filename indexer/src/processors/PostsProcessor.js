@@ -74,16 +74,16 @@ export class PostsProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid, transaction, accounts) {      
-      if (!this.canProcessTransaction(transaction.type)) return;
-
-      const authority = await Account.query().findById(transaction.authorityId);
-      if (!authority) {
-        logTimestampedMessage(`Authority not found for transaction ${txid}`);
-        return;
-      }
-
+    async processTransaction(task) {      
       try {
+        const { transaction, accounts, txid } = task;      
+        if (!this.canProcessTransaction(transaction.type)) return;
+  
+        const authority = await Account.query().findById(transaction.authorityId);
+        if (!authority) {
+          logTimestampedMessage(`Authority not found for transaction ${txid}`);
+          return;
+        }
         switch (transaction.type) {
           case 'PostInitViaHubWithReferenceRelease':
           case 'PostInitViaHub': {

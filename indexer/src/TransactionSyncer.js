@@ -120,87 +120,48 @@ class TransactionSyncer {
       const processorQueue = []; // Queue up processor tasks
 
       for await (const txInfo of txInfos) {
-        if (txInfo === null) continue;
-        if (txInfo.meta.err) {
-          logTimestampedMessage(`Error in execution of transaction ${txInfo.transaction.signatures[0]}.  Skipping processing...`);
-          continue;
-        }
         try {
-          const txid = txInfo.transaction.signatures[0];
-
-          // Update accountPublicKey and type based on the new detection logic
-          let type = await this.determineTransactionType(txInfo);
-          console.log(`txid: ${txid} type: ${type}`)
-          const accounts = this.getRelevantAccounts(txInfo);
-  
-          if (!accounts || accounts.length === 0) {
-            logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
-            continue;
+          const task = await this.buildProcessorTaskForTransaction(txInfo);
+          if (task) {
+            processorQueue.push(task);
           }
-  
-          let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages);
-  
-          if (!accountPublicKey) {
-            logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
-            continue;
-          }
-  
-          let authority = await Account.findOrCreate(accountPublicKey);
-  
-          // Prepare transaction record
-          const transactionRecord = {
-            txid,
-            blocktime: txInfo.blockTime,
-            type,
-            authorityId: authority.id,
-          };
-  
-          // Queue up processor task based on type
-          processorQueue.push({
-            type,
-            txid,
-            accounts,
-            txInfo,
-            transactionRecord,
-          });
-  
         } catch (error) {
           logTimestampedMessage(`❌ Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
         }
       }
   
       if (processorQueue.length > 0) {
-    
+        console.log('processorQueue', processorQueue.length)
         // Process with domain processors
         for (const task of processorQueue) {
           try {
             if (releaseProcessor.canProcessTransaction(task.type)) {
-              const { ids, success } = await releaseProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts, task.txInfo);
+              const { ids, success } = await releaseProcessor.processTransaction(task);
               if (!success) {
                 throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
               }
-              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
-              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
             } else if (hubProcessor.canProcessTransaction(task.type)) {
-              const { ids, success } = await hubProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              const { ids, success } = await hubProcessor.processTransaction(task);
               if (!success) {
                 throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
               }
-              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
-              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
-              if (ids?.toAccountId) task.transactionRecord.toAccountId = ids.toAccountId;
-              if (ids?.postId) task.transactionRecord.postId = ids.postId;
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
+              if (ids?.toAccountId) task.transaction.toAccountId = ids.toAccountId;
+              if (ids?.postId) task.transaction.postId = ids.postId;
             } else if (postsProcessor.canProcessTransaction(task.type)) {
-              const { ids, success } = await postsProcessor.processTransaction(task.txid, task.transactionRecord, task.accounts);
+              const { ids, success } = await postsProcessor.processTransaction(task);
               if (!success) {
                 throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
               }
-              if (ids?.hubId) task.transactionRecord.hubId = ids.hubId;
-              if (ids?.postId) task.transactionRecord.postId = ids.postId;
-              if (ids?.releaseId) task.transactionRecord.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
+              if (ids?.postId) task.transaction.postId = ids.postId;
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
             }
 
-            await Transaction.query().insert(task.transactionRecord).onConflict('txid').ignore();
+            await Transaction.query().insert(task.transaction).onConflict('txid').ignore();
             pageInsertedCount++;
             totalInsertedCount++;
             logTimestampedMessage(`Inserted transaction ${task.txid}`);
@@ -218,6 +179,82 @@ class TransactionSyncer {
       }
     }
     return totalInsertedCount;
+  }
+
+  async buildProcessorTaskForTransaction (txInfo) {
+    try {
+      if (txInfo === null) {
+        throw new Error('No transaction info found');
+      }
+      if (txInfo.meta.err) {
+        throw new Error (`Error in execution of transaction ${txInfo.transaction.signatures[0]}.  Skipping processing...`);
+      }
+      const txid = txInfo.transaction.signatures[0];
+      let type = await this.determineTransactionType(txInfo);
+      console.log(`txid: ${txid} type: ${type}`)
+      const accounts = this.getRelevantAccounts(txInfo);
+  
+      if (!accounts || accounts.length === 0) {
+        throw new Error(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
+      }
+
+      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages);
+
+      if (!accountPublicKey) {
+        throw new Error(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
+      }
+
+      let authority = await Account.findOrCreate(accountPublicKey);
+
+      // Prepare transaction record
+      const transaction = {
+        txid,
+        blocktime: txInfo.blockTime,
+        type,
+        authorityId: authority.id,
+      };
+
+      const task = {
+        type,
+        txid,
+        accounts,
+        txInfo,
+        transaction,
+      }
+      return task;
+    } catch (error) {
+      logTimestampedMessage(`Error building task for transaction: ${error.message}`);
+    }
+  }
+
+  async handleDomainProcessingForSingleTransaction (txid) {
+    try {
+      const txInfo = await this.connection.getParsedTransaction(
+        txid,
+        { maxSupportedTransactionVersion: 0 }
+      );
+      const task = await this.buildProcessorTaskForTransaction(txInfo);
+      if (releaseProcessor.canProcessTransaction(task.type)) {
+        const { success } = await releaseProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+        }
+      } else if (hubProcessor.canProcessTransaction(task.type)) {
+        const { success } = await hubProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+        }
+      } else if (postsProcessor.canProcessTransaction(task.type)) {
+        const { success } = await postsProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+        }
+      }
+      return true
+    } catch (error) {
+      logTimestampedMessage(`Error in handleDomainProcessingForSingleTransaction: ${error.message}`);
+      return false
+    }
   }
 
   async determineTransactionType(txInfo) {

@@ -4,6 +4,7 @@ import {
 } from '@nina-protocol/nina-db';
 import _  from 'lodash';
 
+import { TransactionSyncer } from '../../indexer/src';
 
 const router = new KoaRouter({
   prefix: '/verifications'
@@ -43,7 +44,7 @@ router.get('/:publicKey/unregister', async (ctx) => {
         console.log('i', i)
         console.log('confirmedDeleted', confirmedDeleted)
         i++;
-        let ninaNameIdRegistry = await NinaProcessor.provider.connection.getAccountInfo(
+        let ninaNameIdRegistry = await TransactionSyncer.connection.getAccountInfo(
           new anchor.web3.PublicKey(ctx.params.publicKey)
         );
         if (!ninaNameIdRegistry) {

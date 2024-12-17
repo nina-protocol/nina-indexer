@@ -11,10 +11,8 @@ import axios from 'axios';
 
 import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
 import { decode } from '../../indexer/src/utils/index.js';
-
-const idList = [
-  '13572',
-]
+import { warmCache } from '../../indexer/src/utils/helpers.js';
+import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
 const router = new KoaRouter({
   prefix: '/hubs'
@@ -94,7 +92,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
           updatedAt: new Date(hubAccount.datetime.toNumber() * 1000).toISOString(),
           authorityId: authority.id,            
         });
-        NinaProcessor.warmCache(data.data.image);
+        warmCache(data.data.image);
 
         const [hubCollaborator] = await anchor.web3.PublicKey.findProgramAddress(
           [
@@ -130,7 +128,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
 
     // if hub is less than five minutes old warm the cache
     if (hub.updatedAt && new Date(hub.updatedAt).getTime() > new Date().getTime() - 300000) {
-      NinaProcessor.warmCache(hub.data.image);
+      warmCache(hub.data.image);
     }
     
     for (let collaborator of collaborators) {
@@ -193,26 +191,14 @@ router.get('/:publicKeyOrHandle/followers', async (ctx) => {
   }
 })
 
-// TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrHandle/tx/:txid', async (ctx) => {
   try {
-    const publicKey = ctx.params.publicKeyOrHandle
-    let hub = await hubForPublicKeyOrHandle(ctx)
-    const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
-    if (hub && hubAccount) {
-      const uri = decode(hubAccount.uri)
-      let data
-      try {
-        data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
-      } catch (error) {
-        data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
-      }
-      await  Hub.query().patch({
-        data: data.data,
-        dataUri: uri,
-        updatedAt: new Date().toISOString(),
-      }).findById(hub.id);
+    const { txid } = ctx.params
+    if (txid) {
+      await TransactionSyncer.handleDomainProcessingForSingleTransaction(txid)
     }
+    const hub = await hubForPublicKeyOrHandle(ctx)
+    await hub.format();
     ctx.body = {
       hub,
     };
@@ -456,9 +442,9 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
   }
 })
 
-//TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) => {
   try {
+    const { txid } = ctx.query
     const hub = await hubForPublicKeyOrHandle(ctx)
     const release = await Release
       .query()
@@ -484,9 +470,9 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
         release,
         hub,
       }
-    } else if (hub && !release) {
-      await NinaProcessor.init()
-      const hubRelease = await NinaProcessor.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+    } else if (hub && !release && txid) {
+      //TODO: Probably want to clean this up - but for now should work same was as the old api
+      const hubRelease = await TransactionSyncer.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
       if (hubRelease) {
         const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
@@ -497,7 +483,7 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
           ],
           NinaProcessor.program.programId
         )
-        const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        const hubContent = await TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
         await Hub.relatedQuery('releases').for(hub.id).relate({
           id: releaseRecord.id,
           hubReleasePublicKey: ctx.params.hubReleasePublicKey,
@@ -560,7 +546,6 @@ router.get('/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey', async 
   }
 })
 
-//TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
   try {
     const hub = await hubForPublicKeyOrHandle(ctx)
@@ -571,8 +556,7 @@ router.get('/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
       .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
       .first()
     if (!post) {
-      await NinaProcessor.init()
-      const hubPostAccount = await NinaProcessor.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
+      const hubPostAccount = await TransactionSyncer.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
       const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
@@ -581,8 +565,8 @@ router.get('/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
         ],
         NinaProcessor.program.programId
       )
-      const hubContentAccount = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-      const postAccount = await NinaProcessor.program.account.post.fetch(hubPostAccount.post, 'confirmed')
+      const hubContentAccount = await TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+      const postAccount = await TransactionSyncer.program.account.post.fetch(hubPostAccount.post, 'confirmed')
       const uri = decode(postAccount.uri)
       let data
       try {
@@ -650,7 +634,6 @@ router.get('/:publicKeyOrHandle/subscriptions', async (ctx) => {
     hubNotFound(ctx)
   }
 })
-
 
 // helper functions
 const lookupCollaborator = async (hubCollaboratorPublicKey) => {

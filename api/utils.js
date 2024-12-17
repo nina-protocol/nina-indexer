@@ -1,6 +1,7 @@
 import { ref } from 'objection'
 import Knex from 'knex'
 import {
+  Account,
   Hub,
   Release,
   config,
