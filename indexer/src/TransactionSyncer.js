@@ -205,7 +205,7 @@ class TransactionSyncer {
             totalInsertedCount++;
             logTimestampedMessage(`Inserted transaction ${task.txid}`);
           } catch (error) {
-            if (task.type === 'ReleaseInitWithCredit' && error.message.includes('Cannot read properties of null (reading \'uri\')')) {
+            if (task.type === 'ReleaseInitWithCredit' && error.message.includes(`reading 'uri'`)) {
               logTimestampedMessage('Release in transaction has no metadata and is not a successfully completed release. Skipping...');
             } else {
               logTimestampedMessage(`❌ Error in domain processing for ${task.txid}: ${error.message}`);
