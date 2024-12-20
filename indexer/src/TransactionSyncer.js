@@ -6,6 +6,7 @@ import { logTimestampedMessage } from './utils/logging.js';
 import { postsProcessor } from './processors/PostsProcessor.js';
 import * as anchor from '@project-serum/anchor';
 import { hubDataService } from './services/hubData.js';
+import { releaseDataService } from './services/releaseData.js';
 
 export const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
@@ -24,6 +25,7 @@ class TransactionSyncer {
     await releaseProcessor.initialize(this.program);
     await hubProcessor.initialize(this.program);
     await postsProcessor.initialize(this.program);
+    await releaseDataService.initialize(this.program);
   }
 
   async syncTransactions() {
@@ -81,20 +83,20 @@ class TransactionSyncer {
       for (let i = 0; i < newSignatures.length; i ++) {
         console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
       }
-      let signature
-      if (isBefore) {
-        signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
-      } else if (tx) {
-        signature = tx
-        lastTx = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
-      }
-      console.log(newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b))
+
       if (newSignatures.length > 0) {
+        let signature
+        if (isBefore) {
+          signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+        } else if (tx) {
+          signature = tx
+          lastTx = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+        }  
         existingSignatures.push(...newSignatures)
-      }
-      logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
-      if (existingSignatures.length % this.batchSize === 0 && newSignatures.length > 0) {
-        return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
+        logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
+        if (existingSignatures.length % this.batchSize === 0) {
+          return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
+        }  
       }
       return existingSignatures
     } catch (error) {
@@ -164,12 +166,12 @@ class TransactionSyncer {
             await Transaction.query().insert(task.transaction).onConflict('txid').ignore();
             pageInsertedCount++;
             totalInsertedCount++;
-            logTimestampedMessage(`Inserted transaction ${task.txid}`);
+            // logTimestampedMessage(`Inserted transaction ${task.txid}`);
           } catch (error) {
             if (task.type === 'ReleaseInitWithCredit' && error.message.includes(`reading 'uri'`)) {
               logTimestampedMessage('Release in transaction has no metadata and is not a successfully completed release. Skipping...');
             } else {
-              logTimestampedMessage(`❌ Error in domain processing for ${task.txid}: ${error.message}`);
+              logTimestampedMessage(`❌ Error in domain processing for ${task.txid} ${task.type}: ${error.message}`);
             }
           }
         }
@@ -191,7 +193,7 @@ class TransactionSyncer {
       }
       const txid = txInfo.transaction.signatures[0];
       let type = await this.determineTransactionType(txInfo);
-      console.log(`txid: ${txid} type: ${type}`)
+      // console.log(`txid: ${txid} type: ${type}`)
       const accounts = this.getRelevantAccounts(txInfo);
   
       if (!accounts || accounts.length === 0) {

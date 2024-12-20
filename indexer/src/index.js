@@ -33,7 +33,6 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
-    await releaseDataService.initialize();
     await TransactionSyncer.initialize();
     await TransactionSyncer.syncTransactions(); // initial sync
 

@@ -149,11 +149,12 @@ export class ReleaseProcessor extends BaseProcessor {
                   }
                 } catch (error) {
                   logTimestampedMessage(`Error fetching release for ReleaseInitWithCredit ${txid}: ${error.message}`);
+                  return { success: false };
                 }
               }
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
-                logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
+                // logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
               } else {
                 logTimestampedMessage(`Release not found for ReleaseInitWithCredit ${txid} with publicKey ${releasePublicKey}`);
@@ -169,7 +170,7 @@ export class ReleaseProcessor extends BaseProcessor {
               const releasePublicKey = accounts[0].toBase58();
               const release = await Release.findOrCreate(releasePublicKey);
               if (release) {
-                logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
+                // logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
               }
             } catch (error) {
@@ -201,7 +202,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              logTimestampedMessage(`Successfully processed ReleaseClaim ${txid} for release ${releasePublicKey} claimed by ${collectorPublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleaseClaim ${txid} for release ${releasePublicKey} claimed by ${collectorPublicKey}`);
               return {success:true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseClaim for ${txid}: ${error.message}`);
@@ -250,7 +251,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              logTimestampedMessage(`Successfully processed ReleasePurchase ${txid} for release ${releasePublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleasePurchase ${txid} for release ${releasePublicKey}`);
               return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchase for ${txid}: ${error.message}`);
@@ -288,7 +289,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 .onConflict(['releaseId', 'accountId'])
                 .ignore();
 
-              logTimestampedMessage(`Successfully processed ReleasePurchaseViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleasePurchaseViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
               return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleasePurchaseViaHub for ${txid}: ${error.message}`);
@@ -298,6 +299,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
           case 'ReleaseInitViaHub': {
             try {
+              console.log('ReleaseInitViaHub accounts: ', accounts);
               let releasePublicKey;
               let hubPublicKey;
               try {
@@ -315,7 +317,16 @@ export class ReleaseProcessor extends BaseProcessor {
                     hubPublicKey = accounts[10].toBase58();
                   }
                 } catch (error) {
-                  logTimestampedMessage(`Error fetching release for ReleaseInitViaHub at index 1: ${error.message}`);
+                  console.log('Error fetching release for ReleaseInitViaHub at index 4, trying index 5');
+                  try {
+                    const release = await this.program.account.release.fetch(accounts[5]);
+                    if (release) {
+                      releasePublicKey = accounts[5].toBase58();
+                      hubPublicKey = accounts[15].toBase58();
+                    }
+                  } catch (error) {
+                    console.log(`Error fetching release for ReleaseInitViaHub at index 5, trying index 10 ${error.message}`);
+                  }
                 }
               }
 
@@ -351,7 +362,7 @@ export class ReleaseProcessor extends BaseProcessor {
                     hubReleasePublicKey,
                   });
 
-                logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
+                // logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
                 return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
               }
             } catch (error) {
@@ -383,7 +394,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollect ${txid} for release ${releasePublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollect ${txid} for release ${releasePublicKey}`);
               return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollect for ${txid}: ${error.message}`);
@@ -421,7 +432,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollectViaHub ${txid} for release ${releasePublicKey} via hub ${hubPublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleaseRevenueShareCollectViaHub ${txid} for release ${releasePublicKey} via hub ${hubPublicKey}`);
               return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareCollectViaHub for ${txid}: ${error.message}`);
@@ -452,7 +463,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
               await this.processRevenueShares(release, releaseAccount);
 
-              logTimestampedMessage(`Successfully processed ReleaseRevenueShareTransfer ${txid} for release ${releasePublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleaseRevenueShareTransfer ${txid} for release ${releasePublicKey}`);
               return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseRevenueShareTransfer for ${txid}: ${error.message}`);
@@ -461,6 +472,7 @@ export class ReleaseProcessor extends BaseProcessor {
           }
           case 'ReleaseUpdateMetadata': {
             try {
+              console.log('ReleaseUpdateMetadata✅ ')
               const releasePublicKey = this.isFileServicePayer(accounts) ?
                 accounts[2].toBase58() : accounts[1].toBase58();
 
@@ -486,10 +498,12 @@ export class ReleaseProcessor extends BaseProcessor {
               
               // Process tags
               const tagsBefore = await release.$relatedQuery('tags');
+              console.log('tagsBefore: ', tagsBefore);
               if (json.properties.tags) {
                 const newTags = json.properties.tags.filter(tag =>
-                  !tagsBefore.find(t => t.value === tag)
+                  !tagsBefore.find(t => t.value === Tag.sanitizeValue(tag))
                 );  
+                console.log('newTags: ', newTags);
                 // Add new tags
                 for (const tag of newTags) {
                   const tagRecord = await Tag.findOrCreate(tag);
@@ -503,8 +517,9 @@ export class ReleaseProcessor extends BaseProcessor {
               }
               if (tagsBefore.length > 0) {
                 const deletedTags = tagsBefore.filter(tag =>
-                  !json.properties.tags.find(t => t === tag.value)
+                  !json.properties.tags.find(t => t === Tag.sanitizeValue(tag.value))
                 );
+                console.log('deletedTags: ', deletedTags);
                 // Remove deleted tags
                 for (const tag of deletedTags) {
                   const tagRecord = await Tag.findOrCreate(tag.value);
@@ -516,7 +531,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 }
               }
 
-              logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
+              // logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
               return {success: true, ids: { releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseUpdateMetadata for ${txid}: ${error.message}`);

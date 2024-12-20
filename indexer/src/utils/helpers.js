@@ -65,3 +65,41 @@ export const warmCache = async (image, delay=1000) => {
     console.log('Error warming cache:', err.toString());
   }
 }
+
+export const fetchWithRetry = async (fetchFunction) => {
+  let attempts = 0
+
+  const res = await promiseRetry(
+    async (retry) => {
+      try {
+        attempts += 1
+        // if (attempts > 1) {
+          console.log('Retrying fetchWithRetry', attempts)
+        // }
+        const result = await fetchFunction
+        if (!result || result.message?.includes('not found')) {
+          const error = new Error('Failed to fetch')
+          console.log('fetchWithRetry error', JSON.stringify(error))
+          retry(error)
+  
+          return
+        }
+        return result
+      } catch(err) {
+        console.log('fetchWithRetry error', JSON.stringify(err))
+          retry(err)
+          return
+      }
+    }, {
+      retries: 50,
+      minTimeout: 50,
+      maxTimeout: 1000,
+    }
+  )
+
+  if (!res) {
+    throw new Error('Failed to fetch')
+  }
+
+  return res
+}

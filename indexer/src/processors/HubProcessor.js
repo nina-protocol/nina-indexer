@@ -246,7 +246,7 @@ export class HubProcessor extends BaseProcessor {
                 .onConflict(['hubId', 'releaseId'])
                 .ignore();
     
-              logTimestampedMessage(`Successfully processed HubAddRelease ${txid} for hub ${hubPublicKey} and release ${releasePublicKey}`);
+              // logTimestampedMessage(`Successfully processed HubAddRelease ${txid} for hub ${hubPublicKey} and release ${releasePublicKey}`);
               return {success: true, ids: { hubId: hub.id, releaseId: release.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubAddRelease for ${txid}: ${error.message}`);
@@ -289,7 +289,7 @@ export class HubProcessor extends BaseProcessor {
                 .onConflict(['hubId', 'accountId'])
                 .ignore();
                 
-              logTimestampedMessage(`Successfully processed HubAddCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
+              // logTimestampedMessage(`Successfully processed HubAddCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
               return {success: true, ids: { hubId: hub.id, toAccountId: collaborator.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubAddCollaborator for ${txid}: ${error.message}`);
@@ -339,10 +339,14 @@ export class HubProcessor extends BaseProcessor {
           }
           case 'HubContentToggleVisibility': {
             try {
+              console.log('HubContentToggleVisibility accounts', accounts);
               let hubPublicKey = accounts[1].toBase58();
               let contentPublicKey = accounts[3].toBase58();
+              let hubContentPublicKey;
               let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-              if (!hub) {
+              if (hub) {
+                hubContentPublicKey = accounts[2].toBase58();
+              } else {
                 hub = await Hub.query().findOne({ publicKey: accounts[4].toBase58() });
                 if (hub) {
                   hubPublicKey = accounts[4].toBase58();
@@ -356,16 +360,16 @@ export class HubProcessor extends BaseProcessor {
                     throw new Error(`Hub not found for HubContentToggleVisibility ${txid}`);
                   }
                 }
+                hubContentPublicKey = await hubDataService.buildHubContentPublicKey(hubPublicKey, contentPublicKey);
               }
-              const hubContentPublicKey = await hubDataService.buildHubContentPublicKey(hubPublicKey, contentPublicKey);
+              console.log('hubContentPublicKey', hubContentPublicKey);
+              console.log('contentPublicKey', contentPublicKey);
+              console.log('hubPublicKey', hubPublicKey);
               const hubContent = await this.program.account.hubContent.fetch(new anchor.web3.PublicKey(hubContentPublicKey));
 
-              let content;
-              let table;
-              try {
-                content = await Release.query().findOne({ publicKey: contentPublicKey });
-                table = 'releases';
-              } catch (error) {
+              let content = await Release.query().findOne({ publicKey: contentPublicKey });
+              let table = 'releases';
+              if (!content) {
                 content = await Post.query().findOne({ publicKey: contentPublicKey });
                 table = 'posts';
               }
@@ -381,7 +385,7 @@ export class HubProcessor extends BaseProcessor {
                 })
                 .where( {id: content.id });
 
-              logTimestampedMessage(`Successfully processed HubContentToggleVisibility ${txid} for hub ${hubPublicKey} and ${table} ${content}`);
+              // logTimestampedMessage(`Successfully processed HubContentToggleVisibility ${txid} for hub ${hubPublicKey} and ${table} ${content}`);
                 
               const response = {
                 success: true,
@@ -402,13 +406,19 @@ export class HubProcessor extends BaseProcessor {
           }
           case 'HubRemoveCollaborator': {
             try {
-              console.log('HubRemoveCollaborator', accounts);
-              const collaboratorPublicKey = accounts[3].toBase58();
-              const hubPublicKey = accounts[1].toBase58();
+              console.log('HubRemoveCollaborator accounts', accounts);
+              let collaboratorPublicKey = accounts[3].toBase58();
+              let hubPublicKey = accounts[1].toBase58();
 
-              const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
-                throw new Error(`Hub not found for HubAddCollaborator ${txid}`);
+                hub = await Hub.query().findOne({ publicKey: accounts[2].toBase58() });
+                if (hub) {
+                  hubPublicKey = accounts[2].toBase58();
+                  collaboratorPublicKey = accounts[4].toBase58();
+                } else {
+                  throw new Error(`Hub not found for HubAddCollaborator ${txid}`);
+                }
               }
   
               const collaborator = await Account.findOrCreate(collaboratorPublicKey);
@@ -420,7 +430,7 @@ export class HubProcessor extends BaseProcessor {
                 .for(hub.id)
                 .unrelate()
                 .where('id', collaborator.id);
-              logTimestampedMessage(`Successfully processed HubRemoveCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
+              // logTimestampedMessage(`Successfully processed HubRemoveCollaborator ${txid} for hub ${hubPublicKey} and collaborator ${collaboratorPublicKey}`);
               return {success: true, ids: { hubId: hub.id, toAccountId: collaborator.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubRemoveCollaborator for ${txid}: ${error.message}`);
