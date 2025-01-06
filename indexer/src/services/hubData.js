@@ -1,6 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import { logTimestampedMessage } from '../utils/logging.js';
-import { decode } from '../utils/index.js';
+import { decode, callRpcMethodWithRetry, logTimestampedMessage } from '../utils/index.js';
 import axios from 'axios';
 
 
@@ -13,13 +12,19 @@ class HubDataService {
     this.program = program;
   }
 
+  async fetchHubAccountData(publicKey) {
+    return await callRpcMethodWithRetry(() => this.program.account.hub.fetch(publicKey))
+  }
+
+  async fetchHubContentAccountData(publicKey) {
+    return await callRpcMethodWithRetry(() => this.program.account.hubContent.fetch(publicKey))
+  }
+  
+
   async fetchHubData(hubPublicKey) {
     try {
       console.log('fetchHubData', hubPublicKey);
-      const hubAccount = await this.program.account.hub.fetch(
-        new PublicKey(hubPublicKey),
-        'confirmed'
-      );
+      const hubAccount = await this.fetchHubAccountData(hubPublicKey);
 
       const uri = typeof hubAccount.uri === 'string' ?
         hubAccount.uri :
@@ -59,9 +64,8 @@ class HubDataService {
         this.program.programId
       );
 
-      const hubContent = await this.program.account.hubContent.fetch(hubContentPublicKey);
+      const hubContent = await this.fetchHubContentAccountData(hubContentPublicKey);
       return hubContent;
-
     } catch (error) {
       logTimestampedMessage(`Error fetching hub content for ${hubPublicKey}: ${error.message}`);
       throw error;
@@ -82,7 +86,7 @@ class HubDataService {
           this.program.programId
         );
 
-        return this.program.account.hubContent.fetch(hubContentPublicKey);
+        return this.fetchHubContentAccountData.fetch(hubContentPublicKey);
       });
 
       return Promise.all(hubContentPromises);

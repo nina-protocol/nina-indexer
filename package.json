@@ -33,6 +33,7 @@
     "koa-router": "^12.0.0",
     "mocha": "^10.2.0",
     "node-cron": "^3.0.2",
+    "promise-retry": "^2.0.1",
     "striptags": "^3.2.0",
     "web3": "^1.8.0"
   },
@@ -44,8 +45,5 @@
     "jayson/commander": "9.5.0",
     "knex/commander": "9.5.0",
     "@solana/errors/commander": "9.5.0"
-  },
-  "engines": {
-    "node": ">=16.0.0 <18.0.0"
   }
 }

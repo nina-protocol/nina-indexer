@@ -1,12 +1,13 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
+import * as anchor from '@project-serum/anchor';
 import { releaseProcessor } from './processors/ReleaseProcessor.js';
 import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
 import { postsProcessor } from './processors/PostsProcessor.js';
-import * as anchor from '@project-serum/anchor';
 import { hubDataService } from './services/hubData.js';
 import { releaseDataService } from './services/releaseData.js';
+import { callRpcMethodWithRetry } from './utils/index.js';
 
 export const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
@@ -79,7 +80,7 @@ class TransactionSyncer {
         }
       }
       console.log('options: ', options)
-      const newSignatures = await this.connection.getSignaturesForAddress(this.programId, options)
+      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(this.programId, options))
       for (let i = 0; i < newSignatures.length; i ++) {
         console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
       }
@@ -166,7 +167,7 @@ class TransactionSyncer {
             await Transaction.query().insert(task.transaction).onConflict('txid').ignore();
             pageInsertedCount++;
             totalInsertedCount++;
-            // logTimestampedMessage(`Inserted transaction ${task.txid}`);
+            logTimestampedMessage(`Inserted transaction ${task.txid}`);
           } catch (error) {
             if (task.type === 'ReleaseInitWithCredit' && error.message.includes(`reading 'uri'`)) {
               logTimestampedMessage('Release in transaction has no metadata and is not a successfully completed release. Skipping...');
