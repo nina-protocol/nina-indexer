@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node indexer/src/index.js",
     "test:local": "mocha 'test/**/*.test.js'",
-    "start:api": "yarn && node api/index.js"
+    "start:api": "yarn && node api/index.js",
+    "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive"
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
@@ -22,6 +23,7 @@
     "@solana/web3.js": "^1.73.2",
     "axios": "^1.5.1",
     "chai": "^4.3.7",
+    "chai-as-promised": "^8.0.1",
     "commander": "^9.5.0",
     "dotenv": "^16.0.1",
     "ethereum-ens": "^0.8.0",
@@ -35,6 +37,7 @@
     "node-cron": "^3.0.2",
     "promise-retry": "^2.0.1",
     "striptags": "^3.2.0",
+    "supertest": "^7.0.0",
     "web3": "^1.8.0"
   },
   "resolutions": {

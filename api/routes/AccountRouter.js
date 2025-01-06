@@ -3,10 +3,14 @@ import {
   Account,
   Exchange,
   Hub,
+  Release,
   Subscription,
   Transaction,
 } from '@nina-protocol/nina-db';
 import { ref } from 'objection'
+import * as anchor from '@project-serum/anchor';
+import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
+import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 
 import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
 
@@ -201,6 +205,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
   }
 });
 
+//TODO: Plug into TransactionSyncer
 router.get('/:publicKeyOrHandle/collected', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
@@ -215,12 +220,11 @@ router.get('/:publicKeyOrHandle/collected', async (ctx) => {
     }
     const { txId, releasePublicKey } = ctx.request.query;
     if (txId) {
-      await processReleaseCollectedTransaction(txId)
+      await TransactionSyncer.handleDomainProcessingForSingleTransaction(txId)
     } else if (releasePublicKey) {
-      await NinaProcessor.init();
-      const release = await NinaProcessor.program.account.release.fetch(new anchor.web3.PublicKey(releasePublicKey))
+      const release = await Release.query().findOne({publicKey: releasePublicKey})
       if (release) {
-        let tokenAccountsForRelease = await NinaProcessor.tokenIndexProvider.connection.getParsedProgramAccounts(
+        let tokenAccountsForRelease = await callRpcMethodWithRetry(() => TransactionSyncer.provider.connection.getParsedProgramAccounts(
           new anchor.web3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), {
           commitment: 'confirmed',
           filters: [{
@@ -228,16 +232,16 @@ router.get('/:publicKeyOrHandle/collected', async (ctx) => {
             }, {
               memcmp: {
                 offset: 0,
-                bytes: release.releaseMint.toBase58()
+                bytes: release.mint
               }
             }
           ]
-        })
-        const tokenAccounts = tokenAccountsForRelease.filter(ta => ta.account.data.parsed.info.owner === ctx.params.publicKey)
+        }))
+        const tokenAccounts = tokenAccountsForRelease.filter(ta => ta.account.data.parsed.info.owner === account.publicKey)
         if (tokenAccounts.length > 0) {
-          let response = await NinaProcessor.tokenIndexProvider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'confirmed')
+          let response = await callRpcMethodWithRetry(() => TransactionSyncer.provider.connection.getTokenAccountBalance(tokenAccounts[0].pubkey, 'confirmed'))
           if (response.value.uiAmount > 0) {
-            await NinaProcessor.addCollectorForRelease(releasePublicKey, ctx.params.publicKey)
+            await release.$relatedQuery('collectors').relate(account.id)
           }
         }
       }
@@ -929,42 +933,6 @@ const accountNotFound = (ctx) => {
   ctx.body = {
     success: false,
     message: `Account not found with publicKey: ${ctx.params.publicKey}`
-  }
-}
-
-const processReleaseCollectedTransaction = async (txId) => {
-  try {
-    await NinaProcessor.init();
-    const tx = await NinaProcessor.provider.connection.getParsedTransaction(txId, {
-      commitment: 'confirmed',
-      maxSupportedTransactionVersion: 0
-    })
-    if (tx) {
-      let accounts = tx.transaction.message.instructions.find(i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID)?.accounts
-      if (accounts && tx.meta.logMessages.some(log => log.includes('ReleasePurchase'))) {
-        let releasePublicKey = accounts[2].toBase58()
-        let accountPublicKey = accounts[1].toBase58()
-        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-      } else if (accounts && tx.meta.logMessages.some(log => log.includes('ReleaseClaim'))) {
-        let releasePublicKey = accounts[1].toBase58()
-        let accountPublicKey = accounts[3].toBase58()
-        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-      } else if (!accounts || accounts.length === 0) {
-        for (let innerInstruction of tx.meta.innerInstructions) {
-          for (let instruction of innerInstruction.instructions) {
-            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
-              console.log('found release purchase in inner instructions (ReleasePurchaseCoinflow)')
-              accounts = instruction.accounts
-            }
-          }
-        }
-        let releasePublicKey = accounts[2].toBase58()
-        let accountPublicKey = accounts[1].toBase58()
-        await NinaProcessor.addCollectorForRelease(releasePublicKey, accountPublicKey)
-      }
-    }
-  } catch (error) {
-    console.error('Error processing release collected transaction', error)
   }
 }
 

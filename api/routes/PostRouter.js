@@ -65,7 +65,6 @@ router.get('/sitemap', async (ctx) => {
 //TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrSlug', async (ctx) => {
   try {
-    await NinaProcessor.init()
     let postAccount
     const { txid } = ctx.query
     let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})

@@ -10,7 +10,7 @@ import * as anchor from '@project-serum/anchor';
 import axios from 'axios';
 
 import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
-import { decode } from '../../indexer/src/utils/index.js';
+import { decode, callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 import { warmCache } from '../../indexer/src/utils/helpers.js';
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
@@ -69,10 +69,9 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
     let hub = await hubForPublicKeyOrHandle(ctx)
     const { hubOnly } = ctx.query;
-    await NinaProcessor.init()
     if (!hub) {
       const publicKey = ctx.params.publicKeyOrHandle
-      const hubAccount = await NinaProcessor.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+      const hubAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed'))
       if (hubAccount) {
         const authorityPublicKey = hubAccount.authority.toBase58()
         const authority = await Account.findOrCreate(authorityPublicKey);
@@ -100,7 +99,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
             (new anchor.web3.PublicKey(publicKey)).toBuffer(),
             (new anchor.web3.PublicKey(authorityPublicKey)).toBuffer(),
           ],
-          new anchor.web3.PublicKey(NinaProcessor.program.programId)
+          new anchor.web3.PublicKey(TransactionSyncer.program.programId)
         )
         await Hub.relatedQuery('collaborators').for(hub.id).relate({
           id: authority.id,
@@ -159,7 +158,6 @@ router.get('/:publicKeyOrHandle/followers', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
     let hub = await hubForPublicKeyOrHandle(ctx)
-    await NinaProcessor.init()
 
     const subscriptions = await Subscription.query()
       .where('to', hub.publicKey)
@@ -279,7 +277,6 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/releases', async (ctx) => {
   try {
-    await NinaProcessor.init()
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', random='false' } = ctx.query;
     column = formatColumnForJsonFields(column);
     const hub = await hubForPublicKeyOrHandle(ctx)
@@ -316,11 +313,11 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
           new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
           new anchor.web3.PublicKey(release.publicKey).toBuffer(),
         ],
-        NinaProcessor.program.programId
+        TransactionSyncer.program.programId
       )
       hubContentPublicKeys.push(hubContentPublicKey)
     }
-    const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
+    const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
     for await (let release of releases.results) {
       const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
       if (releaseHubContent) {
@@ -352,7 +349,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
   try {
-    await NinaProcessor.init()
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
     column = formatColumnForJsonFields(column);
     const hub = await hubForPublicKeyOrHandle(ctx)
@@ -386,11 +382,11 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
           new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
           new anchor.web3.PublicKey(release.publicKey).toBuffer(),
         ],
-        NinaProcessor.program.programId
+        TransactionSyncer.program.programId
       )
       hubContentPublicKeys.push(hubContentPublicKey)
     }
-    const hubContent = await NinaProcessor.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed')
+    const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
     for await (let release of releases.results) {
       const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
       if (releaseHubContent) {
@@ -459,9 +455,9 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
           new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
           new anchor.web3.PublicKey(release.publicKey).toBuffer(),
         ],
-        NinaProcessor.program.programId
+        TransactionSyncer.program.programId
       )
-      const hubContent = await NinaProcessor.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+      const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed'))
       await Hub.relatedQuery('releases').for(hub.id).patch({
         visible: hubContent.visible,
       }).where( {id: release.id });
@@ -472,7 +468,7 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
       }
     } else if (hub && !release && txid) {
       //TODO: Probably want to clean this up - but for now should work same was as the old api
-      const hubRelease = await TransactionSyncer.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed')
+      const hubRelease = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed'))
       if (hubRelease) {
         const releaseRecord = await Release.findOrCreate(hubRelease.release.toBase58())
         const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
@@ -481,9 +477,9 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
             hubRelease.hub.toBuffer(),
             hubRelease.release.toBuffer(),
           ],
-          NinaProcessor.program.programId
+          TransactionSyncer.program.programId
         )
-        const hubContent = await TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
+        const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed'))
         await Hub.relatedQuery('releases').for(hub.id).relate({
           id: releaseRecord.id,
           hubReleasePublicKey: ctx.params.hubReleasePublicKey,
@@ -521,7 +517,6 @@ router.get('/:publicKeyOrHandle/collaborators/:hubCollaboratorPublicKey', async 
   try {
     const hub = await hubForPublicKeyOrHandle(ctx)
     if (hub) {
-      await NinaProcessor.init()
       const hubCollaborator = await lookupCollaborator(ctx.params.hubCollaboratorPublicKey)
       if (hubCollaborator) {
         const collaborator = await Account.findOrCreate(hubCollaborator.collaborator.toBase58())
@@ -556,17 +551,17 @@ router.get('/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
       .where('hubs_join.hubPostPublicKey', ctx.params.hubPostPublicKey)
       .first()
     if (!post) {
-      const hubPostAccount = await TransactionSyncer.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed')
+      const hubPostAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubPost.fetch(new anchor.web3.PublicKey(ctx.params.hubPostPublicKey), 'confirmed'))
       const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
         [
           Buffer.from(anchor.utils.bytes.utf8.encode('nina-hub-content')),
           hubPostAccount.hub.toBuffer(),
           hubPostAccount.post.toBuffer(),
         ],
-        NinaProcessor.program.programId
+        TransactionSyncer.program.programId
       )
-      const hubContentAccount = await TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed')
-      const postAccount = await TransactionSyncer.program.account.post.fetch(hubPostAccount.post, 'confirmed')
+      const hubContentAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetch(hubContentPublicKey, 'confirmed'))
+      const postAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.post.fetch(hubPostAccount.post, 'confirmed'))
       const uri = decode(postAccount.uri)
       let data
       try {
@@ -638,7 +633,7 @@ router.get('/:publicKeyOrHandle/subscriptions', async (ctx) => {
 // helper functions
 const lookupCollaborator = async (hubCollaboratorPublicKey) => {
   try {
-    const hubCollaborator = await NinaProcessor.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed')
+    const hubCollaborator = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubCollaborator.fetch(new anchor.web3.PublicKey(hubCollaboratorPublicKey), 'confirmed'))
     return hubCollaborator
   } catch (error) {
     return undefined

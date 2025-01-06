@@ -4,7 +4,7 @@ import {
 } from '@nina-protocol/nina-db';
 import _  from 'lodash';
 
-import { TransactionSyncer } from '../../indexer/src';
+import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
 const router = new KoaRouter({
   prefix: '/verifications'
@@ -14,7 +14,6 @@ router.get('/:publicKey', async (ctx) => {
   try {
     let verification = await Verification.query().findOne({publicKey: ctx.params.publicKey})
     if (!verification) {
-      await NinaProcessor.init();
       verification  = await getVerification(ctx.params.publicKey)
     }
     await verification.format()
@@ -37,7 +36,6 @@ router.get('/:publicKey/unregister', async (ctx) => {
     console.log('verification', verification)
     if (verification) {
       let confirmedDeleted = false
-      await NinaProcessor.init();
       let i = 0;
       while (!confirmedDeleted && i < 60) {
         console.log('publicKey', ctx.params.publicKey)
