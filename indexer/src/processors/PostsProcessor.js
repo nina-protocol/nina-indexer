@@ -1,7 +1,7 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
 import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
-import { decode, fetchFromArweave } from '../utils/index.js';
+import { callRpcMethodWithRetry, decode, fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
 
 export class PostsProcessor extends BaseProcessor {
@@ -92,92 +92,59 @@ export class PostsProcessor extends BaseProcessor {
               const hubPublicKey = accounts[1].toBase58();
               const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
                 accounts[7].toBase58() : null;
-              
+              let releaseId = null;
+
               let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
               if (!hub) {
                 logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
                 return;
               }
-  
+
+              let post = await Post.query().findOne({ publicKey: postPublicKey });
+              if (post) {
+                logTimestampedMessage(`Post already exists for ${transaction.type} ${txid}`);
+                if (releasePublicKey) {
+                  const release = await Release.query().findOne({ publicKey: releasePublicKey });
+                  releaseId = release.id;
+                }
+                return { success: true, ids: { postId: post.id, hubId: hub.id }};
+              }
+
               // Fetch post data from program
-              const postAccount = await this.program.account.post.fetch(
+              const postAccount = await callRpcMethodWithRetry(() => this.program.account.post.fetch(
                 new anchor.web3.PublicKey(postPublicKey)
-              );
-  
+              ));
               // Process post data
               const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
               const version = postData.blocks ? '0.0.2' : '0.0.1';
               
               // Create post
-              const post = await Post.query().insertGraph({
+              post = await Post.query().insertGraph({
                 publicKey: postPublicKey,
                 data: postData,
                 datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
                 publisherId: authority.id,
                 hubId: hub.id,
                 version
-              });
+              }).onConflict('publicKey').ignore();
   
               // Process post content
               await this.processPostContent(postData, post.id);
-  
               // Process reference release if provided
-              let releaseId = null;
               if (releasePublicKey) {
                 const release = await Release.query().findOne({ publicKey: releasePublicKey });
                 releaseId = release.id;
                 await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
               }
-  
               return {success: true, ids: { postId: post.id, hubId: hub.id, releaseId }};
             } catch (error) {
               logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);
               return {success: false};
             }
           }
-
-          // case 'PostUpdateViaHubPost': {
-          //   const postPublicKey = accounts[3].toBase58();
-          //   const hubPublicKey = accounts[2].toBase58();
-            
-          //   const post = await Post.query().findOne({ publicKey: postPublicKey });
-          //   const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            
-          //   if (!post || !hub) {
-          //     logTimestampedMessage(`Post or Hub not found for PostUpdateViaHubPost ${txid}`);
-          //     return;
-          //   }
-
-          //   // Get updated post data
-          //   const postAccount = await this.program.account.post.fetch(
-          //     new anchor.web3.PublicKey(postPublicKey)
-          //   );
-
-          //   const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
-          //   const version = postData.blocks ? '0.0.2' : '0.0.1';
-            
-          //   // Update post
-          //   await Post.query()
-          //     .patch({
-          //       data: postData,
-          //       version
-          //     })
-          //     .where('id', post.id);
-
-          //   // Reprocess post content
-          //   await this.processPostContent(postData, post.id);
-
-          //   // Update transaction reference
-          //   await this.updateTransactionReferences(transaction, {
-          //     postId: post.id,
-          //     hubId: hub.id
-          //   });
-
-          //   break;
-          // }
         }
       } catch (error) {
-        logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);
+        logTimestampedMessage(`xxError processing post transaction ${txid}: ${error.message}`);
       }
     }
 }

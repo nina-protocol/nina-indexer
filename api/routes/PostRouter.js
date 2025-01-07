@@ -1,15 +1,16 @@
 import KoaRouter from 'koa-router'
 import { 
-  Account,
   Hub,
   Post,
   Release,
 } from '@nina-protocol/nina-db';
 import { ref } from 'objection'
-
+import * as anchor from '@project-serum/anchor';
 import {
   getPublishedThroughHubSubQuery,
 } from '../utils.js';
+import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
+
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
 const router = new KoaRouter({
@@ -67,19 +68,16 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
   try {
     let postAccount
     const { txid } = ctx.query
-    let post = await Post.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+    let post = await findPostForPublicKeyOrSlug(ctx.params.publicKeyOrSlug)
     if (!post) {
-      post = await Post.query().where(ref('data:slug').castText(), 'like', `%${ctx.params.publicKeyOrSlug}%`).first()
-    }
-    if (!post) {
-      postAccount = await TransactionSyncer.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed');
+      postAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.post.fetch(new anchor.web3.PublicKey(ctx.params.publicKeyOrSlug), 'confirmed'));
       if (!postAccount) {
         throw ('Post not found')
       }
       if (txid) {
         const success = await TransactionSyncer.handleDomainProcessingForSingleTransaction(txid)
         if (success) {
-          post = await Post.findOrCreate(ctx.params.publicKeyOrSlug)
+          post = await findPostForPublicKeyOrSlug(ctx.params.publicKeyOrSlug)
         }
       }
     }
@@ -140,5 +138,20 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
     postNotFound(ctx)
   }
 })
+
+const postNotFound = (ctx) => {
+  ctx.status = 404
+  ctx.body = {
+    message: `Post not found with publicKeyOrSlug: ${ctx.params.publicKeyOrSlug}`
+  }
+}
+
+const findPostForPublicKeyOrSlug = async (publicKeyOrSlug) => {
+  let post = await Post.query().findOne({publicKey: publicKeyOrSlug})
+  if (!post) {
+    post = await Post.query().where(ref('data:slug').castText(), 'like', `%${publicKeyOrSlug}%`).first()
+  }
+  return post
+}
 
 export default router

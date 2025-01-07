@@ -121,7 +121,6 @@ class TransactionSyncer {
       );
 
       const processorQueue = []; // Queue up processor tasks
-
       for await (const txInfo of txInfos) {
         try {
           const task = await this.buildProcessorTaskForTransaction(txInfo);
@@ -194,7 +193,6 @@ class TransactionSyncer {
       }
       const txid = txInfo.transaction.signatures[0];
       let type = await this.determineTransactionType(txInfo);
-      // console.log(`txid: ${txid} type: ${type}`)
       const accounts = this.getRelevantAccounts(txInfo);
   
       if (!accounts || accounts.length === 0) {

@@ -1,14 +1,16 @@
 import request from 'supertest';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
-
+import { it } from 'mocha';
 import {
   Account,
   Hub,
+  Post,
   Release,
+  Transaction,
   connectDb,
 } from '@nina-protocol/nina-db';
-import { it } from 'mocha';
+import TransactionSyncer from '../indexer/src/TransactionSyncer.js';
 
 const { expect } = chai;
 chai.use(chaiAsPromised);
@@ -16,6 +18,7 @@ chai.use(chaiAsPromised);
 describe('Tests for the API', async function() {
   before(async function() {
     await connectDb()
+    await TransactionSyncer.initialize();
   });
 
   it('should return the price of SOL', async function() {
@@ -161,6 +164,42 @@ describe('Tests for the API', async function() {
       const accountCollectedAfter = await account.$relatedQuery('collected').where('releaseId', release.id);
       expect(accountCollectedAfter).to.be.an('array');
       expect(accountCollectedAfter).to.have.length(1);
+    });
+  });
+
+  describe('Post Callbacks', async function() {
+    it('should process a post with txid', async function() {
+      const postInitTxId = '2JYLpDJ5e6fzhDCAHfkwbNSGakdGuSL1ygYqDHSUWnLwxaHZUgeq2moNjL9BBnYPXE4smScVN3jqwVDc7ePQmrDU';
+      const postPublicKey = 'Et1GZidxQc3Vp8V1cJuuCc3zDFri43spCetkTp6781B7'
+
+      // Delete the post and transaction if they exist
+      await Post.query().delete().where('publicKey', postPublicKey);
+      await Transaction.query().delete().where('txid', postInitTxId);
+
+      // Check that the post and transaction were deleted
+      const postBefore = await Post.query().findOne({ publicKey: postPublicKey });
+      expect(postBefore).to.not.exist;
+      const transactionBefore = await Transaction.query().findOne({ txid: postInitTxId });
+      expect(transactionBefore).to.not.exist;
+
+      // Call the API callback and expect the post to be created
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts/${postPublicKey}?txid=${postInitTxId}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('post');
+      expect(response.body.post).to.have.property('publicKey');
+      expect(response.body.post.publicKey).to.equal(postPublicKey);
+
+      // Check that the post was created
+      const postAfter = await Post.query().findOne({ publicKey: postPublicKey });
+      expect(postAfter).to.exist;
+
+      // call the transaction syncer directly and create the transaction even though the post already exists
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: postInitTxId}]);
+      expect(count).to.equal(1);
+
+      // Check that the transaction was created
+      const transactionAfter = await Transaction.query().findOne({ txid: postInitTxId });
+      expect(transactionAfter).to.exist;
     });
   });
 });
