@@ -7,6 +7,7 @@ import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './TransactionSyncer.js';
 import VerificationSyncer from './VerificationSyncer.js';
+import CollectorSyncer from './CollectorSyncer.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -34,6 +35,8 @@ const startProcessing = async () => {
     await initDb(config);
     logTimestampedMessage('initDb completed.');
     await TransactionSyncer.initialize();
+    await CollectorSyncer.initialize();
+
     await TransactionSyncer.syncTransactions(); // initial sync
 
     cron.schedule('* * * * *', async() => {
@@ -49,6 +52,11 @@ const startProcessing = async () => {
     cron.schedule('* * * * *', async() => {
         logTimestampedMessage(`Starting scheduled verification sync`);
         await VerificationSyncer.syncVerifications();
+    });
+
+    cron.schedule('0 * * * *', async() => {
+        logTimestampedMessage(`Starting scheduled collector sync`);
+        await CollectorSyncer.syncCollectors();
     });
 
 };

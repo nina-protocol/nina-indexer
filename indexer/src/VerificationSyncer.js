@@ -56,7 +56,7 @@ class VerificationSyncer {
           }]
         }
       );
-      
+
       const existingNameRegistries = await Verification.query();
       const newNameRegistries = ninaIdNameRegistries.filter(x => !existingNameRegistries.find(y => y.publicKey === x.pubkey.toBase58()));
       const deletedNameRegistries = existingNameRegistries.filter(x => !ninaIdNameRegistries.find(y => y.pubkey.toBase58() === x.publicKey));
@@ -108,6 +108,7 @@ class VerificationSyncer {
     } catch (error) {
       console.log(`${new Date()} Error processing verifications: ${error}`)
     }
+    this.isSyncing = false;
   }
   
   async processVerification (publicKey) {
