@@ -6,8 +6,8 @@ import os from 'os';
 import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './TransactionSyncer.js';
-import { hubDataService } from './services/hubData.js';
-import { releaseDataService } from './services/releaseData.js';
+import VerificationSyncer from './VerificationSyncer.js';
+import CollectorSyncer from './CollectorSyncer.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -34,8 +34,9 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
-    await hubDataService.initialize();
-    await releaseDataService.initialize();
+    await TransactionSyncer.initialize();
+    await CollectorSyncer.initialize();
+
     await TransactionSyncer.syncTransactions(); // initial sync
 
     cron.schedule('* * * * *', async() => {
@@ -47,6 +48,17 @@ const startProcessing = async () => {
         }
         logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
     });
+
+    cron.schedule('* * * * *', async() => {
+        logTimestampedMessage(`Starting scheduled verification sync`);
+        await VerificationSyncer.syncVerifications();
+    });
+
+    cron.schedule('0 * * * *', async() => {
+        logTimestampedMessage(`Starting scheduled collector sync`);
+        await CollectorSyncer.syncCollectors();
+    });
+
 };
 
 try {
@@ -57,4 +69,4 @@ try {
     console.error(error);
 }
 
-export { TransactionSyncer, hubDataService, releaseDataService };
+export { TransactionSyncer };

@@ -1,7 +1,7 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
 import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
-import { decode, fetchFromArweave } from '../utils/index.js';
+import { callRpcMethodWithRetry, decode, fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
 
 export class PostsProcessor extends BaseProcessor {
@@ -11,16 +11,12 @@ export class PostsProcessor extends BaseProcessor {
       this.POST_TRANSACTION_TYPES = new Set([
         'PostInitViaHubWithReferenceRelease',
         'PostInitViaHub',
-        'PostUpdateViaHubPost'
+        // 'PostUpdateViaHubPost'
       ]);
     }
 
-    async initialize() {
-      if (!this.program) {
-        const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-        const provider = new anchor.AnchorProvider(connection, {}, { commitment: 'processed' });
-        this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
-      }
+    async initialize(program) {
+      this.program = program;
     }
 
     canProcessTransaction(type) {
@@ -78,117 +74,77 @@ export class PostsProcessor extends BaseProcessor {
       }
     }
 
-    async processTransaction(txid) {
-      await this.initialize();
-
-      const txData = await this.processTransactionRecord(txid);
-      if (!txData) return;
-
-      const { transaction, accounts, txInfo } = txData;
-      
-      if (!this.canProcessTransaction(transaction.type)) {
-        return;
-      }
-
-      const authority = await Account.query().findById(transaction.authorityId);
-      if (!authority) {
-        logTimestampedMessage(`Authority not found for transaction ${txid}`);
-        return;
-      }
-
+    async processTransaction(task) {      
       try {
+        const { transaction, accounts, txid } = task;      
+        if (!this.canProcessTransaction(transaction.type)) return;
+  
+        const authority = await Account.query().findById(transaction.authorityId);
+        if (!authority) {
+          logTimestampedMessage(`Authority not found for transaction ${txid}`);
+          return;
+        }
         switch (transaction.type) {
           case 'PostInitViaHubWithReferenceRelease':
           case 'PostInitViaHub': {
-            const postPublicKey = accounts[2].toBase58();
-            const hubPublicKey = accounts[1].toBase58();
-            const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
-              accounts[7].toBase58() : null;
-            
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            if (!hub) {
-              logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
-              return;
-            }
+            try {
+              const postPublicKey = accounts[2].toBase58();
+              const hubPublicKey = accounts[1].toBase58();
+              const releasePublicKey = transaction.type === 'PostInitViaHubWithReferenceRelease' ?
+                accounts[7].toBase58() : null;
+              let releaseId = null;
 
-            // Fetch post data from program
-            const postAccount = await this.program.account.post.fetch(
-              new anchor.web3.PublicKey(postPublicKey)
-            );
+              let hub = await Hub.query().findOne({ publicKey: hubPublicKey });
+              if (!hub) {
+                logTimestampedMessage(`Hub not found for ${transaction.type} ${txid}`);
+                return;
+              }
 
-            // Process post data
-            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
-            const version = postData.blocks ? '0.0.2' : '0.0.1';
-            
-            // Create post
-            const post = await Post.query().insertGraph({
-              publicKey: postPublicKey,
-              data: postData,
-              datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
-              publisherId: authority.id,
-              hubId: hub.id,
-              version
-            });
+              let post = await Post.query().findOne({ publicKey: postPublicKey });
+              if (post) {
+                logTimestampedMessage(`Post already exists for ${transaction.type} ${txid}`);
+                if (releasePublicKey) {
+                  const release = await Release.query().findOne({ publicKey: releasePublicKey });
+                  releaseId = release.id;
+                }
+                return { success: true, ids: { postId: post.id, hubId: hub.id }};
+              }
 
-            // Process post content
-            await this.processPostContent(postData, post.id);
-
-            // Process reference release if provided
-            if (releasePublicKey) {
-              await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
-            }
-
-            // Update transaction reference
-            await this.updateTransactionReferences(transaction, {
-              postId: post.id,
-              hubId: hub.id
-            });
-
-            break;
-          }
-
-          case 'PostUpdateViaHubPost': {
-            const postPublicKey = accounts[3].toBase58();
-            const hubPublicKey = accounts[2].toBase58();
-            
-            const post = await Post.query().findOne({ publicKey: postPublicKey });
-            const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
-            
-            if (!post || !hub) {
-              logTimestampedMessage(`Post or Hub not found for PostUpdateViaHubPost ${txid}`);
-              return;
-            }
-
-            // Get updated post data
-            const postAccount = await this.program.account.post.fetch(
-              new anchor.web3.PublicKey(postPublicKey)
-            );
-
-            const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
-            const version = postData.blocks ? '0.0.2' : '0.0.1';
-            
-            // Update post
-            await Post.query()
-              .patch({
+              // Fetch post data from program
+              const postAccount = await callRpcMethodWithRetry(() => this.program.account.post.fetch(
+                new anchor.web3.PublicKey(postPublicKey)
+              ));
+              // Process post data
+              const postData = await fetchFromArweave(decode(postAccount.uri).replace('}', ''));
+              const version = postData.blocks ? '0.0.2' : '0.0.1';
+              
+              // Create post
+              post = await Post.query().insertGraph({
+                publicKey: postPublicKey,
                 data: postData,
+                datetime: new Date(postAccount.createdAt.toNumber() * 1000).toISOString(),
+                publisherId: authority.id,
+                hubId: hub.id,
                 version
-              })
-              .where('id', post.id);
-
-            // Reprocess post content
-            await this.processPostContent(postData, post.id);
-
-            // Update transaction reference
-            await this.updateTransactionReferences(transaction, {
-              postId: post.id,
-              hubId: hub.id
-            });
-
-            break;
+              }).onConflict('publicKey').ignore();
+  
+              // Process post content
+              await this.processPostContent(postData, post.id);
+              // Process reference release if provided
+              if (releasePublicKey) {
+                const release = await Release.query().findOne({ publicKey: releasePublicKey });
+                releaseId = release.id;
+                await this.processPostContent({ blocks: [{ type: 'featuredRelease', data: releasePublicKey }] }, post.id);
+              }
+              return {success: true, ids: { postId: post.id, hubId: hub.id, releaseId }};
+            } catch (error) {
+              logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);
+              return {success: false};
+            }
           }
         }
       } catch (error) {
-        logTimestampedMessage(`Error processing post transaction ${txid}: ${error.message}`);
+        logTimestampedMessage(`xxError processing post transaction ${txid}: ${error.message}`);
       }
     }
 }

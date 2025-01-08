@@ -1,34 +1,30 @@
-import solanaWeb3 from '@solana/web3.js';
-import * as anchor from '@project-serum/anchor';
-import { logTimestampedMessage } from '../utils/logging.js';
-import { decode } from '../utils/index.js';
+import { PublicKey } from '@solana/web3.js';
+import { decode, callRpcMethodWithRetry, logTimestampedMessage } from '../utils/index.js';
 import axios from 'axios';
 
-const { Connection, PublicKey } = solanaWeb3;
 
 class HubDataService {
   constructor() {
-    this.connection = null;
-    this.provider = null;
     this.program = null;
   }
 
-  async initialize() {
-    if (!this.connection) {
-      this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
-      this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
-      this.program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, this.provider);
-    }
+  async initialize(program) {
+    this.program = program;
   }
+
+  async fetchHubAccountData(publicKey) {
+    return await callRpcMethodWithRetry(() => this.program.account.hub.fetch(publicKey))
+  }
+
+  async fetchHubContentAccountData(publicKey) {
+    return await callRpcMethodWithRetry(() => this.program.account.hubContent.fetch(publicKey))
+  }
+  
 
   async fetchHubData(hubPublicKey) {
     try {
-      await this.initialize();
-
-      const hubAccount = await this.program.account.hub.fetch(
-        new PublicKey(hubPublicKey),
-        'confirmed'
-      );
+      console.log('fetchHubData', hubPublicKey);
+      const hubAccount = await this.fetchHubAccountData(hubPublicKey);
 
       const uri = typeof hubAccount.uri === 'string' ?
         hubAccount.uri :
@@ -68,9 +64,8 @@ class HubDataService {
         this.program.programId
       );
 
-      const hubContent = await this.program.account.hubContent.fetch(hubContentPublicKey);
+      const hubContent = await this.fetchHubContentAccountData(hubContentPublicKey);
       return hubContent;
-
     } catch (error) {
       logTimestampedMessage(`Error fetching hub content for ${hubPublicKey}: ${error.message}`);
       throw error;
@@ -91,7 +86,7 @@ class HubDataService {
           this.program.programId
         );
 
-        return this.program.account.hubContent.fetch(hubContentPublicKey);
+        return this.fetchHubContentAccountData.fetch(hubContentPublicKey);
       });
 
       return Promise.all(hubContentPromises);
@@ -100,6 +95,31 @@ class HubDataService {
       logTimestampedMessage(`Error fetching hub contents for ${hubPublicKey}: ${error.message}`);
       throw error;
     }
+  }
+  async buildHubReleasePublicKey(hubPublicKey, releasePublicKey) {
+    const [hubReleasePublicKey] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from('nina-hub-release'),
+        new PublicKey(hubPublicKey).toBuffer(),
+        new PublicKey(releasePublicKey).toBuffer()
+      ],
+      this.program.programId
+    );
+
+    return hubReleasePublicKey.toBase58();
+  }  
+
+  async buildHubContentPublicKey(hubPublicKey, contentAccount) {
+    const [hubContentPublicKey] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from('nina-hub-content'),
+        new PublicKey(hubPublicKey).toBuffer(),
+        new PublicKey(contentAccount).toBuffer()
+      ],
+      this.program.programId
+    );
+
+    return hubContentPublicKey.toBase58();
   }
 }
 

@@ -1,56 +1,63 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
+import * as anchor from '@project-serum/anchor';
 import { releaseProcessor } from './processors/ReleaseProcessor.js';
 import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
 import { postsProcessor } from './processors/PostsProcessor.js';
+import { hubDataService } from './services/hubData.js';
+import { releaseDataService } from './services/releaseData.js';
+import { callRpcMethodWithRetry } from './utils/index.js';
+
+export const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
 class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
     this.programId = new PublicKey(process.env.NINA_PROGRAM_ID);
-    this.batchSize = 100;
+    this.batchSize = 1000;
+    this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
+    this.isSyncing = false;
+  }
+
+  async initialize() {
+    this.program = await anchor.Program.at(this.programId, this.provider);
+    await hubDataService.initialize(this.program);
+    await releaseProcessor.initialize(this.program);
+    await hubProcessor.initialize(this.program);
+    await postsProcessor.initialize(this.program);
+    await releaseDataService.initialize(this.program);
   }
 
   async syncTransactions() {
-    logTimestampedMessage('Starting transaction sync...');
-
-    let lastSyncedSignature = await this.getLastSyncedSignature();
-    let hasMore = true;
-    let totalFetchedSignatures = 0;
-    let totalInsertedTransactions = 0;
-    let beforeSignature = null;
-
-    while (hasMore) {
-      const { signatures, hasMore: moreSignatures, beforeSignature: newBeforeSignature } =
-        await this.fetchSignatures(lastSyncedSignature, beforeSignature);
-
-      const fetchedCount = signatures.length;
-      totalFetchedSignatures += fetchedCount;
-
-      if (fetchedCount === 0) {
-        hasMore = false;
-        continue;
+    try {
+      if (this.isSyncing) {
+        logTimestampedMessage('Transaction sync already in progress. Skipping.');
+        return;
       }
+      this.isSyncing = true;
+      logTimestampedMessage('Starting transaction sync...');
+  
+      let lastSyncedSignature = await this.getLastSyncedSignature();
+  
+      let signatures = await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)
+      if (signatures) {
+        signatures = signatures.reverse();  
 
-      signatures.forEach(signatureInfo => {
-        logTimestampedMessage(`Fetched signature ${signatureInfo.signature}`);
-      });
-
-      const insertedCount = await this.processAndInsertTransactions(signatures);
-      totalInsertedTransactions += insertedCount;
-
-      logTimestampedMessage(`Processed batch: fetched ${fetchedCount} signatures, inserted ${insertedCount} new transactions.`);
-
-      if (!beforeSignature && signatures.length > 0) {
-        lastSyncedSignature = signatures[0].signature; // The most recent signature
+        signatures.forEach(signatureInfo => {
+          logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
+        });
+    
+        const insertedCount = await this.processAndInsertTransactions(signatures);
+    
+        logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);  
+      } else {
+        logTimestampedMessage('Unable to fetch signatures. Skipping sync.');
       }
-
-      beforeSignature = newBeforeSignature;
-      hasMore = moreSignatures;
+    } catch (error) {
+      logTimestampedMessage(`Error in syncTransactions: ${error.message}`);
     }
-
-    logTimestampedMessage(`Transaction sync completed. Fetched ${totalFetchedSignatures} signatures, inserted ${totalInsertedTransactions} new transactions.`);
+    this.isSyncing = false;
   }
 
   async getLastSyncedSignature() {
@@ -60,177 +67,200 @@ class TransactionSyncer {
     return lastSignature;
   }
 
-  async fetchSignatures(lastSignature, beforeSignature = null) {
-    const options = { limit: this.batchSize };
-    if (beforeSignature) options.before = beforeSignature;
-
-    const signatures = await this.connection.getSignaturesForAddress(this.programId, options);
-
-    const newSignatures = [];
-    let hasReachedLastSignature = false;
-
-    for (const signatureInfo of signatures) {
-      if (signatureInfo.signature === lastSignature) {
-        hasReachedLastSignature = true;
-        // logTimestampedMessage(`Reached last synced signature: ${lastSignature}`);
-        break; // Stop processing when the last synced signature is reached
+  async fetchSignatures (tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
+    console.log(`fetchSignatures: ${tx} ${isBefore} ${existingSignatures.length}`)
+    try {
+      const options = {}
+      if (tx && isBefore) {
+        options.before = tx
+      } else if (!isBefore && tx) {
+        options.until = tx
+        if (lastTx) {
+          options.before = lastTx
+        }
       }
-      newSignatures.push(signatureInfo);
+      console.log('options: ', options)
+      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(this.programId, options))
+      for (let i = 0; i < newSignatures.length; i ++) {
+        console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
+      }
+
+      if (newSignatures.length > 0) {
+        let signature
+        if (isBefore) {
+          signature = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+        } else if (tx) {
+          signature = tx
+          lastTx = newSignatures.reduce((a, b) => a.blockTime < b.blockTime ? a : b)  
+        }  
+        existingSignatures.push(...newSignatures)
+        logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
+        if (existingSignatures.length % this.batchSize === 0) {
+          return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
+        }  
+      }
+      return existingSignatures
+    } catch (error) {
+      console.warn (error)
     }
-
-    const newBeforeSignature = signatures.length > 0 ? signatures[signatures.length - 1].signature : null;
-
-    return {
-      signatures: newSignatures,
-      hasMore: !hasReachedLastSignature && signatures.length === this.batchSize,
-      beforeSignature: newBeforeSignature,
-    };
   }
 
   async processAndInsertTransactions(signatures) {
-    const txInfos = await this.connection.getParsedTransactions(
-      signatures.map(sig => sig.signature),
-      { maxSupportedTransactionVersion: 0 }
-    );
-
-    const transactionsToInsert = [];
-    const processorQueue = []; // Queue up processor tasks
-
-    for (const txInfo of txInfos) {
-      if (txInfo === null) continue;
-
-      try {
-        // Update accountPublicKey and type based on the new detection logic
-        let type = this.determineTransactionType(txInfo);
-        const accounts = this.getRelevantAccounts(txInfo);
-
-        if (!accounts || accounts.length === 0) {
-          logTimestampedMessage(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
-          continue;
-        }
-
-        let { accountPublicKey, updatedType } = await this.getAccountPublicKey(accounts, type);
-        type = updatedType;
-
-        if (!accountPublicKey) {
-          logTimestampedMessage(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
-          continue;
-        }
-
-        let authorityId = await this.getOrCreateAuthorityId(accountPublicKey);
-        const txid = txInfo.transaction.signatures[0];
-
-        // Prepare transaction record
-        const transactionRecord = {
-          txid,
-          blocktime: txInfo.blockTime,
-          type: type,
-          authorityId: authorityId,
-        };
-
-        // logTimestampedMessage(`Processing transaction ${txInfo.transaction.signatures[0]} of type ${type}`);
-        transactionsToInsert.push(transactionRecord);
-
-        // Queue up processor task based on type
-        processorQueue.push({
-          type,
-          txid,
-          accounts,
-          txInfo
-        });
-
-      } catch (error) {
-        logTimestampedMessage(`Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
-      }
+    const pages = []
+    let totalInsertedCount = 0
+    for (let i = 0; i < signatures.length; i += this.batchSize) {
+      pages.push(signatures.slice(i, i + this.batchSize))
     }
+    for await (const page of pages) {
+      let pageInsertedCount = 0
+      const pageNumber = pages.indexOf(page) + 1;
+      logTimestampedMessage(`Processing page ${pageNumber} of ${pages.length}...`);
+      const txInfos = await this.connection.getParsedTransactions(
+        page.map(sig => sig.signature),
+        { maxSupportedTransactionVersion: 0 }
+      );
 
-    if (transactionsToInsert.length > 0) {
-      await Transaction.query().insert(transactionsToInsert).onConflict('txid').ignore();
-
-      transactionsToInsert.forEach(tx => {
-        logTimestampedMessage(`Inserted transaction ${tx.txid}`);
-      });
-      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
-
-      // Process with domain processors
-      for (const task of processorQueue) {
+      const processorQueue = []; // Queue up processor tasks
+      for await (const txInfo of txInfos) {
         try {
-          if (releaseProcessor.canProcessTransaction(task.type)) {
-            await releaseProcessor.processTransaction(task.txid);
-          } else if (hubProcessor.canProcessTransaction(task.type)) {
-            await hubProcessor.processTransaction(task.txid);
-          } else if (postsProcessor.canProcessTransaction(task.type)) {
-            await postsProcessor.processTransaction(task.txid);
+          const task = await this.buildProcessorTaskForTransaction(txInfo);
+          if (task) {
+            processorQueue.push(task);
           }
         } catch (error) {
-          logTimestampedMessage(`Error in domain processing for ${task.txid}: ${error.message}`);
+          logTimestampedMessage(`❌ Error processing transaction ${txInfo.transaction.signatures[0]}: ${error.message}`);
         }
       }
+  
+      if (processorQueue.length > 0) {
+        console.log('processorQueue', processorQueue.length)
+        // Process with domain processors
+        for (const task of processorQueue) {
+          try {
+            if (releaseProcessor.canProcessTransaction(task.type)) {
+              const { ids, success } = await releaseProcessor.processTransaction(task);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
+            } else if (hubProcessor.canProcessTransaction(task.type)) {
+              const { ids, success } = await hubProcessor.processTransaction(task);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
+              if (ids?.toAccountId) task.transaction.toAccountId = ids.toAccountId;
+              if (ids?.postId) task.transaction.postId = ids.postId;
+            } else if (postsProcessor.canProcessTransaction(task.type)) {
+              const { ids, success } = await postsProcessor.processTransaction(task);
+              if (!success) {
+                throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+              }
+              if (ids?.hubId) task.transaction.hubId = ids.hubId;
+              if (ids?.postId) task.transaction.postId = ids.postId;
+              if (ids?.releaseId) task.transaction.releaseId = ids.releaseId;
+            }
 
-      logTimestampedMessage(`Inserted ${transactionsToInsert.length} new transactions.`);
-      return transactionsToInsert.length;
+            await Transaction.query().insert(task.transaction).onConflict('txid').ignore();
+            pageInsertedCount++;
+            totalInsertedCount++;
+            logTimestampedMessage(`Inserted transaction ${task.txid}`);
+          } catch (error) {
+            if (task.type === 'ReleaseInitWithCredit' && error.message.includes(`reading 'uri'`)) {
+              logTimestampedMessage('Release in transaction has no metadata and is not a successfully completed release. Skipping...');
+            } else {
+              logTimestampedMessage(`❌ Error in domain processing for ${task.txid} ${task.type}: ${error.message}`);
+            }
+          }
+        }
+  
+        logTimestampedMessage(`Inserted ${pageInsertedCount} new transactions.`);
+        logTimestampedMessage(`Completed processing page ${pageNumber} of ${pages.length}...`);
+      }
     }
-    return 0;  // Return 0 if no transactions were inserted
+    return totalInsertedCount;
   }
 
-  async processAccountMetadata(publicKey) {
+  async buildProcessorTaskForTransaction (txInfo) {
     try {
-      const anchor = await import('@project-serum/anchor');
-      const provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
-      const program = await anchor.Program.at(process.env.NINA_PROGRAM_ID, provider);
-
-      const ninaAccount = await program.account.user.fetchNullable(new anchor.web3.PublicKey(publicKey));
-      if (!ninaAccount) {
-        return null;
+      if (txInfo === null) {
+        throw new Error('No transaction info found');
+      }
+      if (txInfo.meta.err) {
+        throw new Error (`Error in execution of transaction ${txInfo.transaction.signatures[0]}.  Skipping processing...`);
+      }
+      const txid = txInfo.transaction.signatures[0];
+      let type = await this.determineTransactionType(txInfo);
+      const accounts = this.getRelevantAccounts(txInfo);
+  
+      if (!accounts || accounts.length === 0) {
+        throw new Error(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
       }
 
-      const { profileMetadata, handle } = ninaAccount;
-      if (!profileMetadata) {
-        return null;
+      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages);
+
+      if (!accountPublicKey) {
+        throw new Error(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
       }
 
-      const metadata = await fetchFromArweave(profileMetadata);
-      return {
-        image: metadata.image || null,
-        description: metadata.description || null,
-        displayName: metadata.name || handle || null,
-        handle: handle || null,
+      let authority = await Account.findOrCreate(accountPublicKey);
+
+      // Prepare transaction record
+      const transaction = {
+        txid,
+        blocktime: txInfo.blockTime,
+        type,
+        authorityId: authority.id,
       };
+
+      const task = {
+        type,
+        txid,
+        accounts,
+        txInfo,
+        transaction,
+      }
+      return task;
     } catch (error) {
-      logTimestampedMessage(`Error processing account metadata for ${publicKey}: ${error.message}`);
-      return null;
+      logTimestampedMessage(`Error building task for transaction: ${error.message}`);
     }
   }
 
-  async getOrCreateAuthorityId(publicKey) {
-    let account = await Account.query().where('publicKey', publicKey).first();
-    if (!account) {
-        const metadata = await this.processAccountMetadata(publicKey);
-        account = await Account.query().insert({
-            publicKey,
-            image: metadata?.image || null,
-            description: metadata?.description || null,
-            displayName: metadata?.displayName || null,
-            handle: metadata?.handle || null,
-        });
-        logTimestampedMessage(`Created new account with metadata for public key: ${publicKey}`);
-    } else if (!account.image && !account.displayName) {
-        const metadata = await this.processAccountMetadata(publicKey);
-        if (metadata) {
-            await Account.query().patch({
-                image: metadata.image,
-                description: metadata.description,
-                displayName: metadata.displayName,
-                handle: metadata.handle,
-            }).where('id', account.id);
-            logTimestampedMessage(`Updated account metadata for public key: ${publicKey}`);
+  async handleDomainProcessingForSingleTransaction (txid) {
+    try {
+      const txInfo = await this.connection.getParsedTransaction(
+        txid,
+        { maxSupportedTransactionVersion: 0 }
+      );
+      const task = await this.buildProcessorTaskForTransaction(txInfo);
+      if (releaseProcessor.canProcessTransaction(task.type)) {
+        const { success } = await releaseProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
         }
+      } else if (hubProcessor.canProcessTransaction(task.type)) {
+        const { success } = await hubProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+        }
+      } else if (postsProcessor.canProcessTransaction(task.type)) {
+        const { success } = await postsProcessor.processTransaction(task);
+        if (!success) {
+          throw new Error(`Error processing ${task.type} transaction ${task.txid}`);
+        }
+      }
+      return true
+    } catch (error) {
+      logTimestampedMessage(`Error in handleDomainProcessingForSingleTransaction: ${error.message}`);
+      return false
     }
-    return account.id;
   }
 
-  determineTransactionType(txInfo) {
+  async determineTransactionType(txInfo) {
     const logMessages = txInfo.meta.logMessages;
+    const accounts = this.getRelevantAccounts(txInfo);
 
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
@@ -262,6 +292,44 @@ class TransactionSyncer {
     if (logMessages.some(log => log.includes('ExchangeAccept'))) return 'ExchangeAccept';
     if (logMessages.some(log => log.includes('HubWithdraw'))) return 'HubWithdraw';
 
+    // Special detection logic for to handle special cases from before the type was printed in the logs
+    try {
+      if (accounts?.length === 10) {
+        if (accounts[0].toBase58() === accounts[1].toBase58()) {
+          const release = await this.program.account.release.fetch(accounts[2])
+          if (release) return 'ReleasePurchase'
+        } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
+          const release = await this.program.account.release.fetch(accounts[0])
+          if (release) return 'ReleasePurchase'
+        }
+      } else if (accounts?.length === 18) {
+        const release = await this.program.account.release.fetch(accounts[7])
+        if (release) return 'ReleaseInitWithCredit'
+      } else if (accounts?.length === 14) {
+        let release;
+        try {
+          release = await this.program.account.release.fetch(accounts[0])
+        } catch (error) {
+          release = await this.program.account.release.fetch(accounts[3])
+        }
+
+        if (release) return 'ReleaseInitWithCredit'
+      } else if (accounts?.length === 16) {
+        const release = await this.program.account.release.fetch(accounts[5])
+        if (release) return 'ReleaseInitWithCredit'
+      } else if (accounts?.length === 13) {
+        let release;
+        try {
+          release = await this.program.account.release.fetch(accounts[0])
+          if (release) return 'ReleaseInitWithCredit'
+        } catch (error) {
+          release = await this.program.account.release.fetch(accounts[9])
+          if (release) return 'ExchangeInit'
+        }
+      }
+    } catch (error) {
+      logTimestampedMessage(`error determining type in special case: ${error}`)
+    }
     return 'Unknown';
   }
 
@@ -288,164 +356,87 @@ class TransactionSyncer {
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
-  async getAccountPublicKey(accounts, type) {
-    if (!accounts || accounts.length === 0) {
-      return { accountPublicKey: null, updatedType: type };
-    }
-
-    switch (type) {
-      case 'ReleaseInitViaHub':
-        return {
-          accountPublicKey: this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58(),
-          updatedType: type
-        };
-      case 'ReleasePurchaseViaHub':
-      case 'ReleasePurchase':
-        return {
-          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-          updatedType: type
-        };
-      case 'HubInitWithCredit':
-        return {
-          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-          updatedType: type
-        };
-      case 'ReleaseInitWithCredit':
-        return {
-          accountPublicKey: accounts.length > 4 ? accounts[4].toBase58() : null,
-          updatedType: type
-        };
-      case 'HubAddCollaborator':
-      case 'HubAddRelease':
-        if (this.isFileServicePayer(accounts)) {
-          return {
-            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-            updatedType: type
-          };
-        } else {
-          return {
-            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-            updatedType: type
-          };
-        }
-      case 'PostInitViaHubWithReferenceRelease':
-      case 'PostInitViaHub':
-        if (this.isFileServicePayer(accounts)) {
-          return {
-            accountPublicKey: accounts.length > 8 ? accounts[8].toBase58() : null,
-            updatedType: type
-          };
-        } else {
-          return {
-            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-            updatedType: type
-          };
-        }
-      case 'PostUpdateViaHubPost':
-        return {
-          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-          updatedType: type
-        };
-      case 'SubscriptionSubscribeAccount':
-      case 'SubscriptionSubscribeHub':
-        return {
-          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : (accounts.length > 0 ? accounts[0].toBase58() : null),
-          updatedType: type
-        };
-      case 'SubscriptionUnsubscribe':
-        return {
-          accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-          updatedType: type
-        };
-      case 'ReleaseClaim':
-        return {
-          accountPublicKey: accounts.length > 3 ? accounts[3].toBase58() : null,
-          updatedType: type
-        };
-      case 'HubInit':
-        if (this.isFileServicePayer(accounts)) {
-          return {
-            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-            updatedType: type
-          };
-        } else {
-          return {
-            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-            updatedType: type
-          };
-        }
-      case 'ReleaseInit':
-        return {
-          accountPublicKey: accounts.length > 4 ? accounts[4].toBase58() : null,
-          updatedType: type
-        };
-      case 'ReleaseCloseEdition':
-      case 'HubContentToggleVisibility':
-      case 'HubRemoveCollaborator':
-      case 'HubUpdateCollaboratorPermissions':
-      case 'HubUpdateConfig':
-      case 'ReleaseRevenueShareCollectViaHub':
-      case 'ReleaseRevenueShareCollect':
-      case 'ReleaseRevenueShareTransfer':
-      case 'ReleaseUpdateMetadata':
-      case 'HubWithdraw':
-        if (this.isFileServicePayer(accounts)) {
-          return {
-            accountPublicKey: accounts.length > 1 ? accounts[1].toBase58() : null,
-            updatedType: type
-          };
-        } else {
-          return {
-            accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-            updatedType: type
-          };
-        }
-      case 'ExchangeInit':
-      case 'ExchangeCancel':
-      case 'ExchangeAccept':
-        return {
-          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-          updatedType: type
-        };
-      default:
-        // Special detection logic for to handle special case where accounts with length === 10
-        if (accounts?.length === 10) {
-          if (accounts[0].toBase58() === accounts[1].toBase58()) {
-            try {
-              const release = await Release.query().findOne({ publicKey: accounts[2].toBase58() });
-              if (release) {
-                return {
-                  accountPublicKey: accounts[0].toBase58(),
-                  updatedType: 'ReleasePurchase'
-                };
-              }
-            } catch (error) {
-              console.log(error);
-            }
-          } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
-            try {
-              const release = await Release.query().findOne({ publicKey: accounts[0].toBase58() });
-              if (release) {
-                return {
-                  accountPublicKey: accounts[3].toBase58(),
-                  updatedType: 'ReleasePurchase'
-                };
-              }
-            } catch (error) {
-              console.log(error);
+  async getAccountPublicKey(accounts, type, logs) {
+    try {
+      switch (type) {
+        case 'ReleaseInitViaHub':
+          return this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58();
+        case 'ReleasePurchaseViaHub':
+        case 'ReleasePurchase':
+          if (logs.some(log => log.includes('ReleasePurchase'))) {
+            return accounts[1].toBase58();
+          } else if (accounts?.length === 10) {
+            if (accounts[0].toBase58() === accounts[1].toBase58()) {
+              return accounts[0].toBase58();
+            } else if (accounts[3].toBase58() === accounts[4].toBase58()) {
+              return accounts[3].toBase58();
             }
           }
-        }
-        return {
-          accountPublicKey: accounts.length > 0 ? accounts[0].toBase58() : null,
-          updatedType: type
-        };
+          return accounts[1].toBase58();
+        case 'HubInitWithCredit':
+          return accounts[0].toBase58();
+        case 'ReleaseInitWithCredit':
+          return accounts[3].toBase58();
+        case 'HubAddCollaborator':
+        case 'HubAddRelease':
+          if (this.isFileServicePayer(accounts)) {
+            return  accounts[1].toBase58();
+          } else {
+            return accounts[0].toBase58();
+          }
+        case 'PostInitViaHubWithReferenceRelease':
+        case 'PostInitViaHub':
+          if (this.isFileServicePayer(accounts)) {
+            return  accounts[8].toBase58();
+          } else {
+            return accounts[0].toBase58();
+          }
+        case 'PostUpdateViaHubPost':
+          return accounts[1].toBase58();
+        case 'SubscriptionSubscribeAccount':
+        case 'SubscriptionSubscribeHub':
+          return accounts[1].toBase58();
+        case 'SubscriptionUnsubscribe':
+          return accounts[1].toBase58();
+        case 'ReleaseClaim':
+          return accounts[3].toBase58();
+        case 'HubInit':
+          if (this.isFileServicePayer(accounts)) {
+            return accounts[1].toBase58();
+          } else {
+            return accounts[0].toBase58();
+          }
+        case 'ReleaseInit':
+          return accounts[4].toBase58();
+        case 'ReleaseCloseEdition':
+        case 'HubContentToggleVisibility':
+        case 'HubRemoveCollaborator':
+        case 'HubUpdateCollaboratorPermissions':
+        case 'HubUpdateConfig':
+        case 'ReleaseRevenueShareCollectViaHub':
+        case 'ReleaseRevenueShareCollect':
+        case 'ReleaseRevenueShareTransfer':
+        case 'ReleaseUpdateMetadata':
+        case 'HubWithdraw':
+          if (this.isFileServicePayer(accounts)) {
+            return accounts[1].toBase58();
+          } else {
+            return accounts[0].toBase58();
+          }
+        case 'ExchangeInit':
+        case 'ExchangeCancel':
+        case 'ExchangeAccept':
+          return accounts[0].toBase58();
+        default:
+          return accounts[0].toBase58();
+      }  
+    } catch (error) {
+      logTimestampedMessage(`Error getting account public key: ${error.message}`);
     }
   }
 
   isFileServicePayer(accounts) {
-    const FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
-    return accounts.length > 0 && (accounts[0].toBase58() === FILE_SERVICE_ADDRESS || (accounts.length > 1 && accounts[0].toBase58() === accounts[1].toBase58()));
+    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58() || accounts[0].toBase58() === accounts[1].toBase58());
   }
 }
 

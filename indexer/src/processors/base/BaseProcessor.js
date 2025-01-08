@@ -1,20 +1,22 @@
 // BaseProcessor.js
 import { Connection } from '@solana/web3.js';
 import { logTimestampedMessage } from '../../utils/logging.js';
-import { Account, Hub, Release, Transaction } from '@nina-protocol/nina-db';
+import { Transaction } from '@nina-protocol/nina-db';
 import axios from 'axios';
-
+import { FILE_SERVICE_ADDRESSES } from '../../TransactionSyncer.js';
 export class BaseProcessor {
   constructor() {
-    this.FILE_SERVICE_ADDRESS = '3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd';
+  }
+  
+  async initialize(program) {
+    this.program = program;
   }
 
   isFileServicePayer(accounts) {
-    return accounts[0].toBase58() === this.FILE_SERVICE_ADDRESS || 
-           accounts[0].toBase58() === accounts[1].toBase58();
+    return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58()) || accounts[0].toBase58() === accounts[1].toBase58();
   }
 
-  // Process a single transaction record
+  // REMOVE THIS FUNCTION
   async processTransactionRecord(txid) {
     const transaction = await Transaction.query().findOne({ txid });
     if (!transaction) {
@@ -63,7 +65,7 @@ export class BaseProcessor {
         if (ninaInstruction) break;
       }
     }
-
+    console.log('ninaInstruction', ninaInstruction);
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
@@ -74,34 +76,6 @@ export class BaseProcessor {
     } catch (error) {
       logTimestampedMessage(`Error fetching restricted releases: ${error.message}`);
       return [];
-    }
-  }
-
-  // Add additional references to transaction record
-  async updateTransactionReferences(transaction, refs) {
-    try {
-      const updates = {};
-
-      if (refs.hubId) {
-        updates.hubId = refs.hubId;
-      }
-      if (refs.releaseId) {
-        updates.releaseId = refs.releaseId;
-      }
-      if (refs.toAccountId) {
-        updates.toAccountId = refs.toAccountId;
-      }
-      if (refs.toHubId) {
-        updates.toHubId = refs.toHubId;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        await Transaction.query()
-          .patch(updates)
-          .where('id', transaction.id);
-      }
-    } catch (error) {
-      logTimestampedMessage(`Error updating transaction references: ${error.message}`);
     }
   }
 }

@@ -8,30 +8,36 @@
   "author": "contact@ninaprotocol.com",
   "license": "Apache-2.0",
   "scripts": {
-    "start": "node indexer/index.js",
-    "test:local": "mocha 'test/**/*.test.js'"
+    "start": "node indexer/src/index.js",
+    "test:local": "mocha 'test/**/*.test.js'",
+    "start:api": "yarn && node api/index.js",
+    "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive"
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
     "@koa/cors": "^3.3.0",
     "@metaplex-foundation/js": "^0.18.1",
-    "@nina-protocol/nina-db": "0.0.77",
+    "@nina-protocol/nina-db": "0.0.87",
     "@project-serum/anchor": "^0.25.0",
     "@redocly/cli": "^1.0.0-beta.108",
     "@solana/web3.js": "^1.73.2",
     "axios": "^1.5.1",
     "chai": "^4.3.7",
+    "chai-as-promised": "^8.0.1",
     "commander": "^9.5.0",
     "dotenv": "^16.0.1",
     "ethereum-ens": "^0.8.0",
     "form-urlencoded": "^6.1.0",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
+    "koa-combine-routers": "^4.0.2",
     "koa-ratelimit": "^5.0.1",
     "koa-router": "^12.0.0",
     "mocha": "^10.2.0",
     "node-cron": "^3.0.2",
+    "promise-retry": "^2.0.1",
     "striptags": "^3.2.0",
+    "supertest": "^7.0.0",
     "web3": "^1.8.0"
   },
   "resolutions": {
@@ -42,8 +48,5 @@
     "jayson/commander": "9.5.0",
     "knex/commander": "9.5.0",
     "@solana/errors/commander": "9.5.0"
-  },
-  "engines": {
-    "node": ">=16.0.0 <18.0.0"
   }
 }
