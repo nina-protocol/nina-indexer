@@ -6,7 +6,7 @@ import os from 'os';
 import { logTimestampedMessage } from '../src/utils/logging.js';
 import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './TransactionSyncer.js';
-import { releaseDataService } from './services/releaseData.js';
+import VerificationSyncer from './VerificationSyncer.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -45,6 +45,12 @@ const startProcessing = async () => {
         }
         logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
     });
+
+    cron.schedule('* * * * *', async() => {
+        logTimestampedMessage(`Starting scheduled verification sync`);
+        await VerificationSyncer.syncVerifications();
+    });
+
 };
 
 try {
