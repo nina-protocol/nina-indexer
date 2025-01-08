@@ -300,7 +300,6 @@ export class ReleaseProcessor extends BaseProcessor {
 
           case 'ReleaseInitViaHub': {
             try {
-              console.log('ReleaseInitViaHub accounts: ', accounts);
               let releasePublicKey;
               let hubPublicKey;
               try {
@@ -361,8 +360,10 @@ export class ReleaseProcessor extends BaseProcessor {
                     id: release.id,
                     visible: true,
                     hubReleasePublicKey,
-                  });
-
+                  })
+                  .onConflict(['releaseId', 'hubId'])
+                  .ignore();
+                  
                 logTimestampedMessage(`Successfully processed ReleaseInitViaHub ${txid} for release ${releasePublicKey} and hub ${hubPublicKey}`);
                 return {success: true, ids: { releaseId: release.id, hubId: hub.id }};
               }

@@ -34,8 +34,15 @@ describe('Tests for the API', async function() {
     it('should process a release with txid', async function() {
       const releaseInitTxId = '31rAhCh2xqGLDvVHH191xSUqgNfVhyiXMNfXpVFHt4fVEVDnsvq33EMTSM3zh2z6XfJf895S2RYDdzv99VDx3AGT';
       const releasePublicKey = 'HTKjNcZJSReXWQo4tDQZSA9jw5nL5E2BYgbBCegPmB9F'
+
       await Release.query().delete().where('publicKey', releasePublicKey);
-  
+      await Transaction.query().delete().where('txid', releaseInitTxId);
+
+      const releaseBefore = await Release.query().findOne({ publicKey: releasePublicKey });
+      expect(releaseBefore).to.not.exist;
+      const transactionBefore = await Transaction.query().findOne({ txid: releaseInitTxId });
+      expect(transactionBefore).to.not.exist;
+
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}?txid=${releaseInitTxId}`);
       expect(response.status).to.equal(200);
       expect(response.body).to.have.property('release');
@@ -44,6 +51,12 @@ describe('Tests for the API', async function() {
   
       const release = await Release.query().findOne({ publicKey: releasePublicKey });
       expect(release).to.exist;
+
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: releaseInitTxId}]);
+      expect(count).to.equal(1);
+
+      const transactionAfter = await Transaction.query().findOne({ txid: releaseInitTxId });
+      expect(transactionAfter).to.exist;
     });
   
     it('should process release purchase with txId', async function() {
@@ -55,10 +68,14 @@ describe('Tests for the API', async function() {
       const release = await Release.query().findOne({ publicKey: releasePublicKey });
   
       await account.$relatedQuery('collected').unrelate().where('releaseId', release.id);
-  
+      await Transaction.query().delete().where('txid', releasePurchaseTxId);
+
       const releaseCollectedBefore = await account.$relatedQuery('collected').where('releaseId', release.id);
       expect(releaseCollectedBefore).to.be.an('array');
       expect(releaseCollectedBefore).to.be.empty;
+
+      const transactionBefore = await Transaction.query().findOne({ txid: releasePurchaseTxId });
+      expect(transactionBefore).to.not.exist;
 
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}/collectors/${purchaserPublicKey}?txId=${releasePurchaseTxId}`);
       expect(response.status).to.equal(200);
@@ -68,6 +85,12 @@ describe('Tests for the API', async function() {
       const releaseCollectedAfter = await account.$relatedQuery('collected').where('releaseId', release.id);
       expect(releaseCollectedAfter).to.be.an('array');
       expect(releaseCollectedAfter).to.have.length(1);
+
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: releasePurchaseTxId}]);
+      expect(count).to.equal(1);
+
+      const transactionAfter = await Transaction.query().findOne({ txid: releasePurchaseTxId });
+      expect(transactionAfter).to.exist;
     });  
   });
 
@@ -77,8 +100,13 @@ describe('Tests for the API', async function() {
       const hubPublicKey = 'E1YBhJjTpLvwJiEjjHYmPjRUSJX9tshuDQrSyV1gK3eU'
   
       await Hub.query().delete().where('publicKey', hubPublicKey);
+      await Transaction.query().delete().where('txid', hubInitTxid);
+
       const hubBefore = await Hub.query().findOne({ publicKey: hubPublicKey });
       expect(hubBefore).to.not.exist;
+
+      const transactionBefore = await Transaction.query().findOne({ txid: hubInitTxid });
+      expect(transactionBefore).to.not.exist;
 
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubPublicKey}/tx/${hubInitTxid}`);
       expect(response.status).to.equal(200);
@@ -88,6 +116,12 @@ describe('Tests for the API', async function() {
 
       const hubAfter = await Hub.query().findOne({ publicKey: hubPublicKey });
       expect(hubAfter).to.exist;
+
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: hubInitTxid}]);
+      expect(count).to.equal(1);
+
+      const transactionAfter = await Transaction.query().findOne({ txid: hubInitTxid });
+      expect(transactionAfter).to.exist;
     });
 
     it('should process hub add release with txid', async function() {
@@ -100,9 +134,14 @@ describe('Tests for the API', async function() {
       const release = await Release.query().findOne({ publicKey: releasePublicKey });
 
       await hub.$relatedQuery('releases').unrelate().where('releaseId', release.id);
+      await Transaction.query().delete().where('txid', hubAddReleaseTxid);
+
       const hubReleaseBefore = await hub.$relatedQuery('releases').where('releaseId', release.id);
       expect(hubReleaseBefore).to.be.an('array');
       expect(hubReleaseBefore).to.be.empty;
+
+      const transactionBefore = await Transaction.query().findOne({ txid: hubAddReleaseTxid });
+      expect(transactionBefore).to.not.exist;
 
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubPublicKey}/hubReleases/${hubReleasePublicKey}?txid=${hubAddReleaseTxid}`);
       expect(response.status).to.equal(200);
@@ -117,6 +156,12 @@ describe('Tests for the API', async function() {
       const hubReleaseAfter = await hub.$relatedQuery('releases').where('releaseId', release.id);
       expect(hubReleaseBefore).to.be.an('array');
       expect(hubReleaseAfter).to.have.length(1);
+
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: hubAddReleaseTxid}]);
+      expect(count).to.equal(1);
+
+      const transactionAfter = await Transaction.query().findOne({ txid: hubAddReleaseTxid });
+      expect(transactionAfter).to.exist;
     });
   });
 
@@ -130,9 +175,14 @@ describe('Tests for the API', async function() {
       const release = await Release.query().findOne({ publicKey: releasePublicKey });
   
       await account.$relatedQuery('collected').unrelate().where('releaseId', release.id);
+      await Transaction.query().delete().where('txid', releasePurchaseTxId);
+
       const accountCollectedBefore = await account.$relatedQuery('collected').where('releaseId', release.id);
       expect(accountCollectedBefore).to.be.an('array');
       expect(accountCollectedBefore).to.be.empty;
+
+      const transactionBefore = await Transaction.query().findOne({ txid: releasePurchaseTxId });
+      expect(transactionBefore).to.not.exist;
 
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${purchaserPublicKey}/collected?txId=${releasePurchaseTxId}`);
       expect(response.status).to.equal(200);
@@ -142,6 +192,12 @@ describe('Tests for the API', async function() {
       const accountCollectedAfter = await account.$relatedQuery('collected').where('releaseId', release.id);
       expect(accountCollectedAfter).to.be.an('array');
       expect(accountCollectedAfter).to.have.length(1);
+
+      const count = await TransactionSyncer.processAndInsertTransactions([{signature: releasePurchaseTxId}]);
+      expect(count).to.equal(1);
+
+      const transactionAfter = await Transaction.query().findOne({ txid: releasePurchaseTxId });
+      expect(transactionAfter).to.exist
     });
 
     it('should process an account collected with releasePublicKey', async function() {
