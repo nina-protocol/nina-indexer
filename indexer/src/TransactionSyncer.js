@@ -16,7 +16,7 @@ class TransactionSyncer {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
     this.programId = new PublicKey(process.env.NINA_PROGRAM_ID);
     this.batchSize = 1000;
-    this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'processed' });
+    this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'confirmed' });
     this.isSyncing = false;
   }
 
