@@ -14,7 +14,6 @@ class Subscription extends Model {
       type: 'object',
       required: ['datetime'],
       properties: {
-        publicKey: { type: 'string' },
         datetime: { type: 'string' },
         from: { type: 'string' },
         to: { type: 'string' },
@@ -26,7 +25,7 @@ class Subscription extends Model {
     };
   }
 
-  static async findOrCreate({publicKey, from, to, datetime, subscriptionType}) {
+  static async findOrCreate({from, to, datetime, subscriptionType}) {
     let subscription = await Subscription.query().findOne({ from, to });
     if (subscription) {
       return subscription;
@@ -35,7 +34,7 @@ class Subscription extends Model {
     subscription = await Subscription.query().insert({
       from, to, datetime, subscriptionType
     });
-    console.log('Inserted subscription: ', publicKey)
+    console.log('Inserted subscription: ', from, to)
     return subscription;
   }
 

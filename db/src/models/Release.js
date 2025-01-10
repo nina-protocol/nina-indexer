@@ -8,12 +8,12 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import Tag from './Tag.js';
 import axios from 'axios';
+import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
 import promiseRetry from 'promise-retry';
 
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
-
 export default class Release extends Model {
   static tableName = 'releases';
   
@@ -49,7 +49,7 @@ export default class Release extends Model {
       archived: { type: 'boolean' },
     },
   }
-
+  
   static findOrCreate = async (publicKey, hubPublicKey=null) => {
     try {
       let release = await Release.query().findOne({ publicKey });
