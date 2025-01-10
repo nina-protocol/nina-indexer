@@ -2,6 +2,7 @@ import KoaRouter from 'koa-router'
 import { 
   Account,
   Hub,
+  Post,
   Release,
   Subscription,
 } from '@nina-protocol/nina-db';
@@ -64,7 +65,6 @@ router.get('/sitemap', async (ctx) => {
   }
 });
 
-// TODO: PLUG INTO TRANSACTION SYNCER
 router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
     let hub = await hubForPublicKeyOrHandle(ctx)

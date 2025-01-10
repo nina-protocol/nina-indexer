@@ -258,4 +258,635 @@ describe('Tests for the API', async function() {
       expect(transactionAfter).to.exist;
     });
   });
+
+  describe ('Account APIs', async function() {
+    it('should return accounts for /accounts', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.be.an('array');
+      expect(response.body.accounts).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return accounts for /accounts with query', async function() {
+      const query = "?query=user-";
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts${query}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.be.an('array');
+      expect(response.body.accounts).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return slugs for /accounts/sitemap', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/sitemap`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('slugs');
+      expect(response.body.slugs).to.be.an('array');
+      expect(response.body.slugs).to.have.length.greaterThan(0);
+    });
+
+    it('should return an account for /accounts/:publicKeyOrSlug with publicKey', async function() {
+      const accountPublicKey = '73Ya4kaSjxJbfuje9CBa9E8fohr78si4zGuEdBN47Mj7'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.equal(accountPublicKey);
+      expect(response.body).to.have.property('verifications');
+      expect(response.body).to.have.property('followers');
+      expect(response.body).to.have.property('collected');
+      expect(response.body).to.have.property('published');
+      expect(response.body).to.have.property('hubs');
+      expect(response.body).to.have.property('posts');
+      expect(response.body).to.have.property('exchanges');
+      expect(response.body).to.have.property('revenueShares');
+      expect(response.body).to.have.property('subscriptions');
+    });
+
+    it('should return an account for /accounts/:publicKeyOrSlug with handle', async function() {
+      const accountHandle = 'farmersmanual_'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountHandle}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('handle');
+      expect(response.body.handle).to.equal(accountHandle);
+      expect(response.body).to.have.property('verifications');
+      expect(response.body).to.have.property('followers');
+      expect(response.body).to.have.property('collected');
+      expect(response.body).to.have.property('published');
+      expect(response.body).to.have.property('hubs');
+      expect(response.body).to.have.property('posts');
+      expect(response.body).to.have.property('exchanges');
+      expect(response.body).to.have.property('revenueShares');
+      expect(response.body).to.have.property('subscriptions');
+    });
+
+    it('should return v2 version of an account for /accounts/:publicKeyOrSlug', async function() {
+      const accountHandle = 'farmersmanual_'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountHandle}?v2=true`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('handle');
+      expect(response.body.handle).to.equal(accountHandle);
+      expect(response.body).to.have.property('verifications');
+      expect(response.body).to.have.property('followers');
+      expect(response.body).to.not.have.property('collected');
+      expect(response.body).to.not.have.property('published');
+      expect(response.body).to.not.have.property('hubs');
+      expect(response.body).to.not.have.property('posts');
+      expect(response.body).to.not.have.property('exchanges');
+      expect(response.body).to.not.have.property('revenueShares');
+      expect(response.body).to.not.have.property('subscriptions');
+    });
+
+    it('should return all for /accounts/:publicKeyOrSlug/all', async function() {
+      const accountHandle = 'farmersmanual_'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountHandle}/all`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('all');
+      expect(response.body.all).to.be.an('array');
+      expect(response.body.all).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return releases for /accounts/:publicKeyOrHandle/collected', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/collected`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('collected');
+      expect(response.body.collected).to.be.an('array');
+      expect(response.body.collected).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return hubs for /accounts/:publicKeyOrHandle/hubs', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/hubs`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('array');
+      expect(response.body.hubs).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return posts for /accounts/:publicKeyOrHandle/posts', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/posts`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+      expect(response.body.posts).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return releases for /accounts/:publicKeyOrHandle/published', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/published`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('published');
+      expect(response.body.published).to.be.an('array');
+      expect(response.body.published).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return revenue shares for /accounts/:publicKeyOrHandle/revenueShares', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/revenueShares`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('revenueShares');
+      expect(response.body.revenueShares).to.be.an('array');
+      expect(response.body.revenueShares).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return subscriptions for /accounts/:publicKeyOrHandle/subscriptions', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/subscriptions`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('subscriptions');
+      expect(response.body.subscriptions).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return following for /accounts/:publicKeyOrHandle/following', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/following`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('following');
+      expect(response.body.following).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return whether user follows an account or hub for /accounts/:publicKeyOrHandle/following/:publicKeyOrHandle', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const followingPublicKey = '67Wj5x5VDuXZSEBu8XQ8Xhz1mmZBnDeqZAbAbpSrsd1r'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/following/${followingPublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('isFollowing');
+      expect(response.body.isFollowing).to.be.a('boolean');
+    });
+
+    it('should return followers for /accounts/:publicKeyOrHandle/followers', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/followers`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('followers');
+      expect(response.body.followers).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return verifications for /accounts/:publicKeyOrHandle/verifications', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/verifications`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('verifications');
+      expect(response.body.verifications).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return feed for /accounts/:publicKeyOrHandle/feed', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/feed`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('feedItems');
+      expect(response.body.feedItems).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return new releases for /accounts/:publicKeyOrHandle/following/newReleases', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/following/newReleases`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return activity feed for /accounts/:publicKeyOrHandle/activity', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/activity`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('activityItems');
+      expect(response.body.activityItems).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return hubs for /accounts/:publicKeyOrHandle/hubSuggestions', async function() {
+      const accountPublicKey = '2pmEHwG3kS55MB6sPigkgrvtXeK5ZXX6x9893aYcRHTt'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts/${accountPublicKey}/hubSuggestions`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('suggestions');
+      expect(response.body.suggestions).to.be.an('array');
+    });
+  });
+
+  describe('Release APIs', async function() {
+    it('should return releases for /releases', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body.releases).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return releases for /releases with query', async function() {
+      const query = "?query=surgeon";
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases${query}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body.releases).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return slugs for /releases/sitemap', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/sitemap`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('slugs');
+      expect(response.body.slugs).to.be.an('array');
+      expect(response.body.slugs).to.have.length.greaterThan(0);
+    });
+
+    it('should return a release for /releases/:publicKeyOrSlug with publicKey', async function() {
+      const releasePublicKey = '8NbvwYvaEuRUi2VnxR2qHPKsUQ83fXpKfu1WdzWiNJSd'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('release');
+      expect(response.body.release).to.have.property('publicKey');
+      expect(response.body.release.publicKey).to.equal(releasePublicKey);
+      expect(response.body.release).to.have.property('metadata');
+      expect(response.body.release).to.have.property('publisherAccount');
+      expect(response.body.release.publisherAccount).to.have.property('publicKey');
+    });
+
+    it('should return a release for /releases/:publicKeyOrSlug with slug', async function() {
+      const releaseSlug = 'hollow-stars'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releaseSlug}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('release');
+      expect(response.body.release).to.have.property('slug');
+      expect(response.body.release.slug).to.equal(releaseSlug);
+      expect(response.body.release).to.have.property('metadata');
+      expect(response.body.release).to.have.property('publisherAccount');
+      expect(response.body.release.publisherAccount).to.have.property('publicKey');
+    });
+
+    it('should return posts for /releases/:publicKeyOrSlug/posts', async function() {
+      const releaseSlug = 'hollywood'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releaseSlug}/posts`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+      expect(response.body.posts).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return collectors of a release for /releases/:publicKeyOrSlug/collectors', async function() {
+      const releasePublicKey = 'CbvPu4drvcRKsu9Snqm1Av7fmFG1rozireT59rb9mBgF'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}/collectors`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('collectors');
+      expect(response.body.collectors).to.be.an('array');
+      expect(response.body.collectors).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return whether a user is a collector of a release for /releases/:publicKeyOrSlug/collectors/:publicKey', async function() {
+      const releasePublicKey = 'CbvPu4drvcRKsu9Snqm1Av7fmFG1rozireT59rb9mBgF'
+      const accountPublicKey = '12ZpduqvNUnyuSBfVUj2JEZukGuspFMK17vfdUPt2aL'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}/collectors/${accountPublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('collected');
+      expect(response.body.collected).to.be.a('boolean');
+    });
+
+    it('should return hubs for a release for /releases/:publicKeyOrSlug/hubs', async function() {
+      const releasePublicKey = 'CbvPu4drvcRKsu9Snqm1Av7fmFG1rozireT59rb9mBgF'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}/hubs`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('array');
+      expect(response.body.hubs).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return revenue share recipients for a release for /releases/:publicKeyOrSlug/revenueShareRecipients', async function() {
+      const releasePublicKey = 'CbvPu4drvcRKsu9Snqm1Av7fmFG1rozireT59rb9mBgF'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/releases/${releasePublicKey}/revenueShareRecipients`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('revenueShareRecipients');
+      expect(response.body.revenueShareRecipients).to.be.an('array');
+      expect(response.body.revenueShareRecipients).to.have.length.greaterThan(0);
+    });
+  });
+
+  describe('Hub APIs', async function() {
+    it('should return hubs for /hubs', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('array');
+      expect(response.body.hubs).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return slugs for /hubs/sitemap', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/sitemap`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('slugs');
+      expect(response.body.slugs).to.be.an('array');
+      expect(response.body.slugs).to.have.length.greaterThan(0);
+    });
+
+    it('should return a hub for /hubs/:publicKeyOrSlug with publicKey', async function() {
+      const hubPublicKey = 'E1YBhJjTpLvwJiEjjHYmPjRUSJX9tshuDQrSyV1gK3eU'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubPublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hub');
+      expect(response.body.hub).to.have.property('publicKey');
+      expect(response.body.hub.publicKey).to.equal(hubPublicKey);
+      expect(response.body).to.have.property('collaborators');
+      expect(response.body.collaborators).to.be.an('array');
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+    });
+
+    it('should return a hub for /hubs/:publicKeyOrHandle with handle', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hub');
+      expect(response.body.hub).to.have.property('handle');
+      expect(response.body.hub.handle).to.equal(hubHandle);
+      expect(response.body).to.have.property('collaborators');
+      expect(response.body.collaborators).to.be.an('array');
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+    });
+
+    it('should return hub only with /hubs/:publicKeyOrHandle?hubOnly=true', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}?hubOnly=true`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('hub');
+      expect(response.body.hub).to.have.property('handle');
+      expect(response.body.hub.handle).to.equal(hubHandle);
+      expect(response.body).to.not.have.property('collaborators');
+      expect(response.body).to.not.have.property('releases');
+      expect(response.body).to.not.have.property('posts');
+    });
+
+    it('should return followers for /hubs/:publicKeyOrHandle/followers', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/followers`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('followers');
+      expect(response.body.followers).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return collaborators for /hubs/:publicKeyOrHandle/collaborators', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/collaborators`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('collaborators');
+      expect(response.body.collaborators).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should get all for a hub for /hubs/:publicKeyOrHandle/all', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/all`);
+      console.log('response', response.body);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('all');
+      expect(response.body.all).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.be.a('string');
+    });
+
+    it('should get releases for hub for /hubs/:publicKeyOrHandle/releases', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/releases`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.be.a('string');
+    });
+
+    it('should get archived releases for hub for /hubs/:publicKeyOrHandle/releases/archived', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/releases/archived`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.be.a('string');
+    });
+
+    it('should get posts for hub for /hubs/:publicKeyOrHandle/posts', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/posts`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.be.a('string');
+    });
+
+    it('should get subscriptions for hub for /hubs/:publicKeyOrHandle/subscriptions', async function() {
+      const hubHandle = 'philbarbato'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubHandle}/subscriptions`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('subscriptions');
+      expect(response.body.subscriptions).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('publicKey');
+      expect(response.body.publicKey).to.be.a('string');
+    });
+  });
+
+  describe('Post APIs', async function() {
+    it('should return posts for /posts', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+      expect(response.body.posts).to.have.length.greaterThan(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body.total).to.be.greaterThan(0);
+    });
+
+    it('should return slugs for /posts/sitemap', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts/sitemap`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('slugs');
+      expect(response.body.slugs).to.be.an('array');
+      expect(response.body.slugs).to.have.length.greaterThan(0);
+    });
+
+    it('should return a post for /posts/:publicKeyOrSlug with publicKey', async function() {
+      const postPublicKey = 'Et1GZidxQc3Vp8V1cJuuCc3zDFri43spCetkTp6781B7'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts/${postPublicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('post');
+      expect(response.body.post).to.have.property('publicKey');
+      expect(response.body.post.publicKey).to.equal(postPublicKey);
+      expect(response.body).to.have.property('publisher');
+      expect(response.body).to.have.property('publishedThroughHub');
+    });
+  });
+
+  describe('Search APIs', async function() {
+    it('should all results for /search/all without posts', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/search/all`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.be.an('object');
+      expect(response.body.accounts).to.have.property('results');
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('object');
+      expect(response.body.hubs).to.have.property('results');
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('object');
+      expect(response.body.releases).to.have.property('results');
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.be.an('object');
+      expect(response.body.tags).to.have.property('results');
+    });
+
+    it('should all results for /search/all with posts', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/search/all?includePosts=true`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.be.an('object');
+      expect(response.body.accounts).to.have.property('results');
+      expect(response.body.accounts.results).to.be.an('array');
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('object');
+      expect(response.body.hubs).to.have.property('results');
+      expect(response.body.hubs.results).to.be.an('array');
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('object');
+      expect(response.body.releases).to.have.property('results');
+      expect(response.body.releases.results).to.be.an('array');
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.be.an('object');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('object');
+      expect(response.body.posts).to.have.property('results');
+      expect(response.body.posts.results).to.be.an('array');
+    });
+
+    it('should return search results for /search/v2', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).post(`/v1/search/v2?query=phil`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('all');
+      expect(response.body.all).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+
+    it('should return search results for /search', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).post(`/v1/search?query=phil`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.be.an('array');
+      expect(response.body).to.have.property('artists');
+      expect(response.body.artists).to.be.an('array');
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.be.an('array');
+    });
+  });
+
+  describe('Tag APIs', async function() {
+    it('should return tags for /tags', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/tags`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.be.an('object');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      expect(response.body.tags.results).to.have.length.greaterThan(0);
+      expect(response.body.tags).to.have.property('total');
+      expect(response.body.tags.total).to.be.a('number');
+    });
+
+    it('should return releases for a tag for /tags/:publicKeyOrSlug/releases', async function() {
+      const tagSlug = 'jazz'
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/tags/${tagSlug}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+  });
+
+  describe('Transaction APIs', async function() {
+    it('should return a feed from /transactions/feed', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/transactions/feed`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('feedItems');
+      expect(response.body.feedItems).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+    });
+  });
 });
