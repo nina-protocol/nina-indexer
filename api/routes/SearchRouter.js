@@ -12,8 +12,12 @@ import _  from 'lodash';
 
 import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery } from '../utils.js';
 
+const idList = [
+  '13572',
+]
+
 const router = new KoaRouter({
-  prefix: '/accounts'
+  prefix: '/search'
 })
 
 router.get('/all', async (ctx) => {

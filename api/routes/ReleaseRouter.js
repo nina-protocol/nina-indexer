@@ -1,7 +1,9 @@
 import KoaRouter from 'koa-router'
 import { 
   Account,
+  Exchange,
   Release,
+  Transaction,
 } from '@nina-protocol/nina-db';
 
 import {
@@ -132,41 +134,6 @@ router.get('/:publicKeyOrSlug/posts', async (ctx) => {
   }
 })
 
-router.get('/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
-  try {
-    if (ctx.query.txId) {
-      await TransactionSyncer.handleDomainProcessingForSingleTransaction(ctx.query.txId)
-    }
-
-    let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
-    if (!account) {
-      throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
-    }
-    let release = await Release.query().findOne({publicKey: ctx.params.releasePublicKeyOrSlug})
-    if (!release) {
-      throw new Error(`Release not found with identifier: ${ctx.params.releasePublicKeyOrSlug}`)
-    }
-
-    const collector = await account.$relatedQuery('collected')
-      .where('releaseId', release.id)
-      .first();
-    if (!collector) {
-      throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
-    }
-
-    ctx.body = {
-      collected: collector ? true : false,
-    };
-  } catch (err) {
-    console.log(err)
-    ctx.status = 404
-    ctx.body = {
-      message: `Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug}`,
-      collected: false
-    }
-  }
-})
-
 router.get('/:publicKey/collectors', async (ctx) => {
   try {
     const { offset=0, limit=BIG_LIMIT } = ctx.query;
@@ -203,6 +170,41 @@ router.get('/:publicKey/collectors', async (ctx) => {
     }
   }
 });
+
+router.get('/:releasePublicKeyOrSlug/collectors/:accountPublicKeyOrSlug', async (ctx) => {
+  try {
+    if (ctx.query.txId) {
+      await TransactionSyncer.handleDomainProcessingForSingleTransaction(ctx.query.txId)
+    }
+
+    let account = await Account.query().findOne({publicKey: ctx.params.accountPublicKeyOrSlug})
+    if (!account) {
+      throw new Error(`Account not found with identifier: ${ctx.params.accountPublicKeyOrSlug}`)
+    }
+    let release = await Release.query().findOne({publicKey: ctx.params.releasePublicKeyOrSlug})
+    if (!release) {
+      throw new Error(`Release not found with identifier: ${ctx.params.releasePublicKeyOrSlug}`)
+    }
+
+    const collector = await account.$relatedQuery('collected')
+      .where('releaseId', release.id)
+      .first();
+    if (!collector) {
+      throw new Error(`Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug} and releaseId: ${release.id}`)
+    }
+
+    ctx.body = {
+      collected: collector ? true : false,
+    };
+  } catch (err) {
+    console.log(err)
+    ctx.status = 404
+    ctx.body = {
+      message: `Collector not found with publicKey: ${ctx.params.accountPublicKeyOrSlug}`,
+      collected: false
+    }
+  }
+})
 
 router.get('/:publicKey/hubs', async (ctx) => {
   try {
@@ -266,5 +268,39 @@ router.get('/:publicKey/revenueShareRecipients', async (ctx) => {
     }
   }
 })
+
+const getCollectedDate = async (release, account) => {
+  let purchaseTransactions = []
+  const exchanges = await Exchange.query().where('releaseId', release.id)
+  const releasePurchaseTxs = await Transaction.query()
+    .where('releaseId', release.id)
+    .andWhere('authorityId', account.id)
+    .andWhere('type', 'ReleasePurchase')
+  purchaseTransactions = purchaseTransactions.concat(releasePurchaseTxs.map(tx => tx.blocktime))
+
+  const releasePurchaseViaHubTxs = await Transaction.query()
+    .where('releaseId', release.id)
+    .andWhere('authorityId', account.id)
+    .andWhere('type', 'ReleasePurchaseViaHub')
+  purchaseTransactions = purchaseTransactions.concat(releasePurchaseViaHubTxs.map(tx => tx.blocktime))
+
+  for await (let exchange of exchanges) {
+    const initializer = await exchange.$relatedQuery('initializer')
+    const completedBy = await exchange.$relatedQuery('completedBy')
+
+    if ((exchange.isSale && completedBy?.publicKey === account.publicKey) || 
+        (!exchange.isSale && initializer?.publicKey === account.publicKey)
+    ) {
+      const blocktime = new Date(exchange.completedAt).getTime() / 1000
+      purchaseTransactions.push(blocktime)
+    }
+  }
+
+  const earliestPurchaseTx = purchaseTransactions.sort((a, b) => a - b)[0]
+  if (earliestPurchaseTx) {
+    return new Date(earliestPurchaseTx * 1000).toISOString()
+  }
+  return release.datetime
+}
 
 export default router

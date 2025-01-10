@@ -205,7 +205,6 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
   }
 });
 
-//TODO: Plug into TransactionSyncer
 router.get('/:publicKeyOrHandle/collected', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
@@ -452,7 +451,7 @@ router.get('/:publicKeyOrHandle/subscriptions', async (ctx) => {
   }
 });
 
-router.get('/accounts/:publicKeyOrHandle/following', async (ctx) => {
+router.get('/:publicKeyOrHandle/following', async (ctx) => {
   try {
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -507,6 +506,75 @@ router.get('/accounts/:publicKeyOrHandle/following', async (ctx) => {
   }
 });
 
+router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
+  try {
+    const { limit=50, offset=0 } = ctx.query;
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    if (!account) {
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      if (!account) {
+        accountNotFound(ctx);
+        return;
+      }
+    }
+
+    const subscriptions = await Subscription.query()
+      .where('from', account.publicKey)
+
+    const hubIds = []
+    const accountIds = []
+
+    for await (let subscription of subscriptions) {
+      if (subscription.subscriptionType === 'hub') {
+        const hub = await Hub.query().findOne({ publicKey: subscription.to })
+        hubIds.push(hub.id)
+      } else if (subscription.subscriptionType === 'account') {
+        const account = await Account.query().findOne({ publicKey: subscription.to })
+        accountIds.push(account.id)
+      }
+    }
+    const notUserSubquery = Transaction.query()
+      .select('id')
+      .where('authorityId', account.id)
+
+    const transactions = await Transaction.query()
+      .where((builder) => 
+        builder
+          .whereIn('hubId', hubIds)
+          .orWhereIn('toHubId', hubIds)
+          .orWhereIn('authorityId', accountIds)
+          .orWhereIn('toAccountId', accountIds)
+      )
+      .whereIn('type', ['ReleaseInit', 'ReleaseInitViaHub', 'ReleaseInitWithCredit'])
+      .whereNotIn('id', notUserSubquery)
+      .orderBy('blocktime', 'desc')
+      .range(Number(offset), Number(offset) + Number(limit))
+
+    const feedItems = []
+    for await (let transaction of transactions.results) {
+      await transaction.format()
+      feedItems.push(transaction)
+    }
+
+    const releases = []
+    for (let transaction of feedItems) {
+      if (transaction.release) {
+        releases.push(transaction.release)
+      }
+    }
+    ctx.body = {
+      releases,
+      total: transactions.total
+    };
+  } catch (err) {
+    console.log('err', err)
+    ctx.status = 404
+    ctx.body = {
+      message: err
+    }
+  }
+})
+
 router.get('/:publicKeyOrHandle/following/:followingPublicKeyOrHandle', async (ctx) => {
   try {
     const { publicKeyOrHandle, followingPublicKeyOrHandle } = ctx.params;
@@ -523,7 +591,6 @@ router.get('/:publicKeyOrHandle/following/:followingPublicKeyOrHandle', async (c
         return;
       }
     }
-
     let followingAccount = await Account.query().findOne({publicKey: followingPublicKeyOrHandle});
     if (!followingAccount) {
       followingAccount = await Account.query().findOne({handle: followingPublicKeyOrHandle});
@@ -682,75 +749,6 @@ router.get('/:publicKey/feed', async (ctx) => {
     }
     ctx.body = {
       feedItems,
-      total: transactions.total
-    };
-  } catch (err) {
-    console.log('err', err)
-    ctx.status = 404
-    ctx.body = {
-      message: err
-    }
-  }
-})
-
-router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
-  try {
-    const { limit=50, offset=0 } = ctx.query;
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
-    if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
-      if (!account) {
-        accountNotFound(ctx);
-        return;
-      }
-    }
-    const subscriptions = await Subscription.query()
-      .where('from', account.publicKey)
-
-    const hubIds = []
-    const accountIds = []
-
-    for await (let subscription of subscriptions) {
-      if (subscription.subscriptionType === 'hub') {
-        const hub = await Hub.query().findOne({ publicKey: subscription.to })
-        hubIds.push(hub.id)
-      } else if (subscription.subscriptionType === 'account') {
-        const account = await Account.query().findOne({ publicKey: subscription.to })
-        accountIds.push(account.id)
-      }
-    }
-    const notUserSubquery = Transaction.query()
-      .select('id')
-      .where('authorityId', account.id)
-
-    const transactions = await Transaction.query()
-      .where((builder) => 
-        builder
-          .whereIn('hubId', hubIds)
-          .orWhereIn('toHubId', hubIds)
-          .orWhereIn('authorityId', accountIds)
-          .orWhereIn('toAccountId', accountIds)
-      )
-      .whereIn('type', ['ReleaseInit', 'ReleaseInitViaHub', 'ReleaseInitWithCredit'])
-      .whereNotIn('id', notUserSubquery)
-      .orderBy('blocktime', 'desc')
-      .range(Number(offset), Number(offset) + Number(limit))
-
-    
-    const feedItems = []
-    for await (let transaction of transactions.results) {
-      await transaction.format()
-      feedItems.push(transaction)
-    }
-
-    const releases = []
-    for (let transaction of feedItems) {
-      if (transaction.release) {
-        releases.push(transaction.release)
-      }
-    }
-    ctx.body = {
-      releases,
       total: transactions.total
     };
   } catch (err) {
