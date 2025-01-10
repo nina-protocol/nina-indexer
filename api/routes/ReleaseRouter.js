@@ -5,7 +5,7 @@ import {
   Release,
   Transaction,
 } from '@nina-protocol/nina-db';
-
+import axios from 'axios';
 import {
   formatColumnForJsonFields,
   getReleaseSearchSubQuery,
@@ -54,8 +54,13 @@ router.get('/', async (ctx) => {
 
 router.get('/sitemap', async (ctx) => {
   try {
+    const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
+    const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
+
     const releases = await Release
-      .query()  
+      .query()
+      .where('archived', false)
+      .whereNotIn('publicKey', restrictedReleasesPublicKeys)
       .select('slug')
       .orderBy('datetime', 'desc')
     ctx.body = {
