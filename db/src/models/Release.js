@@ -8,10 +8,12 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import Tag from './Tag.js';
 import axios from 'axios';
+import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
+import promiseRetry from 'promise-retry';
+
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
-
 export default class Release extends Model {
   static tableName = 'releases';
   
@@ -47,7 +49,7 @@ export default class Release extends Model {
       archived: { type: 'boolean' },
     },
   }
-
+  
   static findOrCreate = async (publicKey, hubPublicKey=null) => {
     try {
       let release = await Release.query().findOne({ publicKey });
@@ -56,13 +58,31 @@ export default class Release extends Model {
       }
   
       const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-      const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
+      const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
       const program = await anchor.Program.at(
         process.env.NINA_PROGRAM_ID,
         provider,
       )
       const metaplex = new Metaplex(connection);
-      const releaseAccount = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+      let attempts = 0;
+
+      const releaseAccount = await promiseRetry(
+        async (retry) => {
+          try {
+            attempts += 1
+            const result = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+            return result
+          } catch (error) {
+            console.log('error fetching release account', error)
+            retry(error)
+          }
+        }, {
+          retries: 50,
+          minTimeout: 500,
+          maxTimeout: 1500,
+        }
+      )
+  
       let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
       if (!metadataAccount) {
         throw new Error('No metadata account found for release - is not a complete release')
