@@ -3,6 +3,7 @@ import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { callRpcMethodWithRetry, decode, fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
+import { hubDataService } from '../services/hubData.js';
 
 export class PostsProcessor extends BaseProcessor {
     constructor() {
@@ -128,6 +129,15 @@ export class PostsProcessor extends BaseProcessor {
                 version
               }).onConflict('publicKey').ignore();
   
+              const hubPostPublicKey = await hubDataService.buildHubPostPublicKey(hubPublicKey, postPublicKey);
+
+              await Hub.relatedQuery('posts')
+                .for(hub.id)
+                .relate({
+                  id: post.id,
+                  hubPostPublicKey
+                });
+                
               // Process post content
               await this.processPostContent(postData, post.id);
               // Process reference release if provided
