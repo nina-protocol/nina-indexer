@@ -109,6 +109,20 @@ class HubDataService {
     return hubReleasePublicKey.toBase58();
   }  
 
+  async buildHubPostPublicKey(hubPublicKey, postPublicKey) {
+    const [hubPostPublicKey] = await PublicKey.findProgramAddress(
+      [
+        Buffer.from('nina-hub-release'),
+        new PublicKey(hubPublicKey).toBuffer(),
+        new PublicKey(postPublicKey).toBuffer()
+      ],
+      this.program.programId
+    );
+
+    return hubPostPublicKey.toBase58();
+  }  
+
+
   async buildHubContentPublicKey(hubPublicKey, contentAccount) {
     const [hubContentPublicKey] = await PublicKey.findProgramAddress(
       [
