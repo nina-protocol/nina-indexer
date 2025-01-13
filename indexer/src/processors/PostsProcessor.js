@@ -128,6 +128,8 @@ export class PostsProcessor extends BaseProcessor {
                 version
               }).onConflict('publicKey').ignore();
   
+              await hub.$relatedQuery('posts').relate(post.id);
+
               // Process post content
               await this.processPostContent(postData, post.id);
               // Process reference release if provided

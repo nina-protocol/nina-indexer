@@ -249,6 +249,14 @@ describe('Tests for the API', async function() {
       const postAfter = await Post.query().findOne({ publicKey: postPublicKey });
       expect(postAfter).to.exist;
 
+      // Check that the post was properly related to the hub
+      const hubPostRelation = await Hub.relatedQuery('posts')
+        .for(postAfter.hubId)
+        .where('posts.id', postAfter.id)
+        .first();
+      expect(hubPostRelation).to.exist;
+      expect(hubPostRelation.publicKey).to.equal(postPublicKey);
+
       // call the transaction syncer directly and create the transaction even though the post already exists
       const count = await TransactionSyncer.processAndInsertTransactions([{signature: postInitTxId}]);
       expect(count).to.equal(1);
