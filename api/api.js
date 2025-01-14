@@ -29,6 +29,13 @@ const idList = [
 const db = Knex(config.development)
 
 export default (router) => {
+
+  router.get('/health', async (ctx) => {
+    ctx.body = {
+      status: 'ok'
+    }
+  })
+  
   router.get('/solPrice', async (ctx) => {
     try {
       const priceResult = await axios.get(
