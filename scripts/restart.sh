@@ -51,11 +51,20 @@ fi
 # Change to the project directory
 cd "$PROJECT_DIR"
 
-# Stop and delete existing PM2 processes
-pm2 stop nina-indexer nina-api 2>/dev/null || true
-pm2 delete nina-indexer nina-api 2>/dev/null || true
+if [ "$1" == "--only" ] && [ "$2" == "nina-api" ]; then
+    # Stop and delete only nina-api process
+    pm2 stop nina-api 2>/dev/null || true
+    pm2 delete nina-api 2>/dev/null || true
 
-# Start the processes using PM2
-pm2 start ecosystem.config.cjs
+    # Start --only nina-api process
+    pm2 start ecosystem.config.cjs --only nina-api
+    echo "Nina API has been restarted."
+else
+    # Stop and delete all processes
+    pm2 stop nina-indexer nina-api 2>/dev/null || true
+    pm2 delete nina-indexer nina-api 2>/dev/null || true
 
-echo "Nina Indexer and API have been restarted."
+    # Start all processes
+    pm2 start ecosystem.config.cjs
+    echo "Nina Indexer and API have been restarted."
+fi
