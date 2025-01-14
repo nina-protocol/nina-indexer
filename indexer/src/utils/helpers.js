@@ -67,21 +67,24 @@ export const warmCache = async (image, delay=1000) => {
   }
 }
 
-export const callRpcMethodWithRetry = async (method) => {
+export const callRpcMethodWithRetry = async (method, override=false) => {
   return await promiseRetry(async (retry, number) => {
     
     return method()
       .catch((err) => {
         console.log('error', err);
         if (err?.code?.includes('TIMEOUT')) {
-            console.log(`RPC Call timed out - total attempts: ${number}.  Retrying...`);
-            retry(err);
+          console.log(`RPC Call timed out - total attempts: ${number}.  Retrying...`);
+          retry(err);
+        } else if (override) {
+          console.log(`RPC Call failed - total attempts: ${number}.  Retrying...`);
+          retry(err);
         }
     
         throw err;
       });
   }, {
-    retries: 25,
+    retries: 40,
     minTimeout: 500,
     maxTimeout: 1000,
   })

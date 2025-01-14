@@ -230,10 +230,10 @@ class TransactionSyncer {
 
   async handleDomainProcessingForSingleTransaction (txid) {
     try {
-      const txInfo = await this.connection.getParsedTransaction(
+      const txInfo = await callRpcMethodWithRetry(() => this.connection.getParsedTransaction(
         txid,
         { maxSupportedTransactionVersion: 0 }
-      );
+      ), true);
       const task = await this.buildProcessorTaskForTransaction(txInfo);
       if (releaseProcessor.canProcessTransaction(task.type)) {
         const { success } = await releaseProcessor.processTransaction(task);
