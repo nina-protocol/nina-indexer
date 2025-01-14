@@ -10,7 +10,15 @@ class ReleaseDataService {
   }
 
   async fetchReleaseAccountData(publicKey) {
-    return await callRpcMethodWithRetry(() => this.program.account.release.fetch(publicKey))
+    let release
+    let attempts = 0
+    while (!release && attempts < 50) {
+      release = await callRpcMethodWithRetry(() => this.program.account.release.fetch(publicKey))
+      if (release) break;
+      logTimestampedMessage('Release not found, retrying... - attempts: ', attempts)
+      attempts++
+    }
+    return release
   }
 }
 
