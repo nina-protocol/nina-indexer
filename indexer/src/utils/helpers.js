@@ -89,3 +89,5 @@ export const callRpcMethodWithRetry = async (method, override=false) => {
     maxTimeout: 1000,
   })
 }
+
+export const sleep = (time) => new Promise(resolve => setTimeout(resolve, time))
