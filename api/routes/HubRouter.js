@@ -448,6 +448,10 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
       .where('hubs_join.hubId', hub.id)
       .where('hubs_join.hubReleasePublicKey', ctx.params.hubReleasePublicKey)
       .first()
+    console.log('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey release', release)
+    console.log('hubReleasePublicKey', ctx.params.hubReleasePublicKey)
+    console.log('txid', txid)
+    console.log('hub', hub.publicKey)
     if (hub && release) {
       const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddress(
         [
@@ -466,7 +470,7 @@ router.get('/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey', async (ctx) =
         release,
         hub,
       }
-    } else if (hub && !release && txid) {
+    } else if (hub && txid) {
       //TODO: Probably want to clean this up - but for now should work same was as the old api
       const hubRelease = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubRelease.fetch(new anchor.web3.PublicKey(ctx.params.hubReleasePublicKey), 'confirmed'))
       if (hubRelease) {
