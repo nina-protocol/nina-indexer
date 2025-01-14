@@ -25,6 +25,12 @@ router.use(TagRouter.routes()).use(TagRouter.allowedMethods())
 router.use(TransactionRouter.routes()).use(TransactionRouter.allowedMethods())
 router.use(VerificationRouter.routes()).use(VerificationRouter.allowedMethods())
 
+router.get('/health', async (ctx) => {
+  ctx.body = {
+    status: 'ok'
+  }
+})
+
 router.get('/solPrice', async (ctx) => {
   try {
     const priceResult = await axios.get(
