@@ -7,7 +7,7 @@ import { logTimestampedMessage } from './utils/logging.js';
 import { postsProcessor } from './processors/PostsProcessor.js';
 import { hubDataService } from './services/hubData.js';
 import { releaseDataService } from './services/releaseData.js';
-import { callRpcMethodWithRetry } from './utils/index.js';
+import { callRpcMethodWithRetry, sleep } from './utils/index.js';
 
 export const FILE_SERVICE_ADDRESSES = ['3skAZNf7EjUus6VNNgHog44JZFsp8BBaso9pBRgYntSd', 'HQUtBQzt8d5ZtxAwfbPLE6TpBq68wJQ7ZaSjQDEn4Hz6']
 
@@ -230,10 +230,19 @@ class TransactionSyncer {
 
   async handleDomainProcessingForSingleTransaction (txid) {
     try {
-      const txInfo = await callRpcMethodWithRetry(() => this.connection.getParsedTransaction(
-        txid,
-        { maxSupportedTransactionVersion: 0 }
-      ), true);
+      let txInfo
+      let attempts = 0
+      while (!txInfo && attempts < 60) {
+        txInfo = await callRpcMethodWithRetry(() => this.connection.getParsedTransaction(
+          txid,
+          { maxSupportedTransactionVersion: 0 }
+        ), true);
+        if (txInfo) break;
+        console.log('handleDomainProcessingForSingleTransaction getParsedTransaction failure - attempts:', attempts)
+        attempts++;
+        await sleep(1000);
+      }
+
       console.log('handleDomainProcessingForSingleTransaction txInfo', txInfo)
       const task = await this.buildProcessorTaskForTransaction(txInfo);
       if (releaseProcessor.canProcessTransaction(task.type)) {
