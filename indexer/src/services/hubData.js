@@ -1,5 +1,5 @@
 import { PublicKey } from '@solana/web3.js';
-import { decode, callRpcMethodWithRetry, logTimestampedMessage } from '../utils/index.js';
+import { decode, callRpcMethodWithRetry, logTimestampedMessage, sleep } from '../utils/index.js';
 import axios from 'axios';
 
 
@@ -16,10 +16,14 @@ class HubDataService {
     let hub;
     let attempts = 0;
     while (!hub && attempts < 50) {
-      hub = await callRpcMethodWithRetry(() => this.program.account.hub.fetch(publicKey));
-      if (hub) break;
-      logTimestampedMessage('Hub not found, retrying... - attempts: ', attempts);
-      attempts++;
+      try {
+        hub = await callRpcMethodWithRetry(() => this.program.account.hub.fetch(publicKey));
+        if (hub) break;
+      } catch (error) {
+        logTimestampedMessage('Hub not found, retrying... - attempts: ', attempts);
+        attempts++;
+        await sleep(1000);
+      }
     }
     return hub;
   }
@@ -28,10 +32,14 @@ class HubDataService {
     let hubContent;
     let attempts = 0;
     while (!hubContent && attempts < 50) {
-      hubContent = await callRpcMethodWithRetry(() => this.program.account.hubContent.fetch(publicKey));
-      if (hubContent) break;
-      logTimestampedMessage('Hub content not found, retrying... - attempts: ', attempts);
-      attempts++;
+      try {
+        hubContent = await callRpcMethodWithRetry(() => this.program.account.hubContent.fetch(publicKey));
+        if (hubContent) break;
+      } catch (error) {
+        logTimestampedMessage('Hub content not found, retrying... - attempts: ', attempts);
+        attempts++;
+        await sleep(1000);  
+      }
     }
     return hubContent;
   }
@@ -102,7 +110,7 @@ class HubDataService {
           this.program.programId
         );
 
-        return this.fetchHubContentAccountData.fetch(hubContentPublicKey);
+        return this.fetchHubContentAccountData(hubContentPublicKey);
       });
 
       return Promise.all(hubContentPromises);

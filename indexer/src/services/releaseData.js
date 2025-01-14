@@ -1,5 +1,6 @@
 import { logTimestampedMessage } from '../utils/logging.js';
-import { callRpcMethodWithRetry } from '../utils/helpers.js';
+import { callRpcMethodWithRetry, sleep } from '../utils/helpers.js';
+
 class ReleaseDataService {
   constructor() {
     this.program = null;
@@ -13,10 +14,15 @@ class ReleaseDataService {
     let release
     let attempts = 0
     while (!release && attempts < 50) {
-      release = await callRpcMethodWithRetry(() => this.program.account.release.fetch(publicKey))
-      if (release) break;
-      logTimestampedMessage('Release not found, retrying... - attempts: ', attempts)
-      attempts++
+      try {
+        release = await callRpcMethodWithRetry(() => this.program.account.release.fetch(publicKey), true)
+        console.log('fetchReleaseAccountData release:', release)
+        if (release?.authority) break;
+      } catch (error) {
+        logTimestampedMessage('Release not found, retrying... - attempts: ', attempts)
+        attempts++
+        await sleep(1000)
+      }
     }
     return release
   }
