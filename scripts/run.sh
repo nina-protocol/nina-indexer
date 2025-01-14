@@ -18,4 +18,9 @@ else
 fi
 
 cd /home/ec2-user/nina-indexer
-pm2 start ecosystem.config.cjs
+
+if [ "$1" == "--only" ] && [ "$2" == "nina-api" ]; then
+    pm2 start ecosystem.config.cjs --only nina-api
+else
+    pm2 start ecosystem.config.cjs
+fi
