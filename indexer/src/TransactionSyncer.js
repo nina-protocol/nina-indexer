@@ -234,6 +234,7 @@ class TransactionSyncer {
         txid,
         { maxSupportedTransactionVersion: 0 }
       ), true);
+      console.log('handleDomainProcessingForSingleTransaction txInfo', txInfo)
       const task = await this.buildProcessorTaskForTransaction(txInfo);
       if (releaseProcessor.canProcessTransaction(task.type)) {
         const { success } = await releaseProcessor.processTransaction(task);
