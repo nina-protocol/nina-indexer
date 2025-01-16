@@ -2,8 +2,8 @@ import axios from 'axios';
 import { Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from './utils/logging.js';
 
-class ReleaseSyncer {
-  async syncReleases() {
+class ReleaseFilter {
+  async filterRestrictedReleases() {
     const restrictedReleases = await axios.get(`${process.env.ID_SERVER_ENDPOINT}/restricted`);
     const restrictedReleasesPublicKeys = restrictedReleases.data.restricted.map(x => x.value);
 
@@ -21,4 +21,4 @@ class ReleaseSyncer {
   }
 }
 
-export default new ReleaseSyncer();
+export default new ReleaseFilter();

@@ -8,7 +8,7 @@ import { initDb, config } from '@nina-protocol/nina-db';
 import TransactionSyncer from './TransactionSyncer.js';
 import VerificationSyncer from './VerificationSyncer.js';
 import CollectorSyncer from './CollectorSyncer.js';
-import ReleaseSyncer from './ReleaseSyncer.js';
+import ReleaseFilter from './ReleaseFilter.js';
 
 function getUsedHeapSize() {
     const heapStats = v8.getHeapStatistics();
@@ -44,8 +44,8 @@ const startProcessing = async () => {
     cron.schedule('* * * * *', async() => {
         logTimestampedMessage(`Starting scheduled transaction sync`);
         await TransactionSyncer.syncTransactions();
-        await ReleaseSyncer.syncReleases();
-        
+        await ReleaseFilter.filterRestrictedReleases();
+
         if (process.argv[2] === "--heap-stats") {
             runHeapDiagnostics(); // verbose heap diagnostics if option enabled
         }
