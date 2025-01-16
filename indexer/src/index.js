@@ -52,10 +52,10 @@ const startProcessing = async () => {
         logTimestampedMessage(`Indexer heap size (MB): ${getUsedHeapSize()}`);
     });
 
-    cron.schedule('* * * * *', async() => {
-        logTimestampedMessage(`Starting scheduled verification sync`);
-        await VerificationSyncer.syncVerifications();
-    });
+    // cron.schedule('* * * * *', async() => {
+    //     logTimestampedMessage(`Starting scheduled verification sync`);
+    //     await VerificationSyncer.syncVerifications();
+    // });
 
     cron.schedule('0 * * * *', async() => {
         logTimestampedMessage(`Starting scheduled collector sync`);
