@@ -37,7 +37,7 @@ const startProcessing = async () => {
     logTimestampedMessage('initDb completed.');
     await TransactionSyncer.initialize();
     await CollectorSyncer.initialize();
-    await ReleaseSyncer.syncReleases();
+    await ReleaseFilter.filterRestrictedReleases();
 
     await TransactionSyncer.syncTransactions(); // initial sync
 
