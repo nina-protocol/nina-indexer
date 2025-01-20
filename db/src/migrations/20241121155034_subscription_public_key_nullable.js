@@ -7,7 +7,6 @@ export const up = function(knex) {
     table.dropColumn('publicKey');
   });
 };
-
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }

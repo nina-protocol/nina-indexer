@@ -10,6 +10,8 @@ import Tag from './Tag.js';
 import axios from 'axios';
 import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
+import promiseRetry from 'promise-retry';
+
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
 export default class Release extends Model {
@@ -49,67 +51,75 @@ export default class Release extends Model {
   }
   
   static findOrCreate = async (publicKey, hubPublicKey=null) => {
-    let release = await Release.query().findOne({ publicKey });
-    if (release) {
-      return release;
-    }
-
-    const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-    const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
-    const program = await anchor.Program.at(
-      process.env.NINA_PROGRAM_ID,
-      provider,
-    )
-    const metaplex = new Metaplex(connection);
-
-    let attempts = 0;
-    const releaseAccount = await promiseRetry(
-      async (retry) => {
-        try {
-          attempts += 1
-          const result = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
-          return result
-        } catch (error) {
-          console.log('error fetching release account', error)
-          retry(error)
-        }
-      }, {
-        retries: 50,
-        minTimeout: 500,
-        maxTimeout: 1500,
-      }
-    )
-
-    let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
-    let json
     try {
-      json = (await axios.get(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz'))).data
+      let release = await Release.query().findOne({ publicKey });
+      if (release) {
+        return release;
+      }
+  
+      const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+      const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
+      const program = await anchor.Program.at(
+        process.env.NINA_PROGRAM_ID,
+        provider,
+      )
+      const metaplex = new Metaplex(connection);
+      let attempts = 0;
+
+      const releaseAccount = await promiseRetry(
+        async (retry) => {
+          try {
+            attempts += 1
+            const result = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+            return result
+          } catch (error) {
+            console.log('error fetching release account', error)
+            retry(error)
+          }
+        }, {
+          retries: 50,
+          minTimeout: 500,
+          maxTimeout: 1500,
+        }
+      )
+  
+      let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+      if (!metadataAccount) {
+        throw new Error('No metadata account found for release - is not a complete release')
+      }
+      let json
+      try {
+        json = (await axios.get(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz'))).data
+      } catch (error) {
+        json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
+      }
+  
+      const slug = await this.generateSlug(json);
+      let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
+      release = await this.createRelease({
+        publicKey,
+        mint: releaseAccount.releaseMint.toBase58(),
+        metadata: json,
+        datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+        slug,
+        publisherId: publisher.id,
+        releaseAccount
+      });
+  
+      if (hubPublicKey) {
+  
+        const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+        await release.$query().patch({ hubId: hub.id })
+        await Hub.relatedQuery('releases').for(hub.id).patch({
+          visible: true,
+        }).where( {id: release.id });
+      }
+  
+      return release;  
     } catch (error) {
-      json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
+      console.log('error finding or creating release: ', error)
+      return null;
     }
-
-    const slug = await this.generateSlug(json);
-    let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
-    release = await this.createRelease({
-      publicKey,
-      mint: releaseAccount.releaseMint.toBase58(),
-      metadata: json,
-      datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
-      slug,
-      publisherId: publisher.id,
-      releaseAccount
-    });
-
-    if (hubPublicKey) {
-
-      const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
-      await release.$query().patch({ hubId: hub.id })
-      await Hub.relatedQuery('releases').for(hub.id).patch({
-        visible: true,
-      }).where( {id: release.id });
-    }
-
-    return release;
   }
 
   static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
@@ -130,7 +140,7 @@ export default class Release extends Model {
     if (metadata.properties.tags) {
       for await (let tag of metadata.properties.tags) {
         const tagRecord = await Tag.findOrCreate(tag);
-        await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id);
+        await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id).onConflict(['tagId', 'releaseId']).ignore();
       }
     }
     await this.processRevenueShares(releaseAccount, release);
