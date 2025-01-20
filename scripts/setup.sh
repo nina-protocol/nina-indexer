@@ -25,7 +25,7 @@ if [ "$(hostname)" == "dev.api.ninaprotocol.com" ]; then
       var_name=$(basename "$name")
       echo "$var_name=\"$value\"" >> "$ENV_VARS_FILE"
     done
-elif [ "$(hostname)" == "api.ninaprotocol.com" ]; then
+elif [ "$(hostname)" = "nina-api-public" ]; then
   aws ssm get-parameters-by-path \
     --path "/indexer/prod/" \
     --with-decryption \
