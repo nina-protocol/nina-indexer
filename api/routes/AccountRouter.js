@@ -67,7 +67,7 @@ router.get('/sitemap', async (ctx) => {
 
 router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
-    const { v2 } = ctx.query;
+    const { v2, archived } = ctx.query;
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
       account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
@@ -143,7 +143,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/all', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', archived=false } = ctx.query;
 
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -157,6 +157,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
     const collected = await account.$relatedQuery('collected')
       .orderBy(formatColumnForJsonFields(column), sort)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .where('archived', Boolean(archived))
     for await (let release of collected) {
       release.datetime = await getCollectedDate(release, account)
       await release.format();
@@ -182,6 +183,8 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
     let published = await account.$relatedQuery('published')
       .orderBy(column, sort)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .where('archived', Boolean(archived))
+
     for (let release of published) {
       release.type = 'release'
       await release.format()
@@ -207,7 +210,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/collected', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', showArchived=false } = ctx.query;
     column = formatColumnForJsonFields(column);
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -249,6 +252,7 @@ router.get('/:publicKeyOrHandle/collected', async (ctx) => {
     const collected = await account.$relatedQuery('collected')
       .orderBy(column, sort)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .whereIn('archived', Boolean(showArchived) ? [true, false] : [false])
       .range(Number(offset), Number(offset) + Number(limit) - 1);
     for await (let release of collected.results) {
       release.collectedDate = await getCollectedDate(release, account)
@@ -328,7 +332,7 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/published', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', showArchived=false } = ctx.query;
     column = formatColumnForJsonFields(column);
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -341,6 +345,7 @@ router.get('/:publicKeyOrHandle/published', async (ctx) => {
     let published = await account.$relatedQuery('published')
       .orderBy(column, sort)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .whereIn('archived', Boolean(showArchived) ? [true, false] : [false])
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
     for await (let release of published.results) {

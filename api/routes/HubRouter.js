@@ -108,7 +108,8 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
       }
     }
 
-    let releases = await hub.$relatedQuery('releases')
+    let releases = await hub.$relatedQuery('releases').where('archived', false)
+
     if (hubOnly === 'true') {
       await hub.format();
       ctx.body = {
@@ -239,6 +240,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
       .where('hubs_join.hubId', hub.id)
       .where('hubs_join.visible', true)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .where('archived', false)
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -301,6 +303,7 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
         .where('hubs_join.hubId', hub.id)
         .where('hubs_join.visible', true)
         .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+        .where('archived', false)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
     }
