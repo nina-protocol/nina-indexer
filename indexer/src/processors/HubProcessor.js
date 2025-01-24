@@ -3,6 +3,7 @@ import { hubDataService } from '../services/hubData.js';
 import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import * as anchor from '@project-serum/anchor';
+import axios from 'axios';
 
 export class HubProcessor extends BaseProcessor {
     constructor() {
@@ -317,6 +318,12 @@ export class HubProcessor extends BaseProcessor {
               if (!hub) {
                 throw new Error(`Hub not found for HubUpdateConfig ${txid}`);
               }
+              const hubAccount = await hubDataService.fetchHubData(hub.publicKey);
+
+              await hub.$query().patch({
+                data: hubAccount.metadata,
+                dataUri: hubAccount.uri,
+              });
               return {success: true, ids: { hubId: hub.id }};
             } catch (error) {
               logTimestampedMessage(`Error processing HubUpdateConfig for ${txid}: ${error.message}`);
