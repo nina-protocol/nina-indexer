@@ -22,93 +22,126 @@ const router = new KoaRouter({
 
 router.get('/all', async (ctx) => {
   try {
-    let { offset=0, limit=2, sort='desc', query='', includePosts='false' } = ctx.query;
-
-    const accounts = await Account.query()
-      .where('displayName', 'ilike', `%${query}%`)
-      .orWhere('handle', 'ilike', `%${query}%`)
-      .orderBy('displayName', sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+    let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
+    offset = Number(offset);
+    limit = Number(limit);
     
-    for await (let account of accounts.results) {
-      account.type = 'account'
-      await account.format();
+    const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
+
+      Account.query()
+        .where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+        .orderBy('displayName', sort)
+        .range(offset, offset + limit - 1),
+
+      Release.query()
+        .where('archived', false)
+        .whereNotIn('publisherId', idList)
+        .whereIn('id', getReleaseSearchSubQuery(query))
+        .orderBy('datetime', sort)
+        .range(offset, offset + limit - 1),
+
+      Hub.query()
+        .where('handle', 'ilike', `%${query}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orderBy('datetime', sort)
+        .range(offset, offset + limit - 1),
+
+      Promise.all([
+        Tag.query()
+          .where('value', `${query}`)
+          .first(),
+        Tag.query()
+          .where('value', 'like', `%${query}%`)
+          .range(offset, offset + limit - 1)
+      ])
+    ]);
+
+    // format results in parallel for each type
+    const [accounts, releases, hubs, [exactMatch, tags]] = await Promise.all([
+      accountsPromise,
+      releasesPromise,
+      hubsPromise,
+      tagsPromise
+    ]);
+
+    const [
+      formattedAccounts,
+      formattedReleases,
+      formattedHubs,
+      formattedTags
+    ] = await Promise.all([
+      Promise.all(accounts.results.map(async account => {
+        account.type = 'account';
+        await account.format();
+        return account;
+      })),
+      Promise.all(releases.results.map(async release => {
+        release.type = 'release';
+        await release.format();
+        return release;
+      })),
+      Promise.all(hubs.results.map(async hub => {
+        hub.type = 'hub';
+        await hub.format();
+        return hub;
+      })),
+      Promise.all(tags.results.map(async tag => {
+        const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        tag.count = count;
+        tag.type = 'tag';
+        await tag.format();
+        return tag;
+      }))
+    ]);
+
+    // match exact tag
+    if (exactMatch && !formattedTags.find(tag => tag.id === exactMatch.id)) {
+      const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
+      exactMatch.count = count;
+      exactMatch.type = 'tag';
+      await exactMatch.format();
+      formattedTags.unshift(exactMatch);
     }
 
-    const releases = await Release.query()
-      .where('archived', false)
-      .whereNotIn('publisherId', idList)
-      .whereIn('id', getReleaseSearchSubQuery(query))
-      .orderBy('datetime', sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+    formattedTags.sort((a, b) => b.count - a.count);
 
-    for await (let release of releases.results) {
-      release.type = 'release'
-      await release.format();
-    }
-
-    const hubs = await Hub.query()
-      .where('handle', 'ilike', `%${query}%`)
-      .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-      .orderBy('datetime', sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
-    
-    for await (let hub of hubs.results) {
-      hub.type = 'hub'
-      await hub.format()
-    }
-
-    let posts = []
-
+    let formattedPosts = [];
     if (includePosts === 'true') {
-      posts = await Post.query()
+      const posts = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
         .orderBy('datetime', sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
+        .range(offset, offset + limit - 1);
 
-      for await (let post of posts.results) {
-        post.type = 'post'
-        await post.format();
-      }
+      formattedPosts = await Promise.all(
+        posts.results.map(async post => {
+          post.type = 'post';
+          await post.format();
+          return post;
+        })
+      );
     }
 
-    const exactMatch = await Tag.query()
-      .where('value', `${query}`)
-      .first();
-
-    const tags = await Tag.query()
-      .where('value', 'like', `%${query}%`)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
-    
-    if (exactMatch && !tags.results.find(tag => tag.id === exactMatch.id)) {
-      tags.results.unshift(exactMatch)
-    }
-
-    for await (let tag of tags.results) {
-      tag.count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
-      tag.type = 'tag'
-      await tag.format();
-    }
-
-    tags.results.sort((a, b) => b.count - a.count)
     const response = {
-      accounts,
-      releases,
-      hubs,
-      tags,
-    }
+      accounts: { ...accounts, results: formattedAccounts },
+      releases: { ...releases, results: formattedReleases },
+      hubs: { ...hubs, results: formattedHubs },
+      tags: { ...tags, results: formattedTags },
+    };
+
     if (includePosts === 'true') {
-      response.posts = posts
+      response.posts = formattedPosts;
     }
+
     ctx.body = response;
   } catch (error) {
-    console.log(error)
-    ctx.status = 400
+    console.log(error);
+    ctx.status = 400;
     ctx.body = {
       message: 'Error fetching search results'
-    }
+    };
   }
 });
 
