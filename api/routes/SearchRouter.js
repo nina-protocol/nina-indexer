@@ -19,7 +19,6 @@ const idList = [
 const router = new KoaRouter({
   prefix: '/search'
 })
-
 router.get('/all', async (ctx) => {
   try {
     let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
@@ -106,33 +105,49 @@ router.get('/all', async (ctx) => {
 
     formattedTags.sort((a, b) => b.count - a.count);
 
-    let formattedPosts = [];
+    let posts = { results: [], total: 0 };
     if (includePosts === 'true') {
-      const posts = await Post.query()
+      const postsQuery = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
         .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1);
 
-      formattedPosts = await Promise.all(
-        posts.results.map(async post => {
+      const formattedPosts = await Promise.all(
+        postsQuery.results.map(async post => {
           post.type = 'post';
           await post.format();
           return post;
         })
       );
+      posts = {
+        results: formattedPosts,
+        total: postsQuery.total
+      };
     }
 
     const response = {
-      accounts: { ...accounts, results: formattedAccounts },
-      releases: { ...releases, results: formattedReleases },
-      hubs: { ...hubs, results: formattedHubs },
-      tags: { ...tags, results: formattedTags },
+      accounts: {
+        results: formattedAccounts,
+        total: accounts.total
+      },
+      releases: {
+        results: formattedReleases,
+        total: releases.total
+      },
+      hubs: {
+        results: formattedHubs,
+        total: hubs.total
+      },
+      tags: {
+        results: formattedTags,
+        total: tags.total
+      },
     };
 
     if (includePosts === 'true') {
-      response.posts = formattedPosts;
+      response.posts = posts;
     }
 
     ctx.body = response;
