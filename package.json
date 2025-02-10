@@ -12,7 +12,8 @@
     "test:local": "mocha 'test/**/*.test.js'",
     "test:perf": "mocha test/perf/**/*.js",
     "start:api": "yarn && node api/index.js",
-    "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive"
+    "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive",
+    "test:search": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/search.test.js --timeout 180000 --recursive"
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
