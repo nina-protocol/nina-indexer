@@ -65,19 +65,40 @@ router.get('/', async (ctx) => {
 
 router.get('/:value', async (ctx) => {
   try {
-    let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
-    const tag = await Tag.query().findOne({value: ctx.params.value.toLowerCase()})
+    let { offset = 0, limit = 20, sort = 'desc', column = 'datetime', daterange } = ctx.query;
+    const tag = await Tag.query().findOne({ value: ctx.params.value.toLowerCase() });
+    if (!tag) {
+      ctx.status = 404;
+      ctx.body = { success: false, message: 'Tag not found' };
+      return;
+    }
 
-    let releasesQuery = Tag.relatedQuery('releases').for(tag.id)
+    let releasesQuery = Tag.relatedQuery('releases').for(tag.id);
     let releases;
 
     if (column === 'favorites') {
+      // daterange param
+      let dateCondition = '';
+      if (daterange) {
+        const startDate = new Date();
+        if (daterange === 'daily') {
+          startDate.setDate(startDate.getDate() - 1);
+        } else if (daterange === 'weekly') {
+          startDate.setDate(startDate.getDate() - 7);
+        } else if (daterange === 'monthly') {
+          startDate.setMonth(startDate.getMonth() - 1);
+        }
+        // If needed, you can cast created_at to timestamp.
+        dateCondition = `AND created_at::timestamp >= '${startDate.toISOString()}'`;
+      }
+
       const favoriteCounts = await authDb.raw(`
         SELECT public_key, COUNT(*) as favorite_count
         FROM favorites
         WHERE favorite_type = 'release'
+        ${dateCondition}
         GROUP BY public_key
-      `)
+      `);
 
       releases = await releasesQuery.range(
         Number(offset),
@@ -86,7 +107,6 @@ router.get('/:value', async (ctx) => {
 
       // map the favorite counts to the releases
       const favoriteCountMap = _.keyBy(favoriteCounts.rows, 'public_key');
-
       releases.results = releases.results.map(release => ({
         ...release,
         favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)
@@ -99,6 +119,7 @@ router.get('/:value', async (ctx) => {
         [sort.toLowerCase(), 'asc']
       );
     } else {
+      // for non-favorite sorting, apply a standard order.
       releases = await releasesQuery
         .orderBy(column, sort)
         .range(
@@ -107,20 +128,20 @@ router.get('/:value', async (ctx) => {
         );
     }
 
-    for await (let release of releases.results) {
+    for (const release of releases.results) {
       await release.format();
     }
     ctx.body = {
       releases: releases.results,
       total: releases.total,
-    }
+    };
   } catch (error) {
-    console.warn(error)
-    ctx.status = 400
+    console.warn(error);
+    ctx.status = 400;
     ctx.body = {
       success: false,
-    }
+    };
   }
-})
+});
 
 export default router
