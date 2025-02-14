@@ -1,17 +1,15 @@
 import KoaRouter from 'koa-router'
-import { 
-  Tag,
-  config,
-} from '@nina-protocol/nina-db';
-import _  from 'lodash';
-import Knex from 'knex'
-
+import { Tag } from '@nina-protocol/nina-db';
+import _ from 'lodash';
+import knex from 'knex'
+import knexConfig from '../../db/src/knexfile.js'
 
 const router = new KoaRouter({
   prefix: '/tags'
 })
 
-const db = Knex(config.development)
+const db = knex(knexConfig.development)
+const authDb = knex(knexConfig.development.auth)
 
 router.get('/', async (ctx) => {
   try {
@@ -69,9 +67,45 @@ router.get('/:value', async (ctx) => {
   try {
     let { offset=0, limit=20, sort='desc', column='datetime' } = ctx.query;
     const tag = await Tag.query().findOne({value: ctx.params.value.toLowerCase()})
-    const releases = await Tag.relatedQuery('releases').for(tag.id)
-      .orderBy(column, sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+
+    let releasesQuery = Tag.relatedQuery('releases').for(tag.id)
+    let releases;
+
+    if (column === 'favorites') {
+      const favoriteCounts = await authDb.raw(`
+        SELECT public_key, COUNT(*) as favorite_count
+        FROM favorites
+        WHERE favorite_type = 'release'
+        GROUP BY public_key
+      `)
+
+      releases = await releasesQuery.range(
+        Number(offset),
+        Number(offset) + Number(limit) - 1
+      );
+
+      // map the favorite counts to the releases
+      const favoriteCountMap = _.keyBy(favoriteCounts.rows, 'public_key');
+
+      releases.results = releases.results.map(release => ({
+        ...release,
+        favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)
+      }));
+
+      // sort by favorite count
+      releases.results = _.orderBy(
+        releases.results,
+        ['favoriteCount', 'publicKey'],
+        [sort.toLowerCase(), 'asc']
+      );
+    } else {
+      releases = await releasesQuery
+        .orderBy(column, sort)
+        .range(
+          Number(offset),
+          Number(offset) + Number(limit) - 1
+        );
+    }
 
     for await (let release of releases.results) {
       await release.format();
