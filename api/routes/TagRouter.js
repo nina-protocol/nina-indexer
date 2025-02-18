@@ -1,5 +1,5 @@
 import KoaRouter from 'koa-router'
-import { Tag } from '@nina-protocol/nina-db';
+import { Account, Hub, Tag } from '@nina-protocol/nina-db';
 import _ from 'lodash';
 import knex from 'knex'
 import knexConfig from '../../db/src/knexfile.js'
@@ -75,7 +75,7 @@ router.get('/:value', async (ctx) => {
     }
 
     //  get all releases for the tag
-    let releasesQuery = Tag.relatedQuery('releases').for(tag.id);
+    let releasesQuery = Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false);
     let allReleases = await releasesQuery;
     const total = allReleases.length;
 
@@ -125,7 +125,20 @@ router.get('/:value', async (ctx) => {
 
       // format releases
       for (const release of paginatedReleases) {
-        await release.format();
+        // release.filter() was undefined, so we are adding hub and publisher manually
+        const publisher = await Account.query().findOne({ id: release.publisherId })
+        await publisher.format()
+        release.publisherAccount = publisher
+
+        if (release.hubId) {
+          const hub = await Hub.query().findOne({ id: release.hubId })
+          await hub.format()
+          release.hub = hub
+        }
+
+        delete release.publisherId
+        delete release.hubId
+        delete release.id
       }
 
       ctx.body = {
