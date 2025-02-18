@@ -67,14 +67,17 @@ router.get('/:value', async (ctx) => {
   try {
     let { offset = 0, limit = 20, sort = 'desc', column = 'datetime', daterange } = ctx.query;
     const tag = await Tag.query().findOne({ value: ctx.params.value.toLowerCase() });
+
     if (!tag) {
       ctx.status = 404;
       ctx.body = { success: false, message: 'Tag not found' };
       return;
     }
 
+    //  get all releases for the tag
     let releasesQuery = Tag.relatedQuery('releases').for(tag.id);
-    let releases;
+    let allReleases = await releasesQuery;
+    const total = allReleases.length;
 
     if (column === 'favorites') {
       // daterange param
@@ -88,58 +91,70 @@ router.get('/:value', async (ctx) => {
         } else if (daterange === 'monthly') {
           startDate.setMonth(startDate.getMonth() - 1);
         }
-        // If needed, you can cast created_at to timestamp.
         dateCondition = `AND created_at::timestamp >= '${startDate.toISOString()}'`;
       }
 
+      // get favorite counts for all releases in this tag
+      const publicKeys = allReleases.map(release => release.publicKey);
       const favoriteCounts = await authDb.raw(`
         SELECT public_key, COUNT(*) as favorite_count
         FROM favorites
         WHERE favorite_type = 'release'
+        AND public_key = ANY(?)
         ${dateCondition}
         GROUP BY public_key
-      `);
-
-      releases = await releasesQuery.range(
-        Number(offset),
-        Number(offset) + Number(limit) - 1
-      );
+      `, [publicKeys]);
 
       // map the favorite counts to the releases
       const favoriteCountMap = _.keyBy(favoriteCounts.rows, 'public_key');
-      releases.results = releases.results.map(release => ({
+      allReleases = allReleases.map(release => ({
         ...release,
         favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)
       }));
 
-      // sort by favorite count
-      releases.results = _.orderBy(
-        releases.results,
+      allReleases = _.orderBy(
+        allReleases,
         ['favoriteCount', 'publicKey'],
         [sort.toLowerCase(), 'asc']
       );
+
+      const paginatedReleases = allReleases.slice(
+        Number(offset),
+        Number(offset) + Number(limit)
+      );
+
+      // format releases
+      for (const release of paginatedReleases) {
+        await release.format();
+      }
+
+      ctx.body = {
+        releases: paginatedReleases,
+        total
+      };
     } else {
-      // for non-favorite sorting, apply a standard order.
-      releases = await releasesQuery
+      // for non-favorite sorting, use the existing query with pagination
+      const releases = await releasesQuery
         .orderBy(column, sort)
         .range(
           Number(offset),
           Number(offset) + Number(limit) - 1
         );
-    }
 
-    for (const release of releases.results) {
-      await release.format();
+      for (const release of releases.results) {
+        await release.format();
+      }
+
+      ctx.body = {
+        releases: releases.results,
+        total: releases.total
+      };
     }
-    ctx.body = {
-      releases: releases.results,
-      total: releases.total,
-    };
   } catch (error) {
     console.warn(error);
     ctx.status = 400;
     ctx.body = {
-      success: false,
+      success: false
     };
   }
 });
