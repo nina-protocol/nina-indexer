@@ -2,6 +2,7 @@ import KoaRouter from 'koa-router'
 import { 
   Account,
   Exchange,
+  Hub,
   Release,
   Transaction,
 } from '@nina-protocol/nina-db';
@@ -97,9 +98,15 @@ router.get('/', async (ctx) => {
           followers: publisher.followers
         };
 
-        await release.format();
+        if (release.hubId) {
+          const hub = await Hub.query().findOne({ id: release.hubId });
+          await hub.format();
+          release.hub = hub;
+        }
+
         release.type = 'release';
         delete release.id;
+        delete release.hubId;
         delete release.publisherId;
       }
 
