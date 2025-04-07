@@ -2,8 +2,8 @@
  * @type { Object.<string, import("knex").Knex.Config> }
  */
 import "dotenv/config.js";
-export default {
 
+export default {
   development: {
     client: 'postgresql',
     connection: {
@@ -15,6 +15,15 @@ export default {
     migrations: {
       directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
+    auth: {
+      client: 'postgresql',
+      connection: {
+        host:     process.env.AUTH_DB_HOST,
+        user:     process.env.AUTH_USER,
+        password: process.env.AUTH_PASSWORD,
+        database: process.env.AUTH_DB_NAME
+      }
+    }
   },
   staging: {
     client: 'postgresql',
@@ -27,6 +36,15 @@ export default {
     migrations: {
       directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
+    auth: {
+      client: 'postgresql',
+      connection: {
+        host:     process.env.AUTH_DB_HOST,
+        user:     process.env.AUTH_USER,
+        password: process.env.AUTH_PASSWORD,
+        database: process.env.AUTH_DB_NAME
+      }
+    }
   },
   production: {
     client: 'postgresql',
@@ -39,6 +57,23 @@ export default {
     migrations: {
       directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
     },
-    debug: true,
+    auth: {
+      client: 'postgresql',
+      connection: {
+        host:     process.env.AUTH_DB_HOST,
+        user:     process.env.AUTH_USER,
+        password: process.env.AUTH_PASSWORD,
+        database: process.env.AUTH_DB_NAME
+      }
+    }
+  },
+  knexAuthDB: {
+    client: 'postgresql',
+    connection: {
+      host:     process.env.AUTH_DB_HOST,
+      user:     process.env.AUTH_USER,
+      password: process.env.AUTH_PASSWORD,
+      database: process.env.AUTH_DB_NAME
+    }
   }
 };
