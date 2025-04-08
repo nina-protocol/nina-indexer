@@ -13,7 +13,7 @@ ENV_VARS_FILE="/home/ec2-user/nina-indexer/env_vars.sh"
 
 > "$ENV_VARS_FILE" # Overwrite any pre-existing env_vars.sh file
 
-if [ "$(hostname)" == "dev.api.ninaprotocol.com" ]; then
+if [ "$(hostname)" == "services-dev" ]; then
   aws ssm get-parameters-by-path \
     --path "/indexer/dev/" \
     --with-decryption \
