@@ -323,7 +323,6 @@ router.get("/:publicKeyOrHandle/all", async (ctx) => {
 
 router.get("/:publicKeyOrHandle/releases", async (ctx) => {
   try {
-    console.log("HERE :>> ");
     let {
       offset = 0,
       limit = BIG_LIMIT,
@@ -335,13 +334,20 @@ router.get("/:publicKeyOrHandle/releases", async (ctx) => {
     column = formatColumnForJsonFields(column);
     const hub = await hubForPublicKeyOrHandle(ctx);
 
-    console.log("hub in router.get :>> ", hub);
     let releases;
     if (random === "true") {
       const randomReleases = await Release.query()
         .joinRelated("hubs")
+        .join("hubs_releases", function () {
+          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
+            "hubs_releases.hubId",
+            "=",
+            hub.id
+          );
+        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
+        .select("releases.*", "hubs_releases.hubReleasePublicKey")
         .orderByRaw("random()")
         .limit(limit);
 
@@ -352,10 +358,18 @@ router.get("/:publicKeyOrHandle/releases", async (ctx) => {
     } else {
       releases = await Release.query()
         .joinRelated("hubs")
+        .join("hubs_releases", function () {
+          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
+            "hubs_releases.hubId",
+            "=",
+            hub.id
+          );
+        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
         .where(ref("metadata:name").castText(), "ilike", `%${query}%`)
         .where("archived", false)
+        .select("releases.*", "hubs_releases.hubReleasePublicKey")
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
     }
@@ -506,7 +520,7 @@ router.get("/:publicKeyOrHandle/posts", async (ctx) => {
 });
 
 router.get(
-  "/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey",
+  "/:publicKeyOrHandle/hubRelease/:hubReleasePublicKey",
   async (ctx) => {
     try {
       const { txid } = ctx.query;
@@ -516,10 +530,7 @@ router.get(
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.hubReleasePublicKey", ctx.params.hubReleasePublicKey)
         .first();
-      console.log(
-        "/:publicKeyOrHandle/hubReleases/:hubReleasePublicKey release",
-        release
-      );
+
       console.log("hubReleasePublicKey", ctx.params.hubReleasePublicKey);
       console.log("txid", txid);
       console.log("hub", hub.publicKey);
