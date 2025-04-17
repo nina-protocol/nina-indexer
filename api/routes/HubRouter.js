@@ -531,9 +531,6 @@ router.get(
         .where("hubs_join.hubReleasePublicKey", ctx.params.hubReleasePublicKey)
         .first();
 
-      console.log("hubReleasePublicKey", ctx.params.hubReleasePublicKey);
-      console.log("txid", txid);
-      console.log("hub", hub.publicKey);
       if (hub && release) {
         const [hubContentPublicKey] =
           await anchor.web3.PublicKey.findProgramAddress(
@@ -811,10 +808,6 @@ const hubForPublicKeyOrHandle = async (ctx) => {
     publicKey: ctx.params.publicKeyOrHandle
   });
 
-  console.log(
-    "ctx.params.publicKeyOrHandle :>> ",
-    ctx.params.publicKeyOrHandle
-  );
   if (!hub) {
     hub = await Hub.query().findOne({ handle: ctx.params.publicKeyOrHandle });
   }
