@@ -286,13 +286,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
     if (random === 'true') {
       const randomReleases = await Release.query()
         .joinRelated("hubs")
-        .join("hubs_releases", function () {
-          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
-            "hubs_releases.hubId",
-            "=",
-            hub.id
-          );
-        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
         .orderByRaw("random()")
@@ -305,13 +298,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
     } else {
       releases = await Release.query()
         .joinRelated("hubs")
-        .join("hubs_releases", function () {
-          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
-            "hubs_releases.hubId",
-            "=",
-            hub.id
-          );
-        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
         .where(ref("metadata:name").castText(), "ilike", `%${query}%`)
