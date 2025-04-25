@@ -56,7 +56,7 @@ export default class Hub extends Model {
         through: {
           from: 'hubs_collaborators.hubId',
           to: 'hubs_collaborators.accountId',
-          extra: ['hubCollaboratorPublicKey'],
+          extra: ['hubCollaboratorPublicKey', 'canAddContent', 'canAddCollaborator', 'added_by'],
         },
         to: 'accounts.id',
       },
