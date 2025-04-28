@@ -15,7 +15,7 @@ class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
     this.programId = new PublicKey(process.env.NINA_PROGRAM_ID);
-    this.batchSize = 1000;
+    this.batchSize = 200;
     this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'confirmed' });
     this.isSyncing = false;
   }
@@ -118,7 +118,10 @@ class TransactionSyncer {
       const txInfos = await this.connection.getParsedTransactions(
         page.map(sig => sig.signature),
         { maxSupportedTransactionVersion: 0 }
-      );
+      ).catch(error => {
+        console.warn(`Error this.connection.getParsedTransactions: ${error.message}`);
+        return [];
+      });
 
       const processorQueue = []; // Queue up processor tasks
       for await (const txInfo of txInfos) {
