@@ -31,126 +31,26 @@ const router = new KoaRouter({
 
 router.get('/', async (ctx) => {
   try {
-    let { offset=0, limit=20, sort='desc', column='datetime', query='', daterange } = ctx.query;
+    let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
+    column = formatColumnForJsonFields(column);
 
-    if (column === 'favorites') {
+    const releases = await Release.query()
+      .where('archived', false)
+      .whereNotIn('publisherId', idList)
+      .whereIn('id', getReleaseSearchSubQuery(query))
+      .orderBy(column, sort)
+      .range(Number(offset), Number(offset) + Number(limit) - 1);
 
-      let allReleases = await Release.query()
-        .where('archived', false)
-        .whereNotIn('publisherId', idList)
-        .whereIn('id', getReleaseSearchSubQuery(query));
-
-      const total = allReleases.length;
-
-      // daterange param
-      let dateCondition = '';
-      if (daterange) {
-        const startDate = new Date();
-        if (daterange === 'daily') {
-          startDate.setDate(startDate.getDate() - 1);
-        } else if (daterange === 'weekly') {
-          startDate.setDate(startDate.getDate() - 7);
-        } else if (daterange === 'monthly') {
-          startDate.setMonth(startDate.getMonth() - 1);
-        }
-        dateCondition = `AND created_at::timestamp >= '${startDate.toISOString()}'`;
-      }
-
-      const publicKeys = allReleases.map(release => release.publicKey);
-      const favoriteCounts = await authDb.raw(`
-        SELECT public_key, COUNT(*) as favorite_count
-        FROM favorites
-        WHERE favorite_type = 'release'
-        AND public_key = ANY(?)
-        ${dateCondition}
-        GROUP BY public_key
-      `, [publicKeys]);
-
-      const favoriteCountMap = _.keyBy(favoriteCounts.rows, 'public_key');
-      allReleases = allReleases.map(release => ({
-        ...release,
-        favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)
-      }));
-
-      allReleases = _.orderBy(
-        allReleases,
-        ['favoriteCount', 'publicKey'],
-        [sort.toLowerCase(), 'asc']
-      );
-
-      const paginatedReleases = allReleases.slice(
-        Number(offset),
-        Number(offset) + Number(limit)
-      );
-
-      for (const release of paginatedReleases) {
-        const publisher = await Account.query().findOne({ id: release.publisherId });
-        await publisher.format();
-
-        release.publisher = publisher.publicKey;
-        release.publisherAccount = {
-          publicKey: publisher.publicKey,
-          image: publisher.image,
-          description: publisher.description,
-          displayName: publisher.displayName,
-          handle: publisher.handle,
-          verifications: publisher.verifications,
-          followers: publisher.followers
-        };
-
-        if (release.hubId) {
-          const hub = await Hub.query().findOne({ id: release.hubId });
-          await hub.format();
-          release.hub = hub;
-        }
-
-        release.type = 'release';
-        delete release.id;
-        delete release.hubId;
-        delete release.publisherId;
-      }
-
-      ctx.body = {
-        releases: paginatedReleases,
-        total,
-        query
-      };
-    } else {
-      column = formatColumnForJsonFields(column);
-      const releases = await Release.query()
-        .where('archived', false)
-        .whereNotIn('publisherId', idList)
-        .whereIn('id', getReleaseSearchSubQuery(query))
-        .orderBy(column, sort)
-        .range(Number(offset), Number(offset) + Number(limit) - 1);
-
-      for await (let release of releases.results) {
-        const publisher = await Account.query().findOne({ id: release.publisherId });
-        await publisher.format();
-
-        release.publisher = publisher.publicKey;
-        release.publisherAccount = {
-          publicKey: publisher.publicKey,
-          image: publisher.image,
-          description: publisher.description,
-          displayName: publisher.displayName,
-          handle: publisher.handle,
-          verifications: publisher.verifications,
-          followers: publisher.followers
-        };
-
-        await release.format();
-        release.type = 'release';
-        delete release.id;
-        delete release.publisherId;
-      }
-
-      ctx.body = {
-        releases: releases.results,
-        total: releases.total,
-        query
-      };
+    for await (let release of releases.results) {
+      await release.format();
+      release.type = 'release'     
     }
+      
+    ctx.body = {
+      releases: releases.results,
+      total: releases.total,
+      query
+    };
   } catch(err) {
     console.log(err);
     ctx.status = 400;
