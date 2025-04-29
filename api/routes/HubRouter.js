@@ -358,31 +358,31 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
       total: archivedReleasesForHub.total
     }
 
-    const hubContentPublicKeys = []
-    for await (let release of releases.results) {
-      const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
-          new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
-          new anchor.web3.PublicKey(release.publicKey).toBuffer(),
-        ],
-        TransactionSyncer.program.programId
-      )
-      hubContentPublicKeys.push(hubContentPublicKey)
-    }
-    const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
-    for await (let release of releases.results) {
-      const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
-      if (releaseHubContent) {
-        release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
-      }
-    }
+    // const hubContentPublicKeys = []
+    // for await (let release of releases.results) {
+    //   const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
+    //     [
+    //       Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
+    //       new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
+    //       new anchor.web3.PublicKey(release.publicKey).toBuffer(),
+    //     ],
+    //     TransactionSyncer.program.programId
+    //   )
+    //   hubContentPublicKeys.push(hubContentPublicKey)
+    // }
+    // const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
+    // for await (let release of releases.results) {
+    //   const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
+    //   if (releaseHubContent) {
+    //     release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
+    //   }
+    // }
     
-    if (sort === 'desc') {
-      releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-    } else {
-      releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-    }
+    // if (sort === 'desc') {
+    //   releases.results.sort((a, b) => release.metadata.name.localeCompare(b.metadata.name))
+    // } else {
+    //   releases.results.sort((a, b) => release.metadata.name.localeCompare(b.metadata.name))
+    // }
 
     ctx.body = { 
       releases: releases.results,
