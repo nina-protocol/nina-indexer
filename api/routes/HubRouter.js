@@ -604,7 +604,6 @@ const lookupCollaborator = async (hubCollaboratorPublicKey) => {
 }
 
 const hubForPublicKeyOrHandle = async (ctx) => {
-  console.log('ctx.params.publicKeyOrHandle', ctx.params.publicKeyOrHandle)
   let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
   if (!hub) {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
