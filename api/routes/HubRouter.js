@@ -331,11 +331,13 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
   }
 })
 
+// the endpoint for getting hidden releases for a hub, not archived releases
 router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
     column = formatColumnForJsonFields(column);
     const hub = await hubForPublicKeyOrHandle(ctx)
+    console.log('hub', hub)
     let releases
     const archivedReleasesForHub = await Release
       .query()
@@ -357,32 +359,6 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
       results: releases,
       total: archivedReleasesForHub.total
     }
-
-    // const hubContentPublicKeys = []
-    // for await (let release of releases.results) {
-    //   const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
-    //     [
-    //       Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
-    //       new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
-    //       new anchor.web3.PublicKey(release.publicKey).toBuffer(),
-    //     ],
-    //     TransactionSyncer.program.programId
-    //   )
-    //   hubContentPublicKeys.push(hubContentPublicKey)
-    // }
-    // const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
-    // for await (let release of releases.results) {
-    //   const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
-    //   if (releaseHubContent) {
-    //     release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
-    //   }
-    // }
-    
-    // if (sort === 'desc') {
-    //   releases.results.sort((a, b) => release.metadata.name.localeCompare(b.metadata.name))
-    // } else {
-    //   releases.results.sort((a, b) => release.metadata.name.localeCompare(b.metadata.name))
-    // }
 
     ctx.body = { 
       releases: releases.results,
@@ -629,6 +605,7 @@ const lookupCollaborator = async (hubCollaboratorPublicKey) => {
 }
 
 const hubForPublicKeyOrHandle = async (ctx) => {
+  console.log('ctx.params.publicKeyOrHandle', ctx.params.publicKeyOrHandle)
   let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
   if (!hub) {
     hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
