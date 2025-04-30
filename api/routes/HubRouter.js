@@ -219,6 +219,9 @@ router.get('/:publicKeyOrHandle/collaborators', async (ctx) => {
     for await (let account of collaborators.results) {
       await account.format();
     }
+
+    
+
     ctx.body = {
       collaborators: collaborators.results,
       total: collaborators.total,
@@ -286,13 +289,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
     if (random === 'true') {
       const randomReleases = await Release.query()
         .joinRelated("hubs")
-        .join("hubs_releases", function () {
-          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
-            "hubs_releases.hubId",
-            "=",
-            hub.id
-          );
-        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
         .orderByRaw("random()")
@@ -305,13 +301,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
     } else {
       releases = await Release.query()
         .joinRelated("hubs")
-        .join("hubs_releases", function () {
-          this.on("releases.id", "=", "hubs_releases.releaseId").andOn(
-            "hubs_releases.hubId",
-            "=",
-            hub.id
-          );
-        })
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
         .where(ref("metadata:name").castText(), "ilike", `%${query}%`)
@@ -319,7 +308,6 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
     }
-
     
     if (sort === 'desc') {
       releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
@@ -343,6 +331,7 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
   }
 })
 
+// the endpoint for getting hidden releases for a hub, not archived releases
 router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
@@ -368,32 +357,6 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
     releases = {
       results: releases,
       total: archivedReleasesForHub.total
-    }
-
-    const hubContentPublicKeys = []
-    for await (let release of releases.results) {
-      const [hubContentPublicKey] = await anchor.web3.PublicKey.findProgramAddressSync(
-        [
-          Buffer.from(anchor.utils.bytes.utf8.encode("nina-hub-content")), 
-          new anchor.web3.PublicKey(hub.publicKey).toBuffer(),
-          new anchor.web3.PublicKey(release.publicKey).toBuffer(),
-        ],
-        TransactionSyncer.program.programId
-      )
-      hubContentPublicKeys.push(hubContentPublicKey)
-    }
-    const hubContent = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hubContent.fetchMultiple(hubContentPublicKeys, 'confirmed'))
-    for await (let release of releases.results) {
-      const releaseHubContent = hubContent.filter(hc => hc.child.toBase58() === release.hubReleasePublicKey)[0]
-      if (releaseHubContent) {
-        release.datetime = new Date(releaseHubContent.datetime.toNumber() * 1000).toISOString()
-      }
-    }
-    
-    if (sort === 'desc') {
-      releases.results.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
-    } else {
-      releases.results.sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
     }
 
     ctx.body = { 
