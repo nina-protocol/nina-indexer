@@ -337,7 +337,6 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query = '' } = ctx.query;
     column = formatColumnForJsonFields(column);
     const hub = await hubForPublicKeyOrHandle(ctx)
-    console.log('hub', hub)
     let releases
     const archivedReleasesForHub = await Release
       .query()
