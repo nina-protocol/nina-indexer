@@ -13,8 +13,9 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: './migrations',
     },
+    debug: true,
     auth: {
       client: 'postgresql',
       connection: {
@@ -34,8 +35,9 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: './migrations',
     },
+    debug: true,
     auth: {
       client: 'postgresql',
       connection: {
@@ -55,8 +57,9 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: './migrations',
     },
+    debug: true,
     auth: {
       client: 'postgresql',
       connection: {
