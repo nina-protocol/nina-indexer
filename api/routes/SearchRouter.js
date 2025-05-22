@@ -9,8 +9,8 @@ import {
 } from '@nina-protocol/nina-db';
 import { ref } from 'objection'
 import _  from 'lodash';
-
 import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery } from '../utils.js';
+import { getCachedData, setCachedData, generateCacheKey } from '../utils/cache.js';
 
 const idList = [
   '13572',
@@ -19,44 +19,95 @@ const idList = [
 const router = new KoaRouter({
   prefix: '/search'
 })
+
+// Helper function to optimize text search
+const optimizeTextSearch = (query) => {
+  if (!query) return '';
+  
+  // Trim whitespace
+  const trimmed = query.trim();
+  
+  // If query is empty after trimming, return empty string
+  if (!trimmed) return '';
+  
+  // Escape special characters for SQL LIKE
+  return trimmed.replace(/[%_]/g, '\\$&');
+}
+
 router.get('/all', async (ctx) => {
   try {
     let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
     offset = Number(offset);
     limit = Number(limit);
     
-    const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
+    // Optimize the search query
+    const optimizedQuery = optimizeTextSearch(query);
+    
+    // If query is empty, return empty results
+    if (!optimizedQuery) {
+      ctx.body = {
+        accounts: { results: [], total: 0 },
+        releases: { results: [], total: 0 },
+        hubs: { results: [], total: 0 },
+        tags: { results: [], total: 0 },
+        ...(includePosts === 'true' ? { posts: { results: [], total: 0 } } : {})
+      };
+      return;
+    }
 
+    // Generate cache key
+    const cacheKey = generateCacheKey('search:all', {
+      offset,
+      limit,
+      sort,
+      query,
+      includePosts
+    });
+
+    // Try to get from cache first
+    const cachedResult = await getCachedData(cacheKey);
+    if (cachedResult) {
+      ctx.body = cachedResult;
+      return;
+    }
+
+    // Optimize queries by using Promise.all and limiting the number of parallel queries
+    const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
       Account.query()
-        .where('displayName', 'ilike', `%${query}%`)
-        .orWhere('handle', 'ilike', `%${query}%`)
+        .where('displayName', 'ilike', `%${optimizedQuery}%`)
+        .orWhere('handle', 'ilike', `%${optimizedQuery}%`)
         .orderBy('displayName', sort)
-        .range(offset, offset + limit - 1),
+        .range(offset, offset + limit - 1)
+        .select('id', 'displayName', 'handle', 'publicKey'), // Select only needed fields
 
       Release.query()
         .where('archived', false)
         .whereNotIn('publisherId', idList)
-        .whereIn('id', getReleaseSearchSubQuery(query))
+        .whereIn('id', getReleaseSearchSubQuery(optimizedQuery))
         .orderBy('datetime', sort)
-        .range(offset, offset + limit - 1),
+        .range(offset, offset + limit - 1)
+        .select('id', 'metadata', 'publicKey', 'datetime'), // Select only needed fields
 
       Hub.query()
-        .where('handle', 'ilike', `%${query}%`)
-        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .where('handle', 'ilike', `%${optimizedQuery}%`)
+        .orWhere(ref('data:displayName').castText(), 'ilike', `%${optimizedQuery}%`)
         .orderBy('datetime', sort)
-        .range(offset, offset + limit - 1),
+        .range(offset, offset + limit - 1)
+        .select('id', 'handle', 'data', 'publicKey', 'datetime'), // Select only needed fields
 
       Promise.all([
         Tag.query()
-          .where('value', `${query}`)
-          .first(),
+          .where('value', `${optimizedQuery}`)
+          .first()
+          .select('id', 'value'), // Select only needed fields
         Tag.query()
-          .where('value', 'like', `%${query}%`)
+          .where('value', 'like', `%${optimizedQuery}%`)
           .range(offset, offset + limit - 1)
+          .select('id', 'value') // Select only needed fields
       ])
     ]);
 
-    // format results in parallel for each type
+    // Format results in parallel for each type
     const [accounts, releases, hubs, [exactMatch, tags]] = await Promise.all([
       accountsPromise,
       releasesPromise,
@@ -64,6 +115,7 @@ router.get('/all', async (ctx) => {
       tagsPromise
     ]);
 
+    // Batch format operations with error handling
     const [
       formattedAccounts,
       formattedReleases,
@@ -71,77 +123,118 @@ router.get('/all', async (ctx) => {
       formattedTags
     ] = await Promise.all([
       Promise.all(accounts.results.map(async account => {
-        account.type = 'account';
-        await account.format();
-        return account;
+        try {
+          account.type = 'account';
+          await account.format();
+          return account;
+        } catch (error) {
+          console.error('Error formatting account:', error);
+          return null;
+        }
       })),
       Promise.all(releases.results.map(async release => {
-        release.type = 'release';
-        await release.format();
-        return release;
+        try {
+          release.type = 'release';
+          await release.format();
+          return release;
+        } catch (error) {
+          console.error('Error formatting release:', error);
+          return null;
+        }
       })),
       Promise.all(hubs.results.map(async hub => {
-        hub.type = 'hub';
-        await hub.format();
-        return hub;
+        try {
+          hub.type = 'hub';
+          await hub.format();
+          return hub;
+        } catch (error) {
+          console.error('Error formatting hub:', error);
+          return null;
+        }
       })),
       Promise.all(tags.results.map(async tag => {
-        const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
-        tag.count = count;
-        tag.type = 'tag';
-        await tag.format();
-        return tag;
+        try {
+          const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+          tag.count = count;
+          tag.type = 'tag';
+          await tag.format();
+          return tag;
+        } catch (error) {
+          console.error('Error formatting tag:', error);
+          return null;
+        }
       }))
     ]);
 
-    // match exact tag
-    if (exactMatch && !formattedTags.find(tag => tag.id === exactMatch.id)) {
-      const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
-      exactMatch.count = count;
-      exactMatch.type = 'tag';
-      await exactMatch.format();
-      formattedTags.unshift(exactMatch);
+    // Filter out any null results from formatting errors
+    const filteredAccounts = formattedAccounts.filter(Boolean);
+    const filteredReleases = formattedReleases.filter(Boolean);
+    const filteredHubs = formattedHubs.filter(Boolean);
+    const filteredTags = formattedTags.filter(Boolean);
+
+    // Handle exact tag match
+    if (exactMatch && !filteredTags.find(tag => tag.id === exactMatch.id)) {
+      try {
+        const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
+        exactMatch.count = count;
+        exactMatch.type = 'tag';
+        await exactMatch.format();
+        filteredTags.unshift(exactMatch);
+      } catch (error) {
+        console.error('Error handling exact tag match:', error);
+      }
     }
 
-    formattedTags.sort((a, b) => b.count - a.count);
+    filteredTags.sort((a, b) => b.count - a.count);
 
     let posts = { results: [], total: 0 };
     if (includePosts === 'true') {
-      const postsQuery = await Post.query()
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
-        .orderBy('datetime', sort)
-        .range(offset, offset + limit - 1);
+      try {
+        const postsQuery = await Post.query()
+          .where(ref('data:title').castText(), 'ilike', `%${optimizedQuery}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${optimizedQuery}%`)
+          .orWhereIn('hubId', getPublishedThroughHubSubQuery(optimizedQuery))
+          .orderBy('datetime', sort)
+          .range(offset, offset + limit - 1)
+          .select('id', 'data', 'hubId', 'datetime'); // Select only needed fields
 
-      const formattedPosts = await Promise.all(
-        postsQuery.results.map(async post => {
-          post.type = 'post';
-          await post.format();
-          return post;
-        })
-      );
-      posts = {
-        results: formattedPosts,
-        total: postsQuery.total
-      };
+        const formattedPosts = await Promise.all(
+          postsQuery.results.map(async post => {
+            try {
+              post.type = 'post';
+              await post.format();
+              return post;
+            } catch (error) {
+              console.error('Error formatting post:', error);
+              return null;
+            }
+          })
+        );
+
+        posts = {
+          results: formattedPosts.filter(Boolean),
+          total: postsQuery.total
+        };
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+      }
     }
 
     const response = {
       accounts: {
-        results: formattedAccounts,
+        results: filteredAccounts,
         total: accounts.total
       },
       releases: {
-        results: formattedReleases,
+        results: filteredReleases,
         total: releases.total
       },
       hubs: {
-        results: formattedHubs,
+        results: filteredHubs,
         total: hubs.total
       },
       tags: {
-        results: formattedTags,
+        results: filteredTags,
         total: tags.total
       },
     };
@@ -149,6 +242,9 @@ router.get('/all', async (ctx) => {
     if (includePosts === 'true') {
       response.posts = posts;
     }
+
+    // Cache the response
+    await setCachedData(cacheKey, response);
 
     ctx.body = response;
   } catch (error) {
