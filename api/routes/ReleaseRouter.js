@@ -65,6 +65,7 @@ router.get('/', async (ctx) => {
     const formattedReleases = [];
     for await (let release of releases) {
       await release.format();
+      release.type = 'release'
       formattedReleases.push(release);
     }
 
