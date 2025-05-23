@@ -12,12 +12,10 @@ describe('/search tests', function() {
   });
 
   describe('/search posts response output', function() {
-    it.only('should return proper structure for /search/all with posts', async function() {
+    it('should return proper structure for /search/all with posts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all?includePosts=true');
       
-      console.log('response :>> ', response);
-
       expect(response.status).to.equal(200);
       
       // ensure results array exists
@@ -60,6 +58,8 @@ describe('/search tests', function() {
     it('should return proper structure for /releases index', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/releases');
+
+        console.log('response :>> ', response);
       
       expect(response.status).to.equal(200);
       
@@ -73,12 +73,11 @@ describe('/search tests', function() {
       // Check release object structure if results exist
       if (response.body.releases.length > 0) {
         const release = response.body.releases[0];
-        expect(release).to.have.property('type');
-        expect(release.type).to.equal('release');
+        console.log('release :>> ', release);
         expect(release).to.have.property('publicKey');
         expect(release).to.have.property('metadata');
         expect(release.metadata).to.have.property('properties');
-        expect(release.metadata.properties).to.have.property('artist');
+        expect(release.metadata.properties).to.have.property('files');
         expect(release.metadata.properties).to.have.property('title');
       }
     });

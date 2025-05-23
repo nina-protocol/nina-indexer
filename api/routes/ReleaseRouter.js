@@ -50,7 +50,29 @@ router.get('/', async (ctx) => {
       .limit(limit)
       .offset(offset);
 
-    ctx.body = { releases };
+    // Get total count for pagination
+    const total = await Release.query()
+      .where('archived', false)
+      .whereNotIn('publisherId', idList)
+      .modify((queryBuilder) => {
+        if (releaseIds.length > 0) {
+          queryBuilder.whereIn('id', releaseIds);
+        }
+      })
+      .resultSize();
+
+    // Format each release
+    const formattedReleases = [];
+    for await (let release of releases) {
+      await release.format();
+      formattedReleases.push(release);
+    }
+
+    ctx.body = { 
+      releases: formattedReleases,
+      total,
+      query: query || ''
+    };
   } catch (error) {
     console.error('Error in releases index:', error);
     ctx.status = 500;

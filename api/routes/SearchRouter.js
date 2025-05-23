@@ -20,11 +20,11 @@ const router = new KoaRouter({
   prefix: '/search'
 })
 router.get('/all', async (ctx) => {
-  const { query = '', limit = 2 } = ctx.query;
+  const { query = '', limit = 2, includePosts = false } = ctx.query;
   
   try {
     console.log('Starting search with query:', query);
-    const [tags, accounts, releases, hubs, posts] = await Promise.all([
+    const searchPromises = [
       Tag.query()
         .where('value', 'like', `%${query}%`)
         .orderBy('value', 'desc')
@@ -44,14 +44,22 @@ router.get('/all', async (ctx) => {
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
         .orderBy('datetime', 'desc')
-        .limit(limit),
-      Post.query()
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query))
-        .orderBy('datetime', 'desc')
         .limit(limit)
-    ]);
+    ];
+
+    if (includePosts) {
+      searchPromises.push(
+        Post.query()
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+          .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query))
+          .orderBy('datetime', 'desc')
+          .limit(limit)
+      );
+    }
+
+    const results = await Promise.all(searchPromises);
+    const [tags, accounts, releases, hubs, ...posts] = results;
     console.log('Search queries completed successfully');
 
     // Format releases to include required properties
@@ -80,10 +88,12 @@ router.get('/all', async (ctx) => {
         results: hubs,
         total: hubs.length
       },
-      posts: {
-        results: posts,
-        total: posts.length
-      },
+      ...(includePosts && {
+        posts: {
+          results: posts[0],
+          total: posts[0].length
+        }
+      }),
       query
     };
     console.log('Response sent successfully');
