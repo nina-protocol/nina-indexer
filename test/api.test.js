@@ -267,7 +267,7 @@ describe('Tests for the API', async function() {
     });
   });
 
-  describe ('Account APIs', async function() {
+  describe.only('Account APIs', async function() {
     it('should return accounts for /accounts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/accounts`);
       expect(response.status).to.equal(200);
