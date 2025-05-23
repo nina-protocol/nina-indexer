@@ -44,21 +44,23 @@ export const getReleaseSearchSubQuery = async (query) => {
     const hubIds = await withCache(
       `hub:search:${query}`,
       async () => {
-        const result = await db('hubs')
+        const result = await Hub.query()
           .select('id')
-          .where('name', 'ilike', `%${query}%`);
+          .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+          .orWhere('handle', 'ilike', `%${query}%`);
         return result.map(row => row.id);
       }
     );
 
-    // Get publisher IDs
+    // Get publisher IDs using Account model
     const publisherIds = await withCache(
       `publisher:search:${query}`,
       async () => {
-        const result = await db('publishers')
+        const accounts = await Account.query()
           .select('id')
-          .where('name', 'ilike', `%${query}%`);
-        return result.map(row => row.id);
+          .where('displayName', 'ilike', `%${query}%`)
+          .orWhere('handle', 'ilike', `%${query}%`);
+        return accounts.map(account => account.id);
       }
     );
 
@@ -84,12 +86,12 @@ export const getReleaseSearchSubQuery = async (query) => {
     const releaseIds = await withCache(
       `release:search:${query}`,
       async () => {
-        const result = await db('releases')
+        const result = await Release.query()
           .select('id')
-          .where('title', 'ilike', `%${query}%`)
-          .orWhere('description', 'ilike', `%${query}%`)
-          .orWhereIn('hub_id', safeHubIds)
-          .orWhereIn('publisher_id', safePublisherIds);
+          .where(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+          .orWhereIn('hubId', safeHubIds)
+          .orWhereIn('publisherId', safePublisherIds);
         return result.map(row => row.id);
       }
     );

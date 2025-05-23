@@ -15,6 +15,8 @@ describe('/search tests', function() {
     it('should return proper structure for /search/all with posts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all?includePosts=true');
+
+        console.log('response :>> ', response);
       
       expect(response.status).to.equal(200);
       
