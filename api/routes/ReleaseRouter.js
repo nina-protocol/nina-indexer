@@ -30,33 +30,31 @@ const router = new KoaRouter({
 })
 
 router.get('/', async (ctx) => {
+  const { query, limit = 20, offset = 0 } = ctx.query;
+  
   try {
-    let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
-    column = formatColumnForJsonFields(column);
+    let releaseIds = [];
+    if (query) {
+      releaseIds = await getReleaseSearchSubQuery(query);
+    }
 
     const releases = await Release.query()
       .where('archived', false)
       .whereNotIn('publisherId', idList)
-      .whereIn('id', getReleaseSearchSubQuery(query))
-      .orderBy(column, sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+      .modify((queryBuilder) => {
+        if (releaseIds.length > 0) {
+          queryBuilder.whereIn('id', releaseIds);
+        }
+      })
+      .orderBy('datetime', 'desc')
+      .limit(limit)
+      .offset(offset);
 
-    for await (let release of releases.results) {
-      await release.format();
-      release.type = 'release'     
-    }
-      
-    ctx.body = {
-      releases: releases.results,
-      total: releases.total,
-      query
-    };
-  } catch(err) {
-    console.log(err);
-    ctx.status = 400;
-    ctx.body = {
-      message: 'Error fetching releases'
-    };
+    ctx.body = { releases };
+  } catch (error) {
+    console.error('Error in releases index:', error);
+    ctx.status = 500;
+    ctx.body = { error: 'Internal server error' };
   }
 });
 

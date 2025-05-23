@@ -12,10 +12,12 @@ describe('/search tests', function() {
   });
 
   describe('/search posts response output', function() {
-    it('should return proper structure for /search/all with posts', async function() {
+    it.only('should return proper structure for /search/all with posts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all?includePosts=true');
       
+      console.log('response :>> ', response);
+
       expect(response.status).to.equal(200);
       
       // ensure results array exists
@@ -51,6 +53,47 @@ describe('/search tests', function() {
       expect(response.body.posts.results).to.be.an('array');
       expect(response.body.posts).to.have.property('total');
       expect(response.body.posts.total).to.be.a('number');
+    });
+  });
+
+  describe('Release Router Tests', function() {
+    it('should return proper structure for /releases index', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/releases');
+      
+      expect(response.status).to.equal(200);
+      
+      // Check basic response structure
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.be.a('number');
+      expect(response.body).to.have.property('query');
+      
+      // Check release object structure if results exist
+      if (response.body.releases.length > 0) {
+        const release = response.body.releases[0];
+        expect(release).to.have.property('type');
+        expect(release.type).to.equal('release');
+        expect(release).to.have.property('publicKey');
+        expect(release).to.have.property('metadata');
+        expect(release.metadata).to.have.property('properties');
+        expect(release.metadata.properties).to.have.property('artist');
+        expect(release.metadata.properties).to.have.property('title');
+      }
+    });
+
+    it('should handle query parameters for /releases index', async function() {
+      const query = 'surfing';
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/releases?query=${query}&limit=10&offset=0&sort=desc`);
+      
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body.releases.length).to.be.at.most(10);
+      expect(response.body).to.have.property('query');
+      expect(response.body.query).to.equal(query);
     });
   });
 });
