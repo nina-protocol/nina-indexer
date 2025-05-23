@@ -59,10 +59,11 @@ describe('/search tests', function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/releases');
 
-        console.log('response :>> ', response);
       
       expect(response.status).to.equal(200);
       
+      console.log('response.body.release.length :>> ', response.body.releases.length);
+
       // Check basic response structure
       expect(response.body).to.have.property('releases');
       expect(response.body.releases).to.be.an('array');
@@ -73,7 +74,6 @@ describe('/search tests', function() {
       // Check release object structure if results exist
       if (response.body.releases.length > 0) {
         const release = response.body.releases[0];
-        console.log('release :>> ', release);
         expect(release).to.have.property('publicKey');
         expect(release).to.have.property('metadata');
         expect(release.metadata).to.have.property('properties');

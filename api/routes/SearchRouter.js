@@ -63,11 +63,11 @@ router.get('/all', async (ctx) => {
     console.log('Search queries completed successfully');
 
     // Format releases to include required properties
-    const formattedReleases = releases.map(release => ({
-      ...release,
-      artist: release.metadata?.properties?.artist || '',
-      type: 'release'
-    }));
+    const formattedReleases = [];
+    for await (let release of releases) {
+      await release.format();
+      formattedReleases.push(release);
+    }
     console.log('Releases formatted successfully');
 
     ctx.status = 200;

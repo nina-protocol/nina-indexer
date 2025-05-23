@@ -256,12 +256,14 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
       await post.format();
     }
 
-    for (let release of releases.results) {
-      release.type = 'release'
-      await release.format()
+    const formattedReleases = [];
+    for await (let release of releases.results) {
+      await release.format();
+      release.type = 'release';
+      formattedReleases.push(release);
     }
 
-    const all = [...releases.results, ...posts]
+    const all = [...formattedReleases, ...posts]
     if (sort === 'desc') {
       all.sort((a, b) => new Date(b.datetime) - new Date(a.datetime))
     } else {
