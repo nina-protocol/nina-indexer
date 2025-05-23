@@ -31,26 +31,25 @@ router.get('/', async (ctx) => {
         break;
     }
 
-    const tags = await db.raw(`
-      SELECT tags.*, COUNT(tags_releases."tagId") as count
-      FROM tags
-      JOIN tags_releases ON tags.id = tags_releases."tagId"
-      WHERE tags.value ILIKE '${queryString}%'
-      GROUP BY tags.id
-      ORDER BY count ${sort}
-      LIMIT ${limit}
-      OFFSET ${offset}
-    `)
+    const tags = await db('tags')
+      .select('tags.*')
+      .count('tags_releases.tagId as count')
+      .join('tags_releases', 'tags.id', 'tags_releases.tagId')
+      .where('tags.value', 'ilike', `${queryString}%`)
+      .groupBy('tags.id')
+      .orderBy('count', sort)
+      .limit(limit)
+      .offset(offset);
       
     const total = await Tag.query().where('value', 'ilike', `%${query}%`).resultSize()
   
-    for await (let tag of tags.rows) {
+    for await (let tag of tags) {
       tag.count = Number(tag.count)
       delete tag.id
     }
     ctx.body = {
       tags: {
-        results: tags.rows,
+        results: tags,
         total,
       }
     }
@@ -81,7 +80,7 @@ router.get('/:value', async (ctx) => {
 
     if (column === 'favorites') {
       // daterange param
-      let dateCondition = '';
+      let dateCondition = {};
       if (daterange) {
         const startDate = new Date();
         if (daterange === 'daily') {
@@ -91,22 +90,25 @@ router.get('/:value', async (ctx) => {
         } else if (daterange === 'monthly') {
           startDate.setMonth(startDate.getMonth() - 1);
         }
-        dateCondition = `AND created_at::timestamp >= '${startDate.toISOString()}'`;
+        dateCondition = { created_at: { $gte: startDate.toISOString() } };
       }
 
       // get favorite counts for all releases in this tag
       const publicKeys = allReleases.map(release => release.publicKey);
-      const favoriteCounts = await authDb.raw(`
-        SELECT public_key, COUNT(*) as favorite_count
-        FROM favorites
-        WHERE favorite_type = 'release'
-        AND public_key = ANY(?)
-        ${dateCondition}
-        GROUP BY public_key
-      `, [publicKeys]);
+      const favoriteCounts = await authDb('favorites')
+        .select('public_key')
+        .count('* as favorite_count')
+        .where('favorite_type', 'release')
+        .whereIn('public_key', publicKeys)
+        .modify(queryBuilder => {
+          if (Object.keys(dateCondition).length > 0) {
+            queryBuilder.where('created_at', '>=', dateCondition.created_at.$gte);
+          }
+        })
+        .groupBy('public_key');
 
       // map the favorite counts to the releases
-      const favoriteCountMap = _.keyBy(favoriteCounts.rows, 'public_key');
+      const favoriteCountMap = _.keyBy(favoriteCounts, 'public_key');
       allReleases = allReleases.map(release => ({
         ...release,
         favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)

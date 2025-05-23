@@ -24,7 +24,7 @@ router.get('/', async (ctx) => {
       .query()
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
       .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query))
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
     for await (let post of posts.results) {

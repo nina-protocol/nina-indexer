@@ -13,7 +13,8 @@
     "test:perf": "mocha test/perf/**/*.js",
     "start:api": "yarn && node api/index.js",
     "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive",
-    "test:search": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/search.test.js --timeout 180000 --recursive"
+    "test:search": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/search.test.js --timeout 180000 --recursive",
+    "redis:start": "brew services start redis"
   },
   "dependencies": {
     "@bonfida/spl-name-service": "^0.1.51",
@@ -30,6 +31,7 @@
     "dotenv": "^16.0.1",
     "ethereum-ens": "^0.8.0",
     "form-urlencoded": "^6.1.0",
+    "ioredis": "^5.3.2",
     "koa": "^2.13.4",
     "koa-bodyparser": "^4.3.0",
     "koa-combine-routers": "^4.0.2",
