@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import NinaProcessor from '../indexer/processor.js';
+import NinaProcessor from '../indexer/src/processors/index.js';
 import { Connection } from '@solana/web3.js';
 import { Program } from '@project-serum/anchor';
 import dotenv from 'dotenv';

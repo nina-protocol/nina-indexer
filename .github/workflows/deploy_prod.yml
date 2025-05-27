@@ -27,6 +27,8 @@ jobs:
      # Step 2
       - name: Deploy Nina Indexer
         id: deploy
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
         run: |
           aws deploy create-deployment \
             --application-name Nina_Indexer_Prod \

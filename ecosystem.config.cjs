@@ -7,6 +7,7 @@ module.exports = {
       args: '-- start:indexer:heapstats',
       env: {
         // will be temporarily written to during pm2 env configuration
+        NODE_ENV: 'production'
       }
     },
     {
@@ -15,6 +16,18 @@ module.exports = {
       max_memory_restart: '1536M',
       env: {
         // will be temporarily written to during pm2 env configuration
+        NODE_ENV: 'production',
+        REDIS_URL: process.env.REDIS_URL
+      }
+    },
+    {
+      name: 'nina-cache-warmer',
+      script: 'scripts/scheduler.js',
+      max_memory_restart: '512M',
+      env: {
+        // will be temporarily written to during pm2 env configuration
+        NODE_ENV: 'production',
+        REDIS_URL: process.env.REDIS_URL
       }
     },
   ],
