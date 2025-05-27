@@ -12,6 +12,13 @@ import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
 import promiseRetry from 'promise-retry';
 
+const ensureHttps = (uri) => {
+  if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+    return `https://${uri}`;
+  }
+  return uri;
+};
+
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
 export default class Release extends Model {
@@ -89,9 +96,9 @@ export default class Release extends Model {
       }
       let json
       try {
-        json = (await axios.get(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz'))).data
+        json = (await axios.get(ensureHttps(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz')))).data
       } catch (error) {
-        json = (await axios.get(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net'))).data
+        json = (await axios.get(ensureHttps(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net')))).data
       }
   
       const slug = await this.generateSlug(json);

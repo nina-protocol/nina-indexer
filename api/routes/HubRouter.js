@@ -15,6 +15,13 @@ import { decode, callRpcMethodWithRetry } from '../../indexer/src/utils/index.js
 import { warmCache } from '../../indexer/src/utils/helpers.js';
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 
+const ensureHttps = (uri) => {
+  if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+    return `https://${uri}`;
+  }
+  return uri;
+};
+
 const router = new KoaRouter({
   prefix: '/hubs'
 })
@@ -78,9 +85,9 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
         const uri = decode(hubAccount.uri)
         let data
         try {
-          data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
+          data = await axios.get(ensureHttps(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz')))
         } catch (error) {
-          data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
+          data = await axios.get(ensureHttps(uri.replace('gateway.irys.xyz', 'arweave.net')))
         }
           hub = await Hub.query().insertGraph({
           publicKey,
@@ -530,9 +537,9 @@ router.get('/:publicKeyOrHandle/hubPosts/:hubPostPublicKey', async (ctx) => {
       const uri = decode(postAccount.uri)
       let data
       try {
-        data = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'))
+        data = await axios.get(ensureHttps(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz')))
       } catch (error) {
-        data = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'))
+        data = await axios.get(ensureHttps(uri.replace('gateway.irys.xyz', 'arweave.net')))
       }
       const publisher = await Account.findOrCreate(postAccount.author.toBase58());
       post = await Post.query().insertGraph({
