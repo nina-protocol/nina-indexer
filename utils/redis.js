@@ -103,18 +103,13 @@ redis.on('reconnecting', () => {
 
 // Cache wrapper function
 export const withCache = async (key, fn) => {
-  console.log(`[Cache] Attempting to get/set cache for key: ${key}`);
   try {
     // Try to get from cache first
-    console.log(`[Cache] Getting from Redis for key: ${key}`);
     const cachedResult = await redis.get(key);
-    console.log(`[Cache] Redis get result for key ${key}:`, cachedResult ? 'Found' : 'Not found');
     
     if (cachedResult) {
-      console.log(`[Cache Hit] Found cached result for key: ${key}`);
       try {
         const parsed = JSON.parse(cachedResult);
-        console.log(`[Cache] Successfully parsed cached result for key: ${key}`);
         // Ensure arrays of IDs are properly formatted
         if (Array.isArray(parsed)) {
           return parsed.map(id => {
@@ -126,19 +121,13 @@ export const withCache = async (key, fn) => {
         }
         return parsed;
       } catch (parseError) {
-        console.error(`[Cache Error] Failed to parse cached result for key: ${key}`, parseError);
-        console.error(`[Cache Error] Raw cached value:`, cachedResult);
         // If parsing fails, clear the cache and execute the function
         await redis.del(key);
       }
-    } else {
-      console.log(`[Cache Miss] No cached result found for key: ${key}`);
     }
 
     // If not in cache or parsing failed, execute the function
-    console.log(`[Cache] Executing function for key: ${key}`);
     const result = await fn();
-    console.log(`[Cache] Function execution result for key ${key}:`, result ? 'Success' : 'Null/undefined');
     
     // Only cache if result is not null/undefined
     if (result != null) {
@@ -153,28 +142,18 @@ export const withCache = async (key, fn) => {
             }).filter(id => !isNaN(id))
           : result;
 
-        console.log(`[Cache] Attempting to set cache for key: ${key}`);
         await redis.setex(key, CACHE_TTL, JSON.stringify(toCache));
-        console.log(`[Cache Set] Successfully stored result in cache for key: ${key}`);
       } catch (cacheError) {
-        console.error(`[Cache Error] Failed to store in cache for key: ${key}`, cacheError);
-        console.error(`[Cache Error] Value attempted to cache:`, toCache);
         // Continue execution even if caching fails
       }
-    } else {
-      console.log(`[Cache] Not caching null/undefined result for key: ${key}`);
     }
     
     return result;
   } catch (error) {
-    console.error(`[Cache Error] General error for key: ${key}`, error);
-    console.error(`[Cache Error] Stack trace:`, error.stack);
     // If Redis fails, execute the function without caching
     try {
-      console.log(`[Cache] Executing function without cache for key: ${key}`);
       return await fn();
     } catch (fnError) {
-      console.error(`[Cache Error] Function execution failed for key: ${key}`, fnError);
       throw fnError; // Re-throw the function error to be handled by the caller
     }
   }
@@ -184,7 +163,6 @@ export const withCache = async (key, fn) => {
 export const clearCache = async (key) => {
   try {
     await redis.del(key);
-    console.log(`[Cache Clear] Cleared cache for key: ${key}`);
   } catch (error) {
     console.error('Error clearing cache:', error);
   }
@@ -196,7 +174,6 @@ export const clearCacheByPattern = async (pattern) => {
     const keys = await redis.keys(pattern);
     if (keys.length > 0) {
       await redis.del(keys);
-      console.log(`[Cache Clear] Cleared ${keys.length} keys matching pattern: ${pattern}`);
     }
   } catch (error) {
     console.error('Error clearing cache by pattern:', error);
