@@ -185,7 +185,6 @@ export const checkPoolHealth = () => {
 
 // Cache wrapper function
 export const withCache = async (key, fn) => {
-  const startTime = Date.now();
   const client = getClient();
   try {
     // Try to get from cache first
@@ -194,8 +193,6 @@ export const withCache = async (key, fn) => {
     if (cachedResult) {
       try {
         const parsed = JSON.parse(cachedResult);
-        const endTime = Date.now();
-        console.log(`[PERF] Cache HIT for ${key} - ${endTime - startTime}ms`);
         if (Array.isArray(parsed)) {
           return parsed.map(id => {
             if (typeof id === 'object' && id !== null) {
@@ -206,16 +203,11 @@ export const withCache = async (key, fn) => {
         }
         return parsed;
       } catch (parseError) {
-        console.log(`[PERF] Cache PARSE ERROR for ${key} - ${Date.now() - startTime}ms`);
         await client.del(key);
       }
     }
 
-    console.log(`[PERF] Cache MISS for ${key} - ${Date.now() - startTime}ms`);
-    const fnStartTime = Date.now();
     const result = await fn();
-    const fnEndTime = Date.now();
-    console.log(`[PERF] Function execution for ${key} - ${fnEndTime - fnStartTime}ms`);
     
     if (result != null) {
       try {
@@ -228,9 +220,7 @@ export const withCache = async (key, fn) => {
             }).filter(id => !isNaN(id))
           : result;
 
-        const cacheStartTime = Date.now();
         await client.setex(key, CACHE_TTL, JSON.stringify(toCache));
-        console.log(`[PERF] Cache SET for ${key} - ${Date.now() - cacheStartTime}ms`);
       } catch (cacheError) {
         console.error('[Redis] Cache error:', cacheError);
       }
@@ -239,7 +229,6 @@ export const withCache = async (key, fn) => {
     return result;
   } catch (error) {
     try {
-      console.log(`[PERF] Cache ERROR for ${key} - ${Date.now() - startTime}ms`);
       return await fn();
     } catch (fnError) {
       throw fnError;
@@ -249,14 +238,11 @@ export const withCache = async (key, fn) => {
 
 // Batch operations
 export const batchGet = async (keys) => {
-  const startTime = Date.now();
   const client = getClient();
   try {
     const pipeline = client.pipeline();
     keys.forEach(key => pipeline.get(key));
     const results = await pipeline.exec();
-    const endTime = Date.now();
-    console.log(`[PERF] Batch GET ${keys.length} keys - ${endTime - startTime}ms`);
     return results.map(([err, result]) => {
       if (err) return null;
       try {
@@ -272,7 +258,6 @@ export const batchGet = async (keys) => {
 };
 
 export const batchSet = async (entries) => {
-  const startTime = Date.now();
   const client = getClient();
   try {
     const pipeline = client.pipeline();
@@ -280,7 +265,6 @@ export const batchSet = async (entries) => {
       pipeline.setex(key, CACHE_TTL, JSON.stringify(value));
     });
     await pipeline.exec();
-    console.log(`[PERF] Batch SET ${entries.length} entries - ${Date.now() - startTime}ms`);
   } catch (error) {
     console.error('[Redis] Batch set error:', error);
   }
@@ -288,11 +272,9 @@ export const batchSet = async (entries) => {
 
 // Clear cache for a specific key
 export const clearCache = async (key) => {
-  const startTime = Date.now();
   const client = getClient();
   try {
     await client.del(key);
-    console.log(`[PERF] Cache CLEAR for ${key} - ${Date.now() - startTime}ms`);
   } catch (error) {
     console.error('[Redis] Clear cache error:', error);
   }
@@ -300,7 +282,6 @@ export const clearCache = async (key) => {
 
 // Clear cache by pattern
 export const clearCacheByPattern = async (pattern) => {
-  const startTime = Date.now();
   const client = getClient();
   try {
     const keys = await client.keys(pattern);
@@ -308,7 +289,6 @@ export const clearCacheByPattern = async (pattern) => {
       const pipeline = client.pipeline();
       keys.forEach(key => pipeline.del(key));
       await pipeline.exec();
-      console.log(`[PERF] Cache CLEAR PATTERN ${pattern} - ${keys.length} keys - ${Date.now() - startTime}ms`);
     }
   } catch (error) {
     console.error('[Redis] Clear cache by pattern error:', error);
