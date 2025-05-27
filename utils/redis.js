@@ -116,6 +116,41 @@ const getClient = () => {
   return client;
 };
 
+// Test Redis connection
+const testRedisConnection = async (client) => {
+  try {
+    await client.set('test:connection', 'ok', 'EX', 10);
+    const result = await client.get('test:connection');
+    return result === 'ok';
+  } catch (error) {
+    console.error('[Redis] Connection test failed:', error);
+    return false;
+  }
+};
+
+// Initialize all clients
+const initializePool = async () => {
+  try {
+    console.log('[Redis] Initializing pool...');
+    const results = await Promise.all(redisPool.map(client => testRedisConnection(client)));
+    const successCount = results.filter(Boolean).length;
+    
+    if (successCount === 0) {
+      throw new Error('Failed to initialize any Redis connections');
+    }
+    
+    if (successCount < redisPool.length) {
+      console.warn(`[Redis] Only ${successCount}/${redisPool.length} connections initialized successfully`);
+    }
+    
+    isPoolInitialized = true;
+    console.log('[Redis] Pool initialization completed');
+  } catch (error) {
+    console.error('[Redis] Pool initialization failed:', error);
+    throw error;
+  }
+};
+
 // Health check function
 export const checkPoolHealth = () => {
   const health = {
@@ -146,42 +181,6 @@ export const checkPoolHealth = () => {
   });
 
   return health;
-};
-
-// Test Redis connection
-const testRedisConnection = async () => {
-  const client = getClient();
-  try {
-    await client.set('test:connection', 'ok', 'EX', 10);
-    const result = await client.get('test:connection');
-    return result === 'ok';
-  } catch (error) {
-    console.error('[Redis] Connection test failed:', error);
-    return false;
-  }
-};
-
-// Initialize all clients
-const initializePool = async () => {
-  try {
-    console.log('[Redis] Initializing pool...');
-    const results = await Promise.all(redisPool.map(client => testRedisConnection()));
-    const successCount = results.filter(Boolean).length;
-    
-    if (successCount === 0) {
-      throw new Error('Failed to initialize any Redis connections');
-    }
-    
-    if (successCount < redisPool.length) {
-      console.warn(`[Redis] Only ${successCount}/${redisPool.length} connections initialized successfully`);
-    }
-    
-    isPoolInitialized = true;
-    console.log('[Redis] Pool initialization completed');
-  } catch (error) {
-    console.error('[Redis] Pool initialization failed:', error);
-    throw error;
-  }
 };
 
 // Cache wrapper function
