@@ -13,26 +13,28 @@ console.log('REDIS_URL:', REDIS_URL);
 const redis = new Redis(REDIS_URL, {
   retryStrategy: (times) => {
     console.log(`[Redis] Retry attempt ${times}`);
-    return Math.min(times * 50, 2000);
+    const delay = Math.min(times * 1000, 5000); // Max 5 second delay
+    console.log(`[Redis] Retrying in ${delay}ms`);
+    return delay;
   },
   maxRetriesPerRequest: 3,
-  connectTimeout: 10000, // 10 seconds
-  commandTimeout: 5000,  // 5 seconds
-  enableOfflineQueue: false, // Don't queue commands when offline
+  connectTimeout: 20000, // 20 seconds
+  commandTimeout: 10000,  // 10 seconds
+  enableOfflineQueue: true, // Enable offline queue to handle connection issues
   enableReadyCheck: true,   // Check if Redis is ready before sending commands
   reconnectOnError: (err) => {
     console.error('[Redis] Reconnect on error:', err);
     return true; // Always try to reconnect
-  }
+  },
+  lazyConnect: true // Don't connect immediately, wait for first command
 });
 
 // Test Redis connection
 const testRedisConnection = async () => {
   try {
     console.log('[Redis] Testing connection...');
-    await redis.set('test:connection', 'ok');
+    await redis.set('test:connection', 'ok', 'EX', 10); // Add 10 second expiry
     const result = await redis.get('test:connection');
-    await redis.del('test:connection');
     if (result === 'ok') {
       console.log('[Redis] Connection test successful');
       return true;
@@ -71,6 +73,10 @@ redis.on('error', (error) => {
 
 redis.on('close', () => {
   console.log('Redis connection closed');
+});
+
+redis.on('reconnecting', () => {
+  console.log('[Redis] Attempting to reconnect...');
 });
 
 // Cache wrapper function
