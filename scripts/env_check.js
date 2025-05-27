@@ -11,6 +11,8 @@ export const environmentIsSetup = () => {
     throw('SOLANA_CLUSTER_URL is not set');
   } else if (process.env.NINA_PROGRAM_ID === undefined) {
     throw('NINA_PROGRAM_ID is not set');
+  } else if (process.env.REDIS_URL === undefined) {
+    throw('REDIS_URL is not set');
   }
 
   return true

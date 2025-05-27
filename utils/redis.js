@@ -6,20 +6,32 @@ dotenv.config();
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const CACHE_TTL = 7200; // 2 hours in seconds
 
+console.log('Initializing Redis with URL:', REDIS_URL);
+
 // Create Redis client
 const redis = new Redis(REDIS_URL);
 
 // Handle Redis connection events
 redis.on('connect', () => {
-  console.log('Connected to Redis');
+  console.log('Successfully connected to Redis');
+});
+
+redis.on('ready', () => {
+  console.log('Redis client is ready to accept commands');
 });
 
 redis.on('error', (error) => {
   console.error('Redis connection error:', error);
+  console.error('Redis URL being used:', REDIS_URL);
+});
+
+redis.on('close', () => {
+  console.log('Redis connection closed');
 });
 
 // Cache wrapper function
 export const withCache = async (key, fn) => {
+  console.log(`[Cache] Attempting to get/set cache for key: ${key}`);
   try {
     // Try to get from cache first
     const cachedResult = await redis.get(key);
@@ -27,6 +39,7 @@ export const withCache = async (key, fn) => {
       console.log(`[Cache Hit] Found cached result for key: ${key}`);
       try {
         const parsed = JSON.parse(cachedResult);
+        console.log(`[Cache] Successfully parsed cached result for key: ${key}`);
         // Ensure arrays of IDs are properly formatted
         if (Array.isArray(parsed)) {
           return parsed.map(id => {
@@ -38,13 +51,16 @@ export const withCache = async (key, fn) => {
         }
         return parsed;
       } catch (parseError) {
-        console.error('Error parsing cached result:', parseError);
+        console.error(`[Cache Error] Failed to parse cached result for key: ${key}`, parseError);
         // If parsing fails, clear the cache and execute the function
         await redis.del(key);
       }
+    } else {
+      console.log(`[Cache Miss] No cached result found for key: ${key}`);
     }
 
     // If not in cache or parsing failed, execute the function
+    console.log(`[Cache] Executing function for key: ${key}`);
     const result = await fn();
     
     // Only cache if result is not null/undefined
@@ -61,21 +77,24 @@ export const withCache = async (key, fn) => {
           : result;
 
         await redis.setex(key, CACHE_TTL, JSON.stringify(toCache));
-        console.log(`[Cache Set] Stored result in cache for key: ${key}`);
+        console.log(`[Cache Set] Successfully stored result in cache for key: ${key}`);
       } catch (cacheError) {
-        console.error('Error storing in cache:', cacheError);
+        console.error(`[Cache Error] Failed to store in cache for key: ${key}`, cacheError);
         // Continue execution even if caching fails
       }
+    } else {
+      console.log(`[Cache] Not caching null/undefined result for key: ${key}`);
     }
     
     return result;
   } catch (error) {
-    console.error('Cache error:', error);
+    console.error(`[Cache Error] General error for key: ${key}`, error);
     // If Redis fails, execute the function without caching
     try {
+      console.log(`[Cache] Executing function without cache for key: ${key}`);
       return await fn();
     } catch (fnError) {
-      console.error('Function execution error:', fnError);
+      console.error(`[Cache Error] Function execution failed for key: ${key}`, fnError);
       throw fnError; // Re-throw the function error to be handled by the caller
     }
   }

@@ -11,17 +11,18 @@ describe('/search tests', function() {
     await connectDb();
   });
 
-  describe('/search posts response output', function() {
+  describe.only('/search posts response output', function() {
     it('should return proper structure for /search/all with posts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all?includePosts=true');
 
-        console.log('response :>> ', response);
+        // console.log('response :>> ', response);
       
       expect(response.status).to.equal(200);
       
       // ensure results array exists
       expect(response.body).to.have.property('posts');
+      expect(response.body).to.have.property('releases');
       expect(response.body.posts).to.be.an('object');
       expect(response.body.posts).to.have.property('results');
       expect(response.body.posts.results).to.be.an('array');
