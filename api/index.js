@@ -10,6 +10,12 @@ import RootRouter from './routes/RootRouter.js'
 import { environmentIsSetup } from "../scripts/env_check.js";
 import TransactionSyncer from '../indexer/src/TransactionSyncer.js';
 
+// Debug environment variables
+console.log('Environment Variables:');
+console.log('SOLANA_CLUSTER_URL:', process.env.SOLANA_CLUSTER_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('REDIS_URL:', process.env.REDIS_URL);
+
 const app = new Koa()
 app.use(cors())
 app.use(ratelimit({

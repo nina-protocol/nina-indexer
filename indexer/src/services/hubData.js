@@ -56,10 +56,10 @@ class HubDataService {
 
       let metadata;
       try {
-        const response = await axios.get(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz'));
+        const response = await axios.get(ensureHttps(uri.replace('www.', '').replace('arweave.net', 'gateway.irys.xyz')));
         metadata = response.data;
       } catch (error) {
-        const response = await axios.get(uri.replace('gateway.irys.xyz', 'arweave.net'));
+        const response = await axios.get(ensureHttps(uri.replace('gateway.irys.xyz', 'arweave.net')));
         metadata = response.data;
       }
 
