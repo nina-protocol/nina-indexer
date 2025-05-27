@@ -2,12 +2,6 @@ import { PublicKey } from '@solana/web3.js';
 import { decode, callRpcMethodWithRetry, logTimestampedMessage, sleep } from '../utils/index.js';
 import axios from 'axios';
 
-const ensureHttps = (uri) => {
-  if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
-    return `https://${uri}`;
-  }
-  return uri;
-};
 
 class HubDataService {
   constructor() {
