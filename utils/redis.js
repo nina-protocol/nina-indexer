@@ -5,9 +5,29 @@ dotenv.config();
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const CACHE_TTL = 7200; // 2 hours in seconds
+const POOL_SIZE = 10;
+const CONNECTION_TIMEOUT = 5000; // 5 seconds
+const OPERATION_TIMEOUT = 10000; // 10 seconds
+
+// Track pool health
+let failedConnections = 0;
+let lastErrorTime = null;
+const MAX_FAILURES = 5;
+const FAILURE_WINDOW = 60000; // 1 minute
+
+// Alert thresholds
+const ALERT_THRESHOLDS = {
+  MIN_ACTIVE_CONNECTIONS: 5,  // Alert if less than 5 active connections
+  MAX_FAILED_CONNECTIONS: 3,  // Alert if more than 3 failed connections
+  ERROR_WINDOW: 5 * 60 * 1000 // 5 minutes
+};
+
+// Track alerts to prevent spam
+let lastAlertTime = null;
+const ALERT_COOLDOWN = 15 * 60 * 1000; // 15 minutes
 
 // Create Redis connection pool
-const createRedisPool = (size = 10) => {
+const createRedisPool = (size = POOL_SIZE) => {
   const pool = [];
   let activeConnections = 0;
   
@@ -18,19 +38,43 @@ const createRedisPool = (size = 10) => {
         return delay;
       },
       maxRetriesPerRequest: 3,
-      connectTimeout: 20000,
-      commandTimeout: 10000,
+      connectTimeout: CONNECTION_TIMEOUT,
+      commandTimeout: OPERATION_TIMEOUT,
       enableOfflineQueue: true,
       enableReadyCheck: true,
       reconnectOnError: (err) => {
         console.error('[Redis] Reconnect on error:', err);
         return true;
       },
-      lazyConnect: true
+      lazyConnect: true,
+      // Add keepalive to prevent timeouts
+      keepAlive: 10000,
+      // Add connection timeout
+      connectTimeout: CONNECTION_TIMEOUT,
+      // Add command timeout
+      commandTimeout: OPERATION_TIMEOUT
     });
 
     client.on('error', (error) => {
       console.error(`[Redis Pool Client ${i}] Error:`, error);
+      failedConnections++;
+      
+      // Check if we're having too many failures
+      const now = Date.now();
+      if (lastErrorTime && (now - lastErrorTime) < FAILURE_WINDOW) {
+        if (failedConnections >= MAX_FAILURES) {
+          console.error('[Redis] Too many failures in short time, removing client from pool');
+          const index = pool.indexOf(client);
+          if (index > -1) {
+            pool.splice(index, 1);
+            client.disconnect();
+          }
+        }
+      } else {
+        // Reset failure count if outside window
+        failedConnections = 1;
+        lastErrorTime = now;
+      }
     });
 
     client.on('connect', () => {
@@ -43,6 +87,12 @@ const createRedisPool = (size = 10) => {
       console.log(`[Redis] Client ${i} disconnected. Active connections: ${activeConnections}`);
     });
 
+    // Add timeout handler
+    client.on('timeout', () => {
+      console.error(`[Redis] Client ${i} timed out`);
+      client.disconnect();
+    });
+
     pool.push(client);
   }
   return pool;
@@ -51,10 +101,14 @@ const createRedisPool = (size = 10) => {
 // Create the pool
 const redisPool = createRedisPool();
 
-// Get a client from the pool using round-robin
+// Get a client from the pool using round-robin with timeout
 let currentClientIndex = 0;
 let totalRequests = 0;
 const getClient = () => {
+  if (redisPool.length === 0) {
+    throw new Error('No available Redis connections in pool');
+  }
+
   const client = redisPool[currentClientIndex];
   currentClientIndex = (currentClientIndex + 1) % redisPool.length;
   totalRequests++;
@@ -66,6 +120,78 @@ const getClient = () => {
   
   return client;
 };
+
+// Alert function
+const sendAlert = (message, severity = 'warning') => {
+  const now = Date.now();
+  
+  // Prevent alert spam
+  if (lastAlertTime && (now - lastAlertTime) < ALERT_COOLDOWN) {
+    return;
+  }
+  
+  lastAlertTime = now;
+  
+  // Format alert message
+  const alertMessage = `[Redis ${severity.toUpperCase()}] ${message}`;
+  
+  // Log to console for development
+  if (process.env.NODE_ENV !== 'production') {
+    console.error(alertMessage);
+    return;
+  }
+
+  // In production, send to your monitoring system
+  // This is where you'd integrate with your monitoring service
+  // For now, we'll just log to console in a way that's easy to grep
+  console.error(`[MONITORING] ${alertMessage}`);
+  
+  // You can add your preferred alerting method here, for example:
+  // - Send to CloudWatch
+  // - Send to Datadog
+  // - Send to New Relic
+  // - Send to your own monitoring system
+};
+
+// Health check function
+export const checkPoolHealth = () => {
+  const health = {
+    totalConnections: redisPool.length,
+    activeConnections: redisPool.filter(client => client.status === 'ready').length,
+    failedConnections,
+    lastErrorTime,
+    timestamp: new Date().toISOString()
+  };
+
+  // Check for problems and log
+  if (health.activeConnections < ALERT_THRESHOLDS.MIN_ACTIVE_CONNECTIONS) {
+    console.error(`[Redis CRITICAL] Low active connections: ${health.activeConnections}/${POOL_SIZE}. Pool may be exhausted.`);
+  }
+
+  if (health.failedConnections > ALERT_THRESHOLDS.MAX_FAILED_CONNECTIONS) {
+    console.error(`[Redis CRITICAL] High number of failed connections: ${health.failedConnections}. Redis may be having issues.`);
+  }
+
+  if (health.lastErrorTime && (Date.now() - health.lastErrorTime) < ALERT_THRESHOLDS.ERROR_WINDOW) {
+    console.error(`[Redis WARNING] Recent Redis errors detected. Last error: ${new Date(health.lastErrorTime).toISOString()}`);
+  }
+
+  // Log health status
+  console.log('[Redis] Pool Health:', {
+    ...health,
+    lastErrorTime: health.lastErrorTime ? new Date(health.lastErrorTime).toISOString() : null
+  });
+
+  return health;
+};
+
+// Run health check every 5 minutes
+setInterval(() => {
+  checkPoolHealth();
+}, 5 * 60 * 1000);
+
+// Run health check on startup
+checkPoolHealth();
 
 // Test Redis connection
 const testRedisConnection = async () => {
@@ -199,6 +325,65 @@ export const clearCacheByPattern = async (pattern) => {
   }
 };
 
+// Cleanup function to properly close all connections
+export const cleanupPool = async () => {
+  console.log('[Redis] Starting pool cleanup...');
+  const closePromises = redisPool.map(async (client, index) => {
+    try {
+      await client.quit();
+      console.log(`[Redis] Client ${index} closed successfully`);
+    } catch (error) {
+      console.error(`[Redis] Error closing client ${index}:`, error);
+      // Force close if quit fails
+      try {
+        await client.disconnect();
+      } catch (disconnectError) {
+        console.error(`[Redis] Error force disconnecting client ${index}:`, disconnectError);
+      }
+    }
+  });
+
+  await Promise.all(closePromises);
+  console.log('[Redis] Pool cleanup completed');
+};
+
+// Handle process termination
+process.on('SIGTERM', async () => {
+  console.log('[Redis] Received SIGTERM signal');
+  await cleanupPool();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('[Redis] Received SIGINT signal');
+  await cleanupPool();
+  process.exit(0);
+});
+
+// Handle PM2 restarts and crashes
+process.on('uncaughtException', async (error) => {
+  console.error('[Redis] Uncaught Exception:', error);
+  await cleanupPool();
+  process.exit(1);
+});
+
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('[Redis] Unhandled Rejection at:', promise, 'reason:', reason);
+  await cleanupPool();
+  process.exit(1);
+});
+
+// Handle PM2 graceful shutdown
+if (process.env.NODE_ENV === 'production') {
+  process.on('message', async (msg) => {
+    if (msg === 'shutdown') {
+      console.log('[Redis] Received PM2 shutdown message');
+      await cleanupPool();
+      process.exit(0);
+    }
+  });
+}
+
 // Initialize the pool
 initializePool().catch(console.error);
 
@@ -208,5 +393,7 @@ export default {
   batchGet,
   batchSet,
   clearCache,
-  clearCacheByPattern
+  clearCacheByPattern,
+  cleanupPool,
+  checkPoolHealth
 }; 
