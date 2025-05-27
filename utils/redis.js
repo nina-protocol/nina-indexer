@@ -13,27 +13,44 @@ console.log('REDIS_URL:', REDIS_URL);
 const redis = new Redis(REDIS_URL, {
   retryStrategy: (times) => {
     console.log(`[Redis] Retry attempt ${times}`);
-    const delay = Math.min(times * 1000, 5000); // Max 5 second delay
+    const delay = Math.min(times * 1000, 5000);
     console.log(`[Redis] Retrying in ${delay}ms`);
     return delay;
   },
   maxRetriesPerRequest: 3,
-  connectTimeout: 20000, // 20 seconds
-  commandTimeout: 10000,  // 10 seconds
-  enableOfflineQueue: true, // Enable offline queue to handle connection issues
-  enableReadyCheck: true,   // Check if Redis is ready before sending commands
+  connectTimeout: 20000,
+  commandTimeout: 10000,
+  enableOfflineQueue: true,
+  enableReadyCheck: true,
   reconnectOnError: (err) => {
     console.error('[Redis] Reconnect on error:', err);
-    return true; // Always try to reconnect
+    return true;
   },
-  lazyConnect: true // Don't connect immediately, wait for first command
+  lazyConnect: true
 });
 
 // Test Redis connection
 const testRedisConnection = async () => {
   try {
     console.log('[Redis] Testing connection...');
-    await redis.set('test:connection', 'ok', 'EX', 10); // Add 10 second expiry
+    // Wait for Redis to be ready
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Redis ready timeout'));
+      }, 10000);
+
+      if (redis.status === 'ready') {
+        clearTimeout(timeout);
+        resolve();
+      } else {
+        redis.once('ready', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      }
+    });
+
+    await redis.set('test:connection', 'ok', 'EX', 10);
     const result = await redis.get('test:connection');
     if (result === 'ok') {
       console.log('[Redis] Connection test successful');
@@ -50,9 +67,14 @@ const testRedisConnection = async () => {
 };
 
 // Run connection test on startup
-testRedisConnection().then(success => {
-  if (!success) {
-    console.error('[Redis] Initial connection test failed - Redis may not be fully operational');
+let isInitialized = false;
+redis.on('ready', async () => {
+  if (!isInitialized) {
+    isInitialized = true;
+    const success = await testRedisConnection();
+    if (!success) {
+      console.error('[Redis] Initial connection test failed - Redis may not be fully operational');
+    }
   }
 });
 
