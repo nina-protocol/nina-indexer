@@ -236,40 +236,6 @@ export const withCache = async (key, fn) => {
   }
 };
 
-// Batch operations
-export const batchGet = async (keys) => {
-  const client = getClient();
-  try {
-    const pipeline = client.pipeline();
-    keys.forEach(key => pipeline.get(key));
-    const results = await pipeline.exec();
-    return results.map(([err, result]) => {
-      if (err) return null;
-      try {
-        return JSON.parse(result);
-      } catch {
-        return result;
-      }
-    });
-  } catch (error) {
-    console.error('[Redis] Batch get error:', error);
-    return keys.map(() => null);
-  }
-};
-
-export const batchSet = async (entries) => {
-  const client = getClient();
-  try {
-    const pipeline = client.pipeline();
-    entries.forEach(([key, value]) => {
-      pipeline.setex(key, CACHE_TTL, JSON.stringify(value));
-    });
-    await pipeline.exec();
-  } catch (error) {
-    console.error('[Redis] Batch set error:', error);
-  }
-};
-
 // Clear cache for a specific key
 export const clearCache = async (key) => {
   const client = getClient();
@@ -378,8 +344,6 @@ setInterval(() => {
 export default {
   getClient,
   withCache,
-  batchGet,
-  batchSet,
   clearCache,
   clearCacheByPattern,
   cleanupPool,
