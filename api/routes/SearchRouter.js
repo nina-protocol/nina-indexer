@@ -77,25 +77,25 @@ router.get('/all', async (ctx) => {
       formattedTags
     ] = await Promise.all([
       Promise.all(accounts.results.map(async account => {
-        account.type = 'account';
         await account.format();
+        account.type = 'account';
         return account;
       })),
       Promise.all(releases.results.map(async release => {
-        release.type = 'release';
         await release.format();
+        release.type = 'release';
         return release;
       })),
       Promise.all(hubs.results.map(async hub => {
-        hub.type = 'hub';
         await hub.format();
+        hub.type = 'hub';
         return hub;
       })),
       Promise.all(tags.results.map(async tag => {
         const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
+        await tag.format();
         tag.count = count;
         tag.type = 'tag';
-        await tag.format();
         return tag;
       }))
     ]);

@@ -39,30 +39,39 @@ export const getPublishedThroughHubSubQuery = async (query) => {
 }
 
 export const getReleaseSearchSubQuery = async (query) => {
+  console.log(`[Search] Starting getReleaseSearchSubQuery for query: "${query}"`);
   try {
     // Get hub IDs
+    console.log(`[Search] Fetching hub IDs for query: "${query}"`);
     const hubIds = await withCache(
       `hub:search:${query}`,
       async () => {
+        console.log(`[Search] Cache miss for hub search, executing query`);
         const result = await Hub.query()
           .select('id')
           .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
           .orWhere('handle', 'ilike', `%${query}%`);
+        console.log(`[Search] Hub query returned ${result.length} results`);
         return result.map(row => row.id);
       }
     );
+    console.log(`[Search] Retrieved hub IDs:`, hubIds);
 
     // Get publisher IDs using Account model
+    console.log(`[Search] Fetching publisher IDs for query: "${query}"`);
     const publisherIds = await withCache(
       `publisher:search:${query}`,
       async () => {
+        console.log(`[Search] Cache miss for publisher search, executing query`);
         const accounts = await Account.query()
           .select('id')
           .where('displayName', 'ilike', `%${query}%`)
           .orWhere('handle', 'ilike', `%${query}%`);
+        console.log(`[Search] Publisher query returned ${accounts.length} results`);
         return accounts.map(account => account.id);
       }
     );
+    console.log(`[Search] Retrieved publisher IDs:`, publisherIds);
 
     // Ensure all IDs are integers
     const safeHubIds = (Array.isArray(hubIds) ? hubIds : [])
@@ -79,27 +88,31 @@ export const getReleaseSearchSubQuery = async (query) => {
       })
       .filter(id => !isNaN(id));
 
-    console.log('Safe hub IDs:', safeHubIds);
-    console.log('Safe publisher IDs:', safePublisherIds);
+    console.log('[Search] Safe hub IDs:', safeHubIds);
+    console.log('[Search] Safe publisher IDs:', safePublisherIds);
 
     // Get release IDs
+    console.log(`[Search] Fetching release IDs for query: "${query}"`);
     const releaseIds = await withCache(
       `release:search:${query}`,
       async () => {
+        console.log(`[Search] Cache miss for release search, executing query`);
         const result = await Release.query()
           .select('id')
           .where(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
           .orWhere(ref('metadata:description').castText(), 'ilike', `%${query}%`)
           .orWhereIn('hubId', safeHubIds)
           .orWhereIn('publisherId', safePublisherIds);
+        console.log(`[Search] Release query returned ${result.length} results`);
         return result.map(row => row.id);
       }
     );
 
-    console.log('Final release IDs:', releaseIds);
+    console.log('[Search] Final release IDs:', releaseIds);
     return releaseIds;
   } catch (error) {
-    console.error('Error in getReleaseSearchSubQuery:', error);
+    console.error('[Search] Error in getReleaseSearchSubQuery:', error);
+    console.error('[Search] Error stack:', error.stack);
     return [];
   }
 };
