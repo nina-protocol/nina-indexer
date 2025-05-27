@@ -370,10 +370,10 @@ initializePool().then(() => {
   process.exit(1);
 });
 
-// Run health check every 5 minutes
+// Run health check every 2.5 minutes
 setInterval(() => {
   checkPoolHealth();
-}, 5 * 60 * 1000);
+}, 2.5 * 60 * 1000);
 
 export default {
   getClient,
