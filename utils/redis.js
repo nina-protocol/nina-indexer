@@ -5,6 +5,7 @@ dotenv.config();
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 const CACHE_TTL = 7200; // 2 hours in seconds
+const SEARCH_CACHE_TTL = 300; // 5 minutes in seconds for search queries
 const POOL_SIZE = 10;
 const CONNECTION_TIMEOUT = 5000; // 5 seconds
 const OPERATION_TIMEOUT = 10000; // 10 seconds
@@ -184,7 +185,7 @@ export const checkPoolHealth = () => {
 };
 
 // Cache wrapper function
-export const withCache = async (key, fn) => {
+export const withCache = async (key, fn, ttl = CACHE_TTL) => {
   const client = getClient();
   try {
     // Try to get from cache first
@@ -220,7 +221,7 @@ export const withCache = async (key, fn) => {
             }).filter(id => !isNaN(id))
           : result;
 
-        await client.setex(key, CACHE_TTL, JSON.stringify(toCache));
+        await client.setex(key, ttl, JSON.stringify(toCache));
       } catch (cacheError) {
         console.error('[Redis] Cache error:', cacheError);
       }
