@@ -130,5 +130,51 @@ describe('/search tests', function() {
         }
       }
     });
+
+    it('should return consistent releases between search and release router with search query', async function() {
+      const query = 'surf'; // Using a common search term
+      
+      // Get first 2 releases from search endpoint with query
+      const searchResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/search/all?limit=2&offset=0&sort=desc&query=${query}`);
+      
+      expect(searchResponse.status).to.equal(200);
+      expect(searchResponse.body).to.have.property('releases');
+      expect(searchResponse.body.releases.results).to.be.an('array');
+      expect(searchResponse.body.releases.results.length).to.be.at.most(2);
+
+      // Get first 2 releases from releases endpoint with same query
+      const releasesResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/releases?limit=2&offset=0&sort=desc&query=${query}`);
+      
+      expect(releasesResponse.status).to.equal(200);
+      expect(releasesResponse.body).to.have.property('releases');
+      expect(releasesResponse.body.releases).to.be.an('array');
+      expect(releasesResponse.body.releases.length).to.be.at.most(2);
+
+      // Compare the releases
+      const searchReleases = searchResponse.body.releases.results;
+      const routerReleases = releasesResponse.body.releases;
+
+      // Check if we have releases to compare
+      if (searchReleases.length > 0 && routerReleases.length > 0) {
+        // Compare each release's publicKey and datetime
+        for (let i = 0; i < Math.min(searchReleases.length, routerReleases.length); i++) {
+          expect(searchReleases[i].publicKey).to.equal(routerReleases[i].publicKey);
+          expect(searchReleases[i].datetime).to.equal(routerReleases[i].datetime);
+        }
+      }
+
+      // Also verify that the results are actually filtered by the query
+      if (searchReleases.length > 0) {
+        const release = searchReleases[0];
+        // Check that the release matches the search query in some way
+        const matchesQuery = 
+          (release.metadata?.properties?.title?.toLowerCase().includes(query.toLowerCase())) ||
+          (release.metadata?.properties?.artist?.toLowerCase().includes(query.toLowerCase())) ||
+          (release.metadata?.description?.toLowerCase().includes(query.toLowerCase()));
+        expect(matchesQuery).to.be.true;
+      }
+    });
   });
 });
