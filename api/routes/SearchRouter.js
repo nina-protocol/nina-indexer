@@ -155,11 +155,19 @@ router.get('/all', async (ctx) => {
         results: formattedTags,
         total: tags.total
       },
+      query
     };
 
     if (includePosts === 'true') {
       response.posts = posts;
     }
+
+    // Check if any results were found
+    const hasResults = formattedAccounts.length > 0 || 
+                      formattedReleases.length > 0 || 
+                      formattedHubs.length > 0 || 
+                      formattedTags.length > 0 || 
+                      (includePosts === 'true' && posts.results.length > 0);
 
     ctx.status = 200;
     ctx.body = response;

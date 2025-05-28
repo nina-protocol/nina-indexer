@@ -69,11 +69,13 @@ router.get('/', async (ctx) => {
       formattedReleases.push(release);
     }
 
-    ctx.body = { 
+    const response = { 
       releases: formattedReleases,
       total,
       query: query || ''
     };
+
+    ctx.body = response;
   } catch (error) {
     console.error('Error in releases index:', error);
     ctx.status = 500;
