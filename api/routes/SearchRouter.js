@@ -33,12 +33,12 @@ router.get('/all', async (ctx) => {
         .range(offset, offset + limit - 1),
 
       (async () => {
-        const releaseIds = await getReleaseSearchSubQuery(query);
+        const releaseIds = query ? await getReleaseSearchSubQuery(query) : [];
         return Release.query()
           .where('archived', false)
           .whereNotIn('publisherId', idList)
           .modify((queryBuilder) => {
-            if (releaseIds && releaseIds.length > 0) {
+            if (releaseIds.length > 0) {
               queryBuilder.whereIn('id', releaseIds);
             }
           })
