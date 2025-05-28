@@ -11,7 +11,7 @@ describe('/search tests', function() {
     await connectDb();
   });
 
-  describe.only('/search posts response output', function() {
+  describe('/search posts response output', function() {
     it('should return proper structure for /search/all with posts', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all?includePosts=true');
@@ -96,6 +96,39 @@ describe('/search tests', function() {
       expect(response.body.releases.length).to.be.at.most(10);
       expect(response.body).to.have.property('query');
       expect(response.body.query).to.equal(query);
+    });
+
+    it('should return consistent releases between search and release router', async function() {
+      // Get first 2 releases from search endpoint
+      const searchResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/search/all?limit=2&offset=0&sort=desc');
+      
+      expect(searchResponse.status).to.equal(200);
+      expect(searchResponse.body).to.have.property('releases');
+      expect(searchResponse.body.releases.results).to.be.an('array');
+      expect(searchResponse.body.releases.results.length).to.be.at.most(2);
+
+      // Get first 2 releases from releases endpoint
+      const releasesResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/releases?limit=2&offset=0&sort=desc');
+      
+      expect(releasesResponse.status).to.equal(200);
+      expect(releasesResponse.body).to.have.property('releases');
+      expect(releasesResponse.body.releases).to.be.an('array');
+      expect(releasesResponse.body.releases.length).to.be.at.most(2);
+
+      // Compare the releases
+      const searchReleases = searchResponse.body.releases.results;
+      const routerReleases = releasesResponse.body.releases;
+
+      // Check if we have releases to compare
+      if (searchReleases.length > 0 && routerReleases.length > 0) {
+        // Compare each release's publicKey and datetime
+        for (let i = 0; i < Math.min(searchReleases.length, routerReleases.length); i++) {
+          expect(searchReleases[i].publicKey).to.equal(routerReleases[i].publicKey);
+          expect(searchReleases[i].datetime).to.equal(routerReleases[i].datetime);
+        }
+      }
     });
   });
 });
