@@ -25,40 +25,60 @@ router.get('/all', async (ctx) => {
     offset = Number(offset);
     limit = Number(limit);
     
+    // Initialize empty results for each section
+    const response = {
+      accounts: { results: [], total: 0 },
+      releases: { results: [], total: 0 },
+      hubs: { results: [], total: 0 },
+      tags: { results: [], total: 0 },
+      query
+    };
+
+    // If we have a query, check for releases first since that's the most common search
+    let releaseIds = [];
+    if (query) {
+      releaseIds = await getReleaseSearchSubQuery(query);
+    }
+
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
-      Account.query()
+      query ? Account.query()
         .where('displayName', 'ilike', `%${query}%`)
         .orWhere('handle', 'ilike', `%${query}%`)
         .orderBy('displayName', sort)
-        .range(offset, offset + limit - 1),
+        .range(offset, offset + limit - 1) : { results: [], total: 0 },
 
       (async () => {
-        const releaseIds = query ? await getReleaseSearchSubQuery(query) : [];
+        if (query) {
+          if (releaseIds.length === 0) {
+            return { results: [], total: 0 };
+          }
+          return Release.query()
+            .where('archived', false)
+            .whereNotIn('publisherId', idList)
+            .whereIn('id', releaseIds)
+            .orderBy('datetime', sort)
+            .range(offset, offset + limit - 1);
+        }
         return Release.query()
           .where('archived', false)
           .whereNotIn('publisherId', idList)
-          .modify((queryBuilder) => {
-            if (releaseIds.length > 0) {
-              queryBuilder.whereIn('id', releaseIds);
-            }
-          })
           .orderBy('datetime', sort)
           .range(offset, offset + limit - 1);
       })(),
 
-      Hub.query()
+      query ? Hub.query()
         .where('handle', 'ilike', `%${query}%`)
         .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
         .orderBy('datetime', sort)
-        .range(offset, offset + limit - 1),
+        .range(offset, offset + limit - 1) : { results: [], total: 0 },
 
       Promise.all([
-        Tag.query()
+        query ? Tag.query()
           .where('value', `${query}`)
-          .first(),
-        Tag.query()
+          .first() : null,
+        query ? Tag.query()
           .where('value', 'like', `%${query}%`)
-          .range(offset, offset + limit - 1)
+          .range(offset, offset + limit - 1) : { results: [], total: 0 }
       ])
     ]);
 
@@ -70,48 +90,52 @@ router.get('/all', async (ctx) => {
       tagsPromise
     ]);
 
-    const [
-      formattedAccounts,
-      formattedReleases,
-      formattedHubs,
-      formattedTags
-    ] = await Promise.all([
-      Promise.all(accounts.results.map(async account => {
-        await account.format();
-        account.type = 'account';
-        return account;
-      })),
-      Promise.all(releases.results.map(async release => {
-        await release.format();
-        release.type = 'release';
-        return release;
-      })),
-      Promise.all(hubs.results.map(async hub => {
-        await hub.format();
-        hub.type = 'hub';
-        return hub;
-      })),
-      Promise.all(tags.results.map(async tag => {
+    // Helper function to format results
+    const formatResults = async (items, type, formatter) => {
+      if (items.results.length === 0) return { results: [], total: items.total };
+      
+      const formatted = await Promise.all(items.results.map(async item => {
+        await formatter(item);
+        item.type = type;
+        return item;
+      }));
+      
+      return {
+        results: formatted,
+        total: items.total
+      };
+    };
+
+    // Format each section
+    response.accounts = await formatResults(accounts, 'account', account => account.format());
+    response.releases = await formatResults(releases, 'release', release => release.format());
+    response.hubs = await formatResults(hubs, 'hub', hub => hub.format());
+    
+    if (tags.results.length > 0) {
+      const formattedTags = await Promise.all(tags.results.map(async tag => {
         const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
         await tag.format();
         tag.count = count;
         tag.type = 'tag';
         return tag;
-      }))
-    ]);
+      }));
 
-    // match exact tag
-    if (exactMatch && !formattedTags.find(tag => tag.id === exactMatch.id)) {
-      const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
-      exactMatch.count = count;
-      exactMatch.type = 'tag';
-      await exactMatch.format();
-      formattedTags.unshift(exactMatch);
+      // match exact tag
+      if (exactMatch && !formattedTags.find(tag => tag.id === exactMatch.id)) {
+        const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
+        exactMatch.count = count;
+        exactMatch.type = 'tag';
+        await exactMatch.format();
+        formattedTags.unshift(exactMatch);
+      }
+
+      formattedTags.sort((a, b) => b.count - a.count);
+      response.tags = {
+        results: formattedTags,
+        total: tags.total
+      };
     }
 
-    formattedTags.sort((a, b) => b.count - a.count);
-
-    let posts = { results: [], total: 0 };
     if (includePosts === 'true') {
       const hubIds = await getPublishedThroughHubSubQuery(query);
       const postsQuery = await Post.query()
@@ -125,40 +149,7 @@ router.get('/all', async (ctx) => {
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1);
 
-      const formattedPosts = await Promise.all(
-        postsQuery.results.map(async post => {
-          post.type = 'post';
-          await post.format();
-          return post;
-        })
-      );
-      posts = {
-        results: formattedPosts,
-        total: postsQuery.total
-      };
-    }
-
-    const response = {
-      accounts: {
-        results: formattedAccounts,
-        total: accounts.total
-      },
-      releases: {
-        results: formattedReleases,
-        total: releases.total
-      },
-      hubs: {
-        results: formattedHubs,
-        total: hubs.total
-      },
-      tags: {
-        results: formattedTags,
-        total: tags.total
-      },
-    };
-
-    if (includePosts === 'true') {
-      response.posts = posts;
+      response.posts = await formatResults(postsQuery, 'post', post => post.format());
     }
 
     ctx.status = 200;
