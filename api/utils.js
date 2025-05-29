@@ -43,9 +43,6 @@ export const getReleaseSearchSubQuery = async (query) => {
     const releaseIds = await withCache(
       `release:search:${query}`,
       async () => {
-        console.error('\n\n========== SEARCH DEBUG START ==========');
-        console.error('Search Query:', query);
-        
         const releases = await Release.query()
           .select('id', 'metadata')
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
@@ -53,35 +50,6 @@ export const getReleaseSearchSubQuery = async (query) => {
           .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
           .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
           .orWhere(ref('metadata:collection.name').castText(), 'ilike', `%${query}%`);
-
-        console.error('\nMatching Releases:');
-        releases.forEach(release => {
-          const matches = [];
-          
-          // Check each field for matches
-          if (release.metadata?.name?.toLowerCase().includes(query.toLowerCase())) {
-            matches.push(`name: "${release.metadata.name}"`);
-          }
-          if (release.metadata?.description?.toLowerCase().includes(query.toLowerCase())) {
-            matches.push(`description: "${release.metadata.description}"`);
-          }
-          if (release.metadata?.properties?.title?.toLowerCase().includes(query.toLowerCase())) {
-            matches.push(`title: "${release.metadata.properties.title}"`);
-          }
-          if (release.metadata?.properties?.tags?.some(tag => tag.toLowerCase().includes(query.toLowerCase()))) {
-            matches.push(`tags: [${release.metadata.properties.tags.join(', ')}]`);
-          }
-          if (release.metadata?.collection?.name?.toLowerCase().includes(query.toLowerCase())) {
-            matches.push(`collection: "${release.metadata.collection.name}"`);
-          }
-
-          console.error('\nRelease:', {
-            id: release.id,
-            matches: matches
-          });
-        });
-        console.error('\nTotal matches:', releases.length);
-        console.error('========== SEARCH DEBUG END ==========\n\n');
 
         return releases.map(row => row.id);
       }
