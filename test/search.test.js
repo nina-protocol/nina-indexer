@@ -32,6 +32,45 @@ describe('/search tests', function() {
       expect(response.body.posts.total).to.be.a('number');
     });
 
+    it('should return 2 most recent results for each resource type when no query is provided', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/search/all');
+      
+      expect(response.status).to.equal(200);
+      
+      // Check accounts
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.have.property('results');
+      expect(response.body.accounts.results).to.be.an('array');
+      expect(response.body.accounts.results.length).to.be.at.most(2);
+      expect(response.body.accounts).to.have.property('total');
+      expect(response.body.accounts.total).to.be.a('number');
+      
+      // Check releases
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.have.property('results');
+      expect(response.body.releases.results).to.be.an('array');
+      expect(response.body.releases.results.length).to.be.at.most(2);
+      expect(response.body.releases).to.have.property('total');
+      expect(response.body.releases.total).to.be.a('number');
+      
+      // Check hubs
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.have.property('results');
+      expect(response.body.hubs.results).to.be.an('array');
+      expect(response.body.hubs.results.length).to.be.at.most(2);
+      expect(response.body.hubs).to.have.property('total');
+      expect(response.body.hubs.total).to.be.a('number');
+      
+      // Check tags
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      expect(response.body.tags.results.length).to.be.at.most(2);
+      expect(response.body.tags).to.have.property('total');
+      expect(response.body.tags.total).to.be.a('number');
+    });
+
     it('should not return posts by default for /search/all', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all');
