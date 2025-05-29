@@ -30,50 +30,61 @@ const router = new KoaRouter({
 })
 
 router.get('/', async (ctx) => {
-  const { query, limit = 20, offset = 0 } = ctx.query;
+  const { query = '', limit = 20, offset = 0, sort = 'desc', column = 'datetime' } = ctx.query;
   
   try {
+    // Initialize empty response
+    const response = {
+      releases: [],
+      total: 0,
+      query
+    };
+
+    // Get release IDs if we have a query
     let releaseIds = [];
     if (query) {
       releaseIds = await getReleaseSearchSubQuery(query);
+      if (releaseIds.length === 0) {
+        ctx.body = response;
+        return;
+      }
     }
 
-    const releases = await Release.query()
-      .where('archived', false)
-      .whereNotIn('publisherId', idList)
-      .modify((queryBuilder) => {
-        if (releaseIds.length > 0) {
-          queryBuilder.whereIn('id', releaseIds);
-        }
-      })
-      .orderBy('datetime', 'desc')
-      .limit(limit)
-      .offset(offset);
-
-    // Get total count for pagination
-    const total = await Release.query()
-      .where('archived', false)
-      .whereNotIn('publisherId', idList)
-      .modify((queryBuilder) => {
-        if (releaseIds.length > 0) {
-          queryBuilder.whereIn('id', releaseIds);
-        }
-      })
-      .resultSize();
-
-    // Format each release
-    const formattedReleases = [];
-    for await (let release of releases) {
-      await release.format();
-      release.type = 'release'
-      formattedReleases.push(release);
-    }
-
-    ctx.body = { 
-      releases: formattedReleases,
-      total,
-      query: query || ''
+    // Helper function to build the base query
+    const buildBaseQuery = () => {
+      return Release.query()
+        .where('archived', false)
+        .whereNotIn('publisherId', idList)
+        .modify((queryBuilder) => {
+          if (releaseIds.length > 0) {
+            queryBuilder.whereIn('id', releaseIds);
+          }
+        });
     };
+
+    // Get releases and total count in parallel
+    const [releases, total] = await Promise.all([
+      buildBaseQuery()
+        .orderBy(column, sort)
+        .limit(limit)
+        .offset(offset),
+      buildBaseQuery().resultSize()
+    ]);
+
+    // Format releases if we have any
+    if (releases.length > 0) {
+      const formattedReleases = await Promise.all(
+        releases.map(async release => {
+          await release.format();
+          release.type = 'release';
+          return release;
+        })
+      );
+      response.releases = formattedReleases;
+      response.total = total;
+    }
+
+    ctx.body = response;
   } catch (error) {
     console.error('Error in releases index:', error);
     ctx.status = 500;
