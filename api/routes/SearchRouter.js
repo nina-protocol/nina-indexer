@@ -49,7 +49,6 @@ router.get('/all', async (ctx) => {
 
       (async () => {
         if (query) {
-          const releaseIds = await getReleaseSearchSubQuery(query);
           if (releaseIds.length === 0) {
             return { results: [], total: 0 };
           }
@@ -91,58 +90,27 @@ router.get('/all', async (ctx) => {
       tagsPromise
     ]);
 
-    // Only format results if we have them
-    if (accounts.results.length > 0) {
-      const formattedAccounts = await Promise.all(accounts.results.map(async account => {
-        await account.format();
-        account.type = 'account';
-        return account;
+    // Helper function to format results
+    const formatResults = async (items, type, formatter) => {
+      if (items.results.length === 0) return { results: [], total: items.total };
+      
+      const formatted = await Promise.all(items.results.map(async item => {
+        await formatter(item);
+        item.type = type;
+        return item;
       }));
-      response.accounts = {
-        results: formattedAccounts,
-        total: accounts.total
+      
+      return {
+        results: formatted,
+        total: items.total
       };
-    } else {
-      response.accounts = {
-        results: [],
-        total: accounts.total
-      };
-    }
+    };
 
-    if (releases.results.length > 0) {
-      const formattedReleases = await Promise.all(releases.results.map(async release => {
-        await release.format();
-        release.type = 'release';
-        return release;
-      }));
-      response.releases = {
-        results: formattedReleases,
-        total: releases.total
-      };
-    } else {
-      response.releases = {
-        results: [],
-        total: releases.total
-      };
-    }
-
-    if (hubs.results.length > 0) {
-      const formattedHubs = await Promise.all(hubs.results.map(async hub => {
-        await hub.format();
-        hub.type = 'hub';
-        return hub;
-      }));
-      response.hubs = {
-        results: formattedHubs,
-        total: hubs.total
-      };
-    } else {
-      response.hubs = {
-        results: [],
-        total: hubs.total
-      };
-    }
-
+    // Format each section
+    response.accounts = await formatResults(accounts, 'account', account => account.format());
+    response.releases = await formatResults(releases, 'release', release => release.format());
+    response.hubs = await formatResults(hubs, 'hub', hub => hub.format());
+    
     if (tags.results.length > 0) {
       const formattedTags = await Promise.all(tags.results.map(async tag => {
         const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
@@ -166,11 +134,6 @@ router.get('/all', async (ctx) => {
         results: formattedTags,
         total: tags.total
       };
-    } else {
-      response.tags = {
-        results: [],
-        total: tags.total
-      };
     }
 
     if (includePosts === 'true') {
@@ -186,24 +149,7 @@ router.get('/all', async (ctx) => {
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1);
 
-      if (postsQuery.results.length > 0) {
-        const formattedPosts = await Promise.all(
-          postsQuery.results.map(async post => {
-            post.type = 'post';
-            await post.format();
-            return post;
-          })
-        );
-        response.posts = {
-          results: formattedPosts,
-          total: postsQuery.total
-        };
-      } else {
-        response.posts = {
-          results: [],
-          total: 0
-        };
-      }
+      response.posts = await formatResults(postsQuery, 'post', post => post.format());
     }
 
     ctx.status = 200;
