@@ -338,5 +338,39 @@ describe('/search tests', function() {
         }
       }
     });
+
+    it('should return same tag results as tag router in default load state', async function() {
+      // Get results from search router with no query
+      const searchResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/search/all?limit=2');
+      
+      // Get results from tag router with no query
+      const tagResponse = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/tags?limit=2');
+      
+      expect(searchResponse.status).to.equal(200);
+      expect(tagResponse.status).to.equal(200);
+      
+      // Verify both responses have the expected structure
+      expect(searchResponse.body).to.have.property('tags');
+      expect(searchResponse.body.tags).to.have.property('results');
+      expect(tagResponse.body).to.have.property('tags');
+      expect(tagResponse.body.tags).to.have.property('results');
+      
+      const searchTags = searchResponse.body.tags.results;
+      const tagRouterTags = tagResponse.body.tags.results;
+      
+      // Compare the first 2 results from both endpoints
+      expect(searchTags.length).to.equal(tagRouterTags.length);
+      
+      for (let i = 0; i < searchTags.length; i++) {
+        const searchTag = searchTags[i];
+        const tagRouterTag = tagRouterTags[i];
+        
+        // Compare the essential properties
+        expect(searchTag.value).to.equal(tagRouterTag.value);
+        expect(searchTag.count).to.equal(tagRouterTag.count);
+      }
+    });
   });
 });

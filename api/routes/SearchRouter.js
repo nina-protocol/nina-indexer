@@ -19,6 +19,7 @@ const idList = [
 const router = new KoaRouter({
   prefix: '/search'
 })
+
 router.get('/all', async (ctx) => {
   try {
     let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
@@ -79,22 +80,23 @@ router.get('/all', async (ctx) => {
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1),
 
-      Promise.all([
-        query ? Tag.query()
-          .where('value', `${query}`)
-          .first() : null,
-        Tag.query()
-          .modify((queryBuilder) => {
-            if (query) {
-              queryBuilder.where('value', 'like', `%${query}%`);
-            }
-          })
-          .range(offset, offset + limit - 1)
-      ])
+      Tag.query()
+        .select('tags.*')
+        .count('tags_releases.tagId as count')
+        .join('tags_releases', 'tags.id', 'tags_releases.tagId')
+        .modify((queryBuilder) => {
+          if (query) {
+            queryBuilder.where('tags.value', 'ilike', `%${query}%`);
+          }
+        })
+        .groupBy('tags.id')
+        .orderBy('count', sort)
+        .limit(limit)
+        .offset(offset)
     ]);
 
     // format results in parallel for each type
-    const [accounts, releases, hubs, [exactMatch, tags]] = await Promise.all([
+    const [accounts, releases, hubs, tags] = await Promise.all([
       accountsPromise,
       releasesPromise,
       hubsPromise,
@@ -128,29 +130,17 @@ router.get('/all', async (ctx) => {
     response.releases = await formatResults(releases, 'release', release => release.format());
     response.hubs = await formatResults(hubs, 'hub', hub => hub.format());
     
-    if (tags.results.length > 0) {
-      const formattedTags = await Promise.all(tags.results.map(async tag => {
-        const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
-        await tag.format();
-        tag.count = Number(count);
-        tag.type = 'tag';
-        return tag;
-      }));
+    if (tags.length > 0) {
+      const formattedTags = tags.map(tag => {
+        const formattedTag = tag.toJSON();
+        formattedTag.count = Number(tag.count);
+        formattedTag.type = 'tag';
+        return formattedTag;
+      });
 
-      // match exact tag
-      if (exactMatch && !formattedTags.find(tag => tag.value === exactMatch.value)) {
-        const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
-        exactMatch.count = Number(count);
-        exactMatch.type = 'tag';
-        await exactMatch.format();
-        formattedTags.unshift(exactMatch);
-      }
-
-      // Sort tags by count (most popular first)
-      formattedTags.sort((a, b) => b.count - a.count);
       response.tags = {
         results: formattedTags,
-        total: tags.total
+        total: tags.length
       };
     }
 
@@ -260,7 +250,7 @@ router.post('/', async (ctx) => {
       .where('displayName', 'ilike', `%${query}%`)
       .orWhere('value', 'ilike', `%${query}%`)
     
-      for await (let verification of verifications) {
+    for await (let verification of verifications) {
       await verification.format()
     }
 
