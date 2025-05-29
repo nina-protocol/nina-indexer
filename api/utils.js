@@ -39,61 +39,57 @@ export const getPublishedThroughHubSubQuery = async (query) => {
 
 export const getReleaseSearchSubQuery = async (query) => {
   try {
-    // Get hub IDs
-    const hubIds = await withCache(
-      `hub:search:${query}`,
-      async () => {
-        const result = await Hub.query()
-          .select('id')
-          .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-          .orWhere('handle', 'ilike', `%${query}%`);
-        return result.map(row => row.id);
-      }
-    );
-
-    // Get publisher IDs using Account model
-    const publisherIds = await withCache(
-      `publisher:search:${query}`,
-      async () => {
-        const accounts = await Account.query()
-          .select('id')
-          .where('displayName', 'ilike', `%${query}%`)
-          .orWhere('handle', 'ilike', `%${query}%`);
-        return accounts.map(account => account.id);
-      }
-    );
-
-    // Ensure all IDs are integers
-    const safeHubIds = (Array.isArray(hubIds) ? hubIds : [])
-      .map(id => {
-        if (typeof id === 'object' && id !== null) return id.id;
-        return typeof id === 'string' ? parseInt(id, 10) : id;
-      })
-      .filter(id => !isNaN(id));
-
-    const safePublisherIds = (Array.isArray(publisherIds) ? publisherIds : [])
-      .map(id => {
-        if (typeof id === 'object' && id !== null) return id.id;
-        return typeof id === 'string' ? parseInt(id, 10) : id;
-      })
-      .filter(id => !isNaN(id));
-
-    // Get release IDs
+    // Get release IDs based only on text content
     const releaseIds = await withCache(
       `release:search:${query}`,
       async () => {
-        const result = await Release.query()
-          .select('id')
-          .where(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+        console.error('\n\n========== SEARCH DEBUG START ==========');
+        console.error('Search Query:', query);
+        
+        const releases = await Release.query()
+          .select('id', 'metadata')
+          .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
           .orWhere(ref('metadata:description').castText(), 'ilike', `%${query}%`)
-          .orWhereIn('hubId', safeHubIds)
-          .orWhereIn('publisherId', safePublisherIds);
-        return result.map(row => row.id);
+          .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:collection.name').castText(), 'ilike', `%${query}%`);
+
+        console.error('\nMatching Releases:');
+        releases.forEach(release => {
+          const matches = [];
+          
+          // Check each field for matches
+          if (release.metadata?.name?.toLowerCase().includes(query.toLowerCase())) {
+            matches.push(`name: "${release.metadata.name}"`);
+          }
+          if (release.metadata?.description?.toLowerCase().includes(query.toLowerCase())) {
+            matches.push(`description: "${release.metadata.description}"`);
+          }
+          if (release.metadata?.properties?.title?.toLowerCase().includes(query.toLowerCase())) {
+            matches.push(`title: "${release.metadata.properties.title}"`);
+          }
+          if (release.metadata?.properties?.tags?.some(tag => tag.toLowerCase().includes(query.toLowerCase()))) {
+            matches.push(`tags: [${release.metadata.properties.tags.join(', ')}]`);
+          }
+          if (release.metadata?.collection?.name?.toLowerCase().includes(query.toLowerCase())) {
+            matches.push(`collection: "${release.metadata.collection.name}"`);
+          }
+
+          console.error('\nRelease:', {
+            id: release.id,
+            matches: matches
+          });
+        });
+        console.error('\nTotal matches:', releases.length);
+        console.error('========== SEARCH DEBUG END ==========\n\n');
+
+        return releases.map(row => row.id);
       }
     );
 
     return releaseIds;
   } catch (error) {
+    console.error('Error in getReleaseSearchSubQuery:', error);
     return [];
   }
 };

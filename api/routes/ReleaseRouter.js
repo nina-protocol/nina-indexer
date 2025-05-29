@@ -30,12 +30,21 @@ const router = new KoaRouter({
 })
 
 router.get('/', async (ctx) => {
-  const { query, limit = 20, offset = 0 } = ctx.query;
+  const { query = '', limit = 20, offset = 0 } = ctx.query;
   
   try {
     let releaseIds = [];
     if (query) {
       releaseIds = await getReleaseSearchSubQuery(query);
+      // If we have a query but no matching releaseIds, return empty results immediately
+      if (releaseIds.length === 0) {
+        ctx.body = {
+          releases: [],
+          total: 0,
+          query
+        };
+        return;
+      }
     }
 
     const releases = await Release.query()
@@ -69,10 +78,20 @@ router.get('/', async (ctx) => {
       formattedReleases.push(release);
     }
 
+    // If we have a query but no formatted releases, return empty results
+    if (query && formattedReleases.length === 0) {
+      ctx.body = {
+        releases: [],
+        total: 0,
+        query
+      };
+      return;
+    }
+
     ctx.body = { 
       releases: formattedReleases,
       total,
-      query: query || ''
+      query
     };
   } catch (error) {
     console.error('Error in releases index:', error);
