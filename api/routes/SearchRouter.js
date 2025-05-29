@@ -41,44 +41,56 @@ router.get('/all', async (ctx) => {
     }
 
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
-      query ? Account.query()
-        .where('displayName', 'ilike', `%${query}%`)
-        .orWhere('handle', 'ilike', `%${query}%`)
-        .orderBy('displayName', sort)
-        .range(offset, offset + limit - 1) : { results: [], total: 0 },
+      Account.query()
+        .modify((queryBuilder) => {
+          if (query) {
+            queryBuilder
+              .where('displayName', 'ilike', `%${query}%`)
+              .orWhere('handle', 'ilike', `%${query}%`);
+          }
+        })
+        .orderBy('id', sort)
+        .range(offset, offset + limit - 1),
 
       (async () => {
-        if (query) {
-          if (releaseIds.length === 0) {
-            return { results: [], total: 0 };
-          }
-          return Release.query()
-            .where('archived', false)
-            .whereNotIn('publisherId', idList)
-            .whereIn('id', releaseIds)
-            .orderBy('datetime', sort)
-            .range(offset, offset + limit - 1);
+        if (query && releaseIds.length === 0) {
+          return { results: [], total: 0 };
         }
         return Release.query()
           .where('archived', false)
           .whereNotIn('publisherId', idList)
+          .modify((queryBuilder) => {
+            if (query && releaseIds.length > 0) {
+              queryBuilder.whereIn('id', releaseIds);
+            }
+          })
           .orderBy('datetime', sort)
           .range(offset, offset + limit - 1);
       })(),
 
-      query ? Hub.query()
-        .where('handle', 'ilike', `%${query}%`)
-        .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      Hub.query()
+        .modify((queryBuilder) => {
+          if (query) {
+            queryBuilder
+              .where('handle', 'ilike', `%${query}%`)
+              .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`);
+          }
+        })
         .orderBy('datetime', sort)
-        .range(offset, offset + limit - 1) : { results: [], total: 0 },
+        .range(offset, offset + limit - 1),
 
       Promise.all([
         query ? Tag.query()
           .where('value', `${query}`)
           .first() : null,
-        query ? Tag.query()
-          .where('value', 'like', `%${query}%`)
-          .range(offset, offset + limit - 1) : { results: [], total: 0 }
+        Tag.query()
+          .modify((queryBuilder) => {
+            if (query) {
+              queryBuilder.where('value', 'like', `%${query}%`);
+            }
+          })
+          .orderBy('id', sort)
+          .range(offset, offset + limit - 1)
       ])
     ]);
 
@@ -97,6 +109,12 @@ router.get('/all', async (ctx) => {
       const formatted = await Promise.all(items.results.map(async item => {
         await formatter(item);
         item.type = type;
+        // Keep id and datetime for ordering
+        if (type === 'account' || type === 'tag') {
+          item.id = item.id;
+        } else if (type === 'release' || type === 'hub') {
+          item.datetime = item.datetime;
+        }
         return item;
       }));
       
@@ -115,16 +133,18 @@ router.get('/all', async (ctx) => {
       const formattedTags = await Promise.all(tags.results.map(async tag => {
         const count = await Tag.relatedQuery('releases').for(tag.id).resultSize();
         await tag.format();
-        tag.count = count;
+        tag.count = Number(count);
         tag.type = 'tag';
+        tag.id = tag.id; // Keep id for ordering
         return tag;
       }));
 
       // match exact tag
-      if (exactMatch && !formattedTags.find(tag => tag.id === exactMatch.id)) {
+      if (exactMatch && !formattedTags.find(tag => tag.value === exactMatch.value)) {
         const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
-        exactMatch.count = count;
+        exactMatch.count = Number(count);
         exactMatch.type = 'tag';
+        exactMatch.id = exactMatch.id; // Keep id for ordering
         await exactMatch.format();
         formattedTags.unshift(exactMatch);
       }
