@@ -32,6 +32,45 @@ describe('/search tests', function() {
       expect(response.body.posts.total).to.be.a('number');
     });
 
+    it('should return 2 most recent results for each resource type when no query is provided', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get('/v1/search/all');
+      
+      expect(response.status).to.equal(200);
+      
+      // Check accounts
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.have.property('results');
+      expect(response.body.accounts.results).to.be.an('array');
+      expect(response.body.accounts.results.length).to.be.at.most(2);
+      expect(response.body.accounts).to.have.property('total');
+      expect(response.body.accounts.total).to.be.a('number');
+      
+      // Check releases
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.have.property('results');
+      expect(response.body.releases.results).to.be.an('array');
+      expect(response.body.releases.results.length).to.be.at.most(2);
+      expect(response.body.releases).to.have.property('total');
+      expect(response.body.releases.total).to.be.a('number');
+      
+      // Check hubs
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.have.property('results');
+      expect(response.body.hubs.results).to.be.an('array');
+      expect(response.body.hubs.results.length).to.be.at.most(2);
+      expect(response.body.hubs).to.have.property('total');
+      expect(response.body.hubs.total).to.be.a('number');
+      
+      // Check tags
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      expect(response.body.tags.results.length).to.be.at.most(2);
+      expect(response.body.tags).to.have.property('total');
+      expect(response.body.tags.total).to.be.a('number');
+    });
+
     it('should not return posts by default for /search/all', async function() {
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get('/v1/search/all');
@@ -175,6 +214,102 @@ describe('/search tests', function() {
           (release.metadata?.description?.toLowerCase().includes(query.toLowerCase()));
         expect(matchesQuery).to.be.true;
       }
+    });
+
+    it('should handle no results for /releases with bogus query', async function() {
+      const bogusQuery = 'x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6';
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/releases?query=${bogusQuery}`)
+              
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.be.an('array');
+      expect(response.body.releases).to.have.length(0);
+      expect(response.body).to.have.property('total');
+      expect(response.body.total).to.equal(0);
+      expect(response.body).to.have.property('query');
+      expect(response.body.query).to.equal(bogusQuery);
+    });
+
+    it('should handle no results for /search/all with bogus query', async function() {
+      const bogusQuery = 'x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6';
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/search/all?query=${bogusQuery}`);
+      
+      expect(response.status).to.equal(200);
+      
+      // Check accounts
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts).to.have.property('results');
+      expect(response.body.accounts.results).to.be.an('array');
+      expect(response.body.accounts.results).to.have.length(0);
+      expect(response.body.accounts).to.have.property('total');
+      expect(response.body.accounts.total).to.equal(0);
+      
+      // Check releases
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases).to.have.property('results');
+      expect(response.body.releases.results).to.be.an('array');
+      expect(response.body.releases.results).to.have.length(0);
+      expect(response.body.releases).to.have.property('total');
+      expect(response.body.releases.total).to.equal(0);
+      
+      // Check hubs
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs).to.have.property('results');
+      expect(response.body.hubs.results).to.be.an('array');
+      expect(response.body.hubs.results).to.have.length(0);
+      expect(response.body.hubs).to.have.property('total');
+      expect(response.body.hubs.total).to.equal(0);
+      
+      // Check tags
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      expect(response.body.tags.results).to.have.length(0);
+      expect(response.body.tags).to.have.property('total');
+      expect(response.body.tags.total).to.equal(0);
+      
+      // Check query
+      expect(response.body).to.have.property('query');
+      expect(response.body.query).to.equal(bogusQuery);
+    });
+
+    it('should handle no results for /search/all with bogus query and posts included', async function() {
+      const bogusQuery = 'x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6';
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/search/all?query=${bogusQuery}&includePosts=true`);
+      
+      expect(response.status).to.equal(200);
+      
+      // Check all previous properties
+      expect(response.body).to.have.property('accounts');
+      expect(response.body.accounts.results).to.have.length(0);
+      expect(response.body.accounts.total).to.equal(0);
+      
+      expect(response.body).to.have.property('releases');
+      expect(response.body.releases.results).to.have.length(0);
+      expect(response.body.releases.total).to.equal(0);
+      
+      expect(response.body).to.have.property('hubs');
+      expect(response.body.hubs.results).to.have.length(0);
+      expect(response.body.hubs.total).to.equal(0);
+      
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags.results).to.have.length(0);
+      expect(response.body.tags.total).to.equal(0);
+      
+      // Check posts specifically
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.have.property('results');
+      expect(response.body.posts.results).to.be.an('array');
+      expect(response.body.posts.results).to.have.length(0);
+      expect(response.body.posts).to.have.property('total');
+      expect(response.body.posts.total).to.equal(0);
+      
+      // Check query
+      expect(response.body).to.have.property('query');
+      expect(response.body.query).to.equal(bogusQuery);
     });
   });
 });
