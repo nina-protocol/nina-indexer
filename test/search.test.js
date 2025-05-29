@@ -181,9 +181,7 @@ describe('/search tests', function() {
       const bogusQuery = 'x1y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q0r1s2t3u4v5w6';
       const response = await request(process.env.MOCHA_ENDPOINT_URL)
         .get(`/v1/releases?query=${bogusQuery}`)
-        
-        console.log('response.body :>> ', response.body);;
-      
+              
       expect(response.status).to.equal(200);
       expect(response.body).to.have.property('releases');
       expect(response.body.releases).to.be.an('array');
