@@ -311,5 +311,32 @@ describe('/search tests', function() {
       expect(response.body).to.have.property('query');
       expect(response.body.query).to.equal(bogusQuery);
     });
+
+    it('should return tags sorted by popularity (count) in search results', async function() {
+      const query = 'music'; // Using a common tag term
+      const response = await request(process.env.MOCHA_ENDPOINT_URL)
+        .get(`/v1/search/all?query=${query}`);
+      
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('tags');
+      expect(response.body.tags).to.have.property('results');
+      expect(response.body.tags.results).to.be.an('array');
+      
+      // If we have tags in the results
+      if (response.body.tags.results.length > 0) {
+        // Verify each tag has a count property
+        response.body.tags.results.forEach(tag => {
+          expect(tag).to.have.property('count');
+          expect(tag.count).to.be.a('number');
+        });
+
+        // Verify tags are sorted by count in descending order
+        for (let i = 0; i < response.body.tags.results.length - 1; i++) {
+          const currentTag = response.body.tags.results[i];
+          const nextTag = response.body.tags.results[i + 1];
+          expect(currentTag.count).to.be.at.least(nextTag.count);
+        }
+      }
+    });
   });
 });

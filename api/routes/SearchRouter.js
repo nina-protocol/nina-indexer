@@ -89,7 +89,6 @@ router.get('/all', async (ctx) => {
               queryBuilder.where('value', 'like', `%${query}%`);
             }
           })
-          .orderBy('id', sort)
           .range(offset, offset + limit - 1)
       ])
     ]);
@@ -135,7 +134,6 @@ router.get('/all', async (ctx) => {
         await tag.format();
         tag.count = Number(count);
         tag.type = 'tag';
-        tag.id = tag.id; // Keep id for ordering
         return tag;
       }));
 
@@ -144,11 +142,11 @@ router.get('/all', async (ctx) => {
         const count = await Tag.relatedQuery('releases').for(exactMatch.id).resultSize();
         exactMatch.count = Number(count);
         exactMatch.type = 'tag';
-        exactMatch.id = exactMatch.id; // Keep id for ordering
         await exactMatch.format();
         formattedTags.unshift(exactMatch);
       }
 
+      // Sort tags by count (most popular first)
       formattedTags.sort((a, b) => b.count - a.count);
       response.tags = {
         results: formattedTags,
