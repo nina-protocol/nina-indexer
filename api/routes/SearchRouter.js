@@ -9,8 +9,6 @@ import {
 } from '@nina-protocol/nina-db';
 import { ref } from 'objection'
 import _  from 'lodash';
-import knex from 'knex'
-import knexConfig from '../../db/src/knexfile.js'
 
 import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery } from '../utils.js';
 
@@ -21,8 +19,6 @@ const idList = [
 const router = new KoaRouter({
   prefix: '/search'
 })
-
-const db = knex(knexConfig.development)
 
 router.get('/all', async (ctx) => {
   try {
