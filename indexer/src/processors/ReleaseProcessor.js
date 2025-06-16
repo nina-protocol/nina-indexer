@@ -84,7 +84,7 @@ export class ReleaseProcessor extends BaseProcessor {
 
     async processTransaction(task) {
       try {
-        const { transaction, txid, accounts, txInfo } = task;
+        const { transaction, txid, accounts, txInfo, programId } = task;
         if (!this.canProcessTransaction(transaction.type)) return;
 
         // Verify authority exists
@@ -153,7 +153,7 @@ export class ReleaseProcessor extends BaseProcessor {
                   return { success: false };
                 }
               }
-              const release = await Release.findOrCreate(releasePublicKey);
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
@@ -169,7 +169,7 @@ export class ReleaseProcessor extends BaseProcessor {
           case 'ReleaseInit': {
             try {
               const releasePublicKey = accounts[0].toBase58();
-              const release = await Release.findOrCreate(releasePublicKey);
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
@@ -348,7 +348,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 }
               } else {
                 // Create new release with hub reference
-                release = await Release.findOrCreate(releasePublicKey, hubPublicKey);
+                release = await Release.findOrCreate(releasePublicKey, hubPublicKey, programId);
               }
 
               if (release) {

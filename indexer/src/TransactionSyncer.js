@@ -198,6 +198,14 @@ class TransactionSyncer {
       let type = await this.determineTransactionType(txInfo);
       const accounts = this.getRelevantAccounts(txInfo);
   
+      let programId = accounts.map(account => account.toBase58()).includes(process.env.NINA_PROGRAM_V2_ID) ? process.env.NINA_PROGRAM_V2_ID : null;
+      if (!programId) {
+        programId = accounts.map(account => account.toBase58()).includes(process.env.NINA_PROGRAM_ID) ? process.env.NINA_PROGRAM_ID : null;
+      }
+      if (!programId) {
+        throw new Error(`Warning: Unable to determine program ID for transaction ${txInfo.transaction.signatures[0]}`);
+      }
+
       if (!accounts || accounts.length === 0) {
         throw new Error(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
       }
@@ -224,6 +232,7 @@ class TransactionSyncer {
         accounts,
         txInfo,
         transaction,
+        programId,
       }
       return task;
     } catch (error) {

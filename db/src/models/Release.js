@@ -57,7 +57,7 @@ export default class Release extends Model {
     },
   }
   
-  static findOrCreate = async (publicKey, hubPublicKey=null) => {
+  static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID) => {
     try {
       let release = await Release.query().findOne({ publicKey });
       if (release) {
@@ -110,7 +110,8 @@ export default class Release extends Model {
         datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
         slug,
         publisherId: publisher.id,
-        releaseAccount
+        releaseAccount,
+        programId,
       });
   
       if (hubPublicKey) {
