@@ -85,6 +85,7 @@ export class ReleaseProcessor extends BaseProcessor {
     async processTransaction(task) {
       try {
         const { transaction, txid, accounts, txInfo, programId } = task;
+        console.log('programId', programId)
         if (!this.canProcessTransaction(transaction.type)) return;
 
         // Verify authority exists
@@ -96,6 +97,26 @@ export class ReleaseProcessor extends BaseProcessor {
 
         // Process based on transaction type
         switch (transaction.type) {
+          case 'ReleaseInitV2':
+            try {
+              let releasePublicKey;
+              if (txInfo?.meta.logMessages?.some(log => log.includes('ReleaseInitV2'))) {
+                releasePublicKey = accounts[3].toBase58();
+              }
+              console.log('releasePublicKey', releasePublicKey)
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
+              if (release) {
+                logTimestampedMessage(`Successfully processed ReleaseInitV2 ${txid} for release ${releasePublicKey}`);
+                return {success: true, ids: { releaseId: release.id }};
+              } else {
+                logTimestampedMessage(`Release not found for ReleaseInitV2 ${txid} with publicKey ${releasePublicKey}`);
+              }
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseInitV2 for ${txid}: ${error.message}`);
+              return { success: false };
+            }
+            break;
+
           case 'ReleaseInitWithCredit':
             try {
               let releasePublicKey;

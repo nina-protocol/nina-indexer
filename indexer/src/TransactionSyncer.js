@@ -1,6 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import * as anchor from '@project-serum/anchor';
+import * as anchorCoral from '@coral-xyz/anchor';
 import { releaseProcessor } from './processors/ReleaseProcessor.js';
 import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
@@ -15,6 +16,9 @@ class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
     this.programId = new PublicKey(process.env.NINA_PROGRAM_ID);
+    console.log('this.programId', this.programId)
+    this.programV2Id = new PublicKey(process.env.NINA_PROGRAM_V2_ID);
+    console.log('this.programV2Id', this.programV2Id)
     this.batchSize = 200;
     this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'confirmed' });
     this.isSyncing = false;
@@ -22,11 +26,14 @@ class TransactionSyncer {
 
   async initialize() {
     this.program = await anchor.Program.at(this.programId, this.provider);
+    console.log('this.program', this.program.programId.toBase58())
+    this.programV2 = await anchorCoral.Program.at(this.programV2Id, this.provider);
+    console.log('this.programV2', this.programV2.programId.toBase58())
     await hubDataService.initialize(this.program);
     await releaseProcessor.initialize(this.program);
     await hubProcessor.initialize(this.program);
     await postsProcessor.initialize(this.program);
-    await releaseDataService.initialize(this.program);
+    await releaseDataService.initialize(this.program, this.programV2);
   }
 
   async syncTransactions() {
@@ -197,10 +204,11 @@ class TransactionSyncer {
       const txid = txInfo.transaction.signatures[0];
       let type = await this.determineTransactionType(txInfo);
       const accounts = this.getRelevantAccounts(txInfo);
-  
-      let programId = accounts.map(account => account.toBase58()).includes(process.env.NINA_PROGRAM_V2_ID) ? process.env.NINA_PROGRAM_V2_ID : null;
+      console.log('txInfo', txInfo)
+      console.log('accounts', accounts)
+      let programId = txInfo.meta.logMessages.some(log => log.includes(process.env.NINA_PROGRAM_V2_ID)) ? process.env.NINA_PROGRAM_V2_ID : null;
       if (!programId) {
-        programId = accounts.map(account => account.toBase58()).includes(process.env.NINA_PROGRAM_ID) ? process.env.NINA_PROGRAM_ID : null;
+        programId = txInfo.meta.logMessages.some(log => log.includes(process.env.NINA_PROGRAM_ID)) ? process.env.NINA_PROGRAM_ID : null;
       }
       if (!programId) {
         throw new Error(`Warning: Unable to determine program ID for transaction ${txInfo.transaction.signatures[0]}`);
@@ -210,7 +218,7 @@ class TransactionSyncer {
         throw new Error(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
       }
 
-      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages);
+      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages, programId);
 
       if (!accountPublicKey) {
         throw new Error(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
@@ -257,6 +265,7 @@ class TransactionSyncer {
 
       console.log('handleDomainProcessingForSingleTransaction txInfo', txInfo)
       const task = await this.buildProcessorTaskForTransaction(txInfo);
+      console.log('task', task)
       if (releaseProcessor.canProcessTransaction(task.type)) {
         const { success } = await releaseProcessor.processTransaction(task);
         if (!success) {
@@ -284,6 +293,7 @@ class TransactionSyncer {
     const logMessages = txInfo.meta.logMessages;
     const accounts = this.getRelevantAccounts(txInfo);
 
+    if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchase'))) return 'ReleasePurchase';
@@ -313,7 +323,6 @@ class TransactionSyncer {
     if (logMessages.some(log => log.includes('ExchangeCancel'))) return 'ExchangeCancel';
     if (logMessages.some(log => log.includes('ExchangeAccept'))) return 'ExchangeAccept';
     if (logMessages.some(log => log.includes('HubWithdraw'))) return 'HubWithdraw';
-
     // Special detection logic for to handle special cases from before the type was printed in the logs
     try {
       if (accounts?.length === 10) {
@@ -357,7 +366,7 @@ class TransactionSyncer {
 
   getRelevantAccounts(txInfo) {
     let ninaInstruction = txInfo.transaction.message.instructions.find(
-      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
+      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID || i.programId.toBase58() === process.env.NINA_PROGRAM_V2_ID
     );
 
     if (!ninaInstruction) {
@@ -378,7 +387,7 @@ class TransactionSyncer {
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
-  async getAccountPublicKey(accounts, type, logs) {
+  async getAccountPublicKey(accounts, type, logs, programId = process.env.NINA_PROGRAM_ID) {
     try {
       switch (type) {
         case 'ReleaseInitViaHub':
@@ -429,7 +438,11 @@ class TransactionSyncer {
             return accounts[0].toBase58();
           }
         case 'ReleaseInit':
-          return accounts[4].toBase58();
+          if (programId === process.env.NINA_PROGRAM_V2_ID) {
+            return accounts[2].toBase58();
+          } else {
+            return accounts[4].toBase58();
+          }
         case 'ReleaseCloseEdition':
         case 'HubContentToggleVisibility':
         case 'HubRemoveCollaborator':

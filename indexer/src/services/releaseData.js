@@ -6,8 +6,9 @@ class ReleaseDataService {
     this.program = null;
   }
 
-  async initialize(program) {
+  async initialize(program, programV2) {
     this.program = program;
+    this.programV2 = programV2;
   }
 
   async fetchReleaseAccountData(publicKey) {
