@@ -27,9 +27,9 @@ export default class Release extends Model {
   static idColumn = 'id';
   static jsonSchema = {
     type: 'object',
-    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug', 'price'],
+    required: ['metadata', 'datetime', 'slug', 'price'],
     properties: {
-      publicKey: { type: 'string' },
+      publicKey: { type: ['string', 'null'] },
       mint: { type: 'string' },
       slug: { type: 'string' },
       metadata: {
