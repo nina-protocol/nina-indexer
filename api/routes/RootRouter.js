@@ -34,11 +34,9 @@ router.get('/health', async (ctx) => {
 router.get('/solPrice', async (ctx) => {
   try {
     const priceResult = await axios.get(
-      `https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd`,
-    )
-
-    const solPrice = priceResult.data.solana.usd
-    return ctx.body = solPrice
+      `https://lite-api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112`
+    );
+    return ctx.body = priceResult.data
   } catch (error) {
     console.log('err', err)
     ctx.status = 404
