@@ -60,9 +60,10 @@ export default class Release extends Model {
   
   static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID) => {
     try {
-      console.log('publicKey', publicKey)
+      console.log('Release.findOrCreate', publicKey, programId)
       let release = await Release.query().findOne({ publicKey });
       if (release) {
+        console.log('release found', release)
         return release;
       }
   
@@ -76,7 +77,6 @@ export default class Release extends Model {
       const programModelName = programId === process.env.NINA_PROGRAM_V2_ID ? 'releaseV2' : 'release';
       const metaplex = new Metaplex(connection);
       let attempts = 0;
-
       const releaseAccount = await promiseRetry(
         async (retry) => {
           try {

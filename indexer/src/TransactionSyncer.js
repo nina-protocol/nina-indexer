@@ -30,7 +30,7 @@ class TransactionSyncer {
     this.programV2 = await anchorCoral.Program.at(this.programV2Id, this.provider);
     console.log('this.programV2', this.programV2.programId.toBase58())
     await hubDataService.initialize(this.program);
-    await releaseProcessor.initialize(this.program);
+    await releaseProcessor.initialize(this.program, this.programV2);
     await hubProcessor.initialize(this.program);
     await postsProcessor.initialize(this.program);
     await releaseDataService.initialize(this.program, this.programV2);
@@ -294,6 +294,7 @@ class TransactionSyncer {
     const accounts = this.getRelevantAccounts(txInfo);
 
     if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
+    if (logMessages.some(log => log.includes('ReleaseUpdate'))) return 'ReleaseUpdate';
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchase'))) return 'ReleasePurchase';
