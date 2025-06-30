@@ -45,21 +45,36 @@ class TransactionSyncer {
       this.isSyncing = true;
       logTimestampedMessage('Starting transaction sync...');
   
-      let lastSyncedSignature = await this.getLastSyncedSignature();
-  
-      let signatures = await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)
-      if (signatures) {
-        signatures = signatures.reverse();  
+      let { lastSignatureV1, lastSignatureV2 } = await this.getLastSyncedSignature();
+      let signaturesV1 = await this.fetchSignatures(this.programId, lastSignatureV1, undefined, lastSignatureV1 === null)
+      let signaturesV2 = await this.fetchSignatures(this.programV2Id, lastSignatureV2, undefined, lastSignatureV2 === null)
 
-        signatures.forEach(signatureInfo => {
+      if (signaturesV1) {
+        signaturesV1 = signaturesV1.reverse();  
+
+        signaturesV1.forEach(signatureInfo => {
           logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
         });
     
-        const insertedCount = await this.processAndInsertTransactions(signatures);
+        const insertedCount = await this.processAndInsertTransactions(signaturesV1);
     
-        logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);  
+        logTimestampedMessage(`Transaction V1 sync completed. Fetched ${signaturesV1.length} signatures. Inserted ${insertedCount} new transactions.`);  
       } else {
-        logTimestampedMessage('Unable to fetch signatures. Skipping sync.');
+        logTimestampedMessage('Unable to fetch V1signatures. Skipping sync.');
+      }
+
+      if (signaturesV2) {
+        signaturesV2 = signaturesV2.reverse();  
+
+        signaturesV2.forEach(signatureInfo => {
+          logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
+        });
+
+        const insertedCount = await this.processAndInsertTransactions(signaturesV2);
+
+        logTimestampedMessage(`Transaction V2 sync completed. Fetched ${signaturesV2.length} signatures. Inserted ${insertedCount} new transactions.`);  
+      } else {
+        logTimestampedMessage('Unable to fetch V2 signatures. Skipping sync.');
       }
     } catch (error) {
       logTimestampedMessage(`Error in syncTransactions: ${error.message}`);
@@ -68,14 +83,17 @@ class TransactionSyncer {
   }
 
   async getLastSyncedSignature() {
-    const lastTransaction = await Transaction.query().orderBy('blocktime', 'desc').first();
-    const lastSignature = lastTransaction ? lastTransaction.txid : null;
-    logTimestampedMessage(`Last synced signature from DB: ${lastSignature}`);
-    return lastSignature;
+    const lastTransactionV1 = await Transaction.query().where('programId', process.env.NINA_PROGRAM_ID).orderBy('blocktime', 'desc').first();
+    const lastTransactionV2 = await Transaction.query().where('programId', process.env.NINA_PROGRAM_V2_ID).orderBy('blocktime', 'desc').first();
+    const lastSignatureV1 = lastTransactionV1 ? lastTransactionV1.txid : null;
+    const lastSignatureV2 = lastTransactionV2 ? lastTransactionV2.txid : null;
+    logTimestampedMessage(`Last synced signature from DB: v1: ${lastSignatureV1} v2: ${lastSignatureV2}`);
+    return {lastSignatureV1, lastSignatureV2};
   }
 
-  async fetchSignatures (tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
-    console.log(`fetchSignatures: ${tx} ${isBefore} ${existingSignatures.length}`)
+  async fetchSignatures (programId, tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
+    console.log(`fetchSignatures for programId: ${programId.toBase58()} tx: ${tx} isBefore: ${isBefore} existingSignatures: ${existingSignatures.length}`)
+    
     try {
       const options = {}
       if (tx && isBefore) {
@@ -87,7 +105,7 @@ class TransactionSyncer {
         }
       }
       console.log('options: ', options)
-      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(this.programId, options))
+      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(programId, options))
       for (let i = 0; i < newSignatures.length; i ++) {
         console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
       }
@@ -103,7 +121,7 @@ class TransactionSyncer {
         existingSignatures.push(...newSignatures)
         logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
         if (existingSignatures.length % this.batchSize === 0) {
-          return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
+          return await this.fetchSignatures(programId, signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
         }  
       }
       return existingSignatures
@@ -232,6 +250,7 @@ class TransactionSyncer {
         blocktime: txInfo.blockTime,
         type,
         authorityId: authority.id,
+        programId,
       };
 
       const task = {
@@ -391,11 +410,19 @@ class TransactionSyncer {
   async getAccountPublicKey(accounts, type, logs, programId = process.env.NINA_PROGRAM_ID) {
     try {
       switch (type) {
+        case 'ReleaseInitV2':
+          console.log('ReleaseInitV2 accounts', accounts)
+          return accounts[1].toBase58();
+        case 'ReleaseUpdate':
+          console.log('ReleaseUpdate accounts', accounts)
+          return accounts[1].toBase58();
         case 'ReleaseInitViaHub':
           return this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58();
         case 'ReleasePurchaseViaHub':
         case 'ReleasePurchase':
-          if (logs.some(log => log.includes('ReleasePurchase'))) {
+          if (programId === process.env.NINA_PROGRAM_V2_ID) {
+            return accounts[1].toBase58();
+          } else if (logs.some(log => log.includes('ReleasePurchase'))) {
             return accounts[1].toBase58();
           } else if (accounts?.length === 10) {
             if (accounts[0].toBase58() === accounts[1].toBase58()) {
