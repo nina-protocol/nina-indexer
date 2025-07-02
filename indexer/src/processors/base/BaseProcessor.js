@@ -8,10 +8,11 @@ export class BaseProcessor {
   constructor() {
   }
   
-  async initialize(program) {
+  async initialize(program, programV2) {
     this.program = program;
+    this.programV2 = programV2;
   }
-
+  
   isFileServicePayer(accounts) {
     return FILE_SERVICE_ADDRESSES.includes(accounts[0].toBase58()) || accounts[0].toBase58() === accounts[1].toBase58();
   }

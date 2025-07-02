@@ -21,6 +21,8 @@ class Transaction extends Model {
         type: {
           type: 'string',
           enum: [
+            'ReleaseInitV2',
+            'ReleaseUpdate',
             'ExchangeAccept',
             'ExchangeCancel',
             'ExchangeInit',
