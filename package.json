@@ -7,6 +7,9 @@
   "repository": "git@github.com:nina-protocol/nina-indexer.git",
   "author": "contact@ninaprotocol.com",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.18.0"
+  },
   "scripts": {
     "start": "node indexer/src/index.js",
     "test:local": "mocha 'test/**/*.test.js'",

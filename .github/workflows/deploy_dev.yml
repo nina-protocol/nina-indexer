@@ -17,6 +17,10 @@ jobs:
     needs: [continuous-integration]
     if: github.ref == 'refs/heads/deploy_dev'
     steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18' # Declare Node.js version 20.18
      # Step 1
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
