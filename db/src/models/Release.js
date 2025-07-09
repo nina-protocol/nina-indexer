@@ -10,7 +10,6 @@ import Tag from './Tag.js';
 import axios from 'axios';
 import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
-import promiseRetry from 'promise-retry';
 
 const ensureHttps = (uri) => {
   if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
