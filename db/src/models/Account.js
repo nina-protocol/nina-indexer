@@ -42,8 +42,9 @@ export default class Account extends Model {
       this.verifications = verifications;
     }
     delete this.id
-    const followers = await Subscription.query().where('to', this.publicKey).range(0,0);
-    this.followers = followers.total;
+    // Use count() instead of range(0,0) to avoid temporary object creation
+    const followersCount = await Subscription.query().where('to', this.publicKey).count('* as count').first();
+    this.followers = parseInt(followersCount.count);
   }
 
   static relationMappings = () => ({    
