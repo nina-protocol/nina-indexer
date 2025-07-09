@@ -1,4 +1,5 @@
-import anchor from '@project-serum/anchor';
+import * as anchorSerum from '@project-serum/anchor';
+import * as anchorCoral from '@coral-xyz/anchor';
 import { Metaplex } from '@metaplex-foundation/js';
 import { Model } from 'objection';
 import { stripHtmlIfNeeded, tweetNewRelease }from '../utils/index.js';
@@ -10,6 +11,7 @@ import Tag from './Tag.js';
 import axios from 'axios';
 import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
+import { getTokenMetadata } from '@solana/spl-token';
 
 const ensureHttps = (uri) => {
   if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
@@ -56,27 +58,30 @@ export default class Release extends Model {
     },
   }
   
-  static findOrCreate = async (publicKey, hubPublicKey=null) => {
+  static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID) => {
     try {
+      console.log('Release.findOrCreate', publicKey, programId)
       let release = await Release.query().findOne({ publicKey });
       if (release) {
+        console.log('release found', release)
         return release;
       }
   
+      let anchor = programId === process.env.NINA_PROGRAM_V2_ID ? anchorCoral : anchorSerum;
       const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
       const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
       const program = await anchor.Program.at(
-        process.env.NINA_PROGRAM_ID,
+        programId,
         provider,
       )
+      const programModelName = programId === process.env.NINA_PROGRAM_V2_ID ? 'releaseV2' : 'release';
       const metaplex = new Metaplex(connection);
       let attempts = 0;
-
       const releaseAccount = await promiseRetry(
         async (retry) => {
           try {
             attempts += 1
-            const result = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+            const result = await program.account[programModelName].fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
             return result
           } catch (error) {
             console.log('error fetching release account', error)
@@ -89,7 +94,12 @@ export default class Release extends Model {
         }
       )
   
-      let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+      let metadataAccount
+      if (programId === process.env.NINA_PROGRAM_V2_ID) {
+        metadataAccount = await getTokenMetadata(connection, releaseAccount.mint, 'confirmed')
+      } else {
+        metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+      }
       if (!metadataAccount) {
         throw new Error('No metadata account found for release - is not a complete release')
       }
@@ -104,12 +114,13 @@ export default class Release extends Model {
       let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
       release = await this.createRelease({
         publicKey,
-        mint: releaseAccount.releaseMint.toBase58(),
+        mint: programId === process.env.NINA_PROGRAM_V2_ID ? releaseAccount.mint.toBase58() : releaseAccount.releaseMint.toBase58(),
         metadata: json,
-        datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+        datetime: programId === process.env.NINA_PROGRAM_V2_ID ? new Date().toISOString() : new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
         slug,
         publisherId: publisher.id,
-        releaseAccount
+        releaseAccount,
+        programId,
       });
   
       if (hubPublicKey) {
@@ -128,7 +139,7 @@ export default class Release extends Model {
     }
   }
 
-  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId}) => {
     const slug = await this.generateSlug(metadata);
     const price = releaseAccount.account?.price?.toNumber() || releaseAccount?.price?.toNumber() || 0;
     const paymentMint = releaseAccount.account?.paymentMint.toBase58() || releaseAccount?.paymentMint.toBase58();
@@ -141,7 +152,8 @@ export default class Release extends Model {
       publisherId,
       price: `${price}`,
       paymentMint,
-      archived: false
+      archived: false,
+      programId,
     })
     if (metadata.properties.tags) {
       for await (let tag of metadata.properties.tags) {
@@ -149,7 +161,9 @@ export default class Release extends Model {
         await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id).onConflict(['tagId', 'releaseId']).ignore();
       }
     }
-    await this.processRevenueShares(releaseAccount, release);
+    if (programId === process.env.NINA_PROGRAM_ID) {
+      await this.processRevenueShares(releaseAccount, release);
+    }
     tweetNewRelease(metadata, publisherId, slug);
     return release;
   }

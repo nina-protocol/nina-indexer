@@ -1,6 +1,6 @@
 {
   "name": "@nina-protocol/nina-db",
-  "version": "0.0.104",
+  "version": "0.0.105",
   "description": "",
   "source": "src/index.js",
   "main": "dist/index.js",
@@ -23,7 +23,8 @@
     "@babel/plugin-proposal-object-rest-spread": "^7.20.7",
     "@babel/preset-es2015": "^7.0.0-beta.53",
     "@metaplex-foundation/js": "^0.18.1",
-    "@project-serum/anchor": "^0.25.0",
+    "@coral-xyz/anchor": "^0.31.0",
+    "@solana/spl-token": "^0.4.9",
     "axios": "^0.27.2",
     "knex": "^2.2.0",
     "nanoid": "^4.0.2",
@@ -46,6 +47,6 @@
     "rollup-plugin-babel": "^4.4.0",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-terser": "^7.0.2",
-    "typescript": "4.3.5"
+    "typescript": "5.7.3"
   }
 }
