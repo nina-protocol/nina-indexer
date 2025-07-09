@@ -805,63 +805,95 @@ router.get('/:publicKey/hubSuggestions', async (ctx) => {
     const account = await Account.query().findOne({ publicKey: ctx.params.publicKey });
     if (account) {
       const mySubscriptions = await Subscription.query().where('from', account.publicKey)
+      const mySubscriptionTos = mySubscriptions.map(subscription => subscription.to)
+      
+      // Batch fetch all related data upfront
       const collected = await account.$relatedQuery('collected')
+      const published = await account.$relatedQuery('published')
+      const hubs = await account.$relatedQuery('hubs')
+      
+      // Process collected releases
       for await (let release of collected) {
-        const hubs = await release.$relatedQuery('hubs')
-          .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+        const releaseHubs = await release.$relatedQuery('hubs')
+          .whereNotIn('publicKey', mySubscriptionTos)
           .andWhereNot('authorityId', account.id)
-        await addSuggestionsBatch(suggestions, hubs, 'collected', account)
+        await addSuggestionsBatch(suggestions, releaseHubs, 'collected', account)
       }
 
-      const published = await account.$relatedQuery('published')
+      // Process published releases
       for await (let release of published) {
-        const hubs = await release.$relatedQuery('hubs')
-          .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+        const releaseHubs = await release.$relatedQuery('hubs')
+          .whereNotIn('publicKey', mySubscriptionTos)
           .andWhereNot('authorityId', account.id)
-        await addSuggestionsBatch(suggestions, hubs, 'published', account)
+        await addSuggestionsBatch(suggestions, releaseHubs, 'published', account)
 
         const collectors = await release.$relatedQuery('collectors')
         for await (let collector of collectors) {
           const collectorHubs = await collector
             .$relatedQuery('hubs')
-            .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+            .whereNotIn('publicKey', mySubscriptionTos)
             .andWhereNot('authorityId', account.id)
           await addSuggestionsBatch(suggestions, collectorHubs, 'collectorHub', account)
         }
       }
-      const hubs = await account.$relatedQuery('hubs')
+      
+      // Process hub releases
       for await (let hub of hubs) {
-        const releases = await hub.$relatedQuery('releases')
-        for await (let release of releases) {
+        const hubReleases = await hub.$relatedQuery('releases')
+        for await (let release of hubReleases) {
           const relatedHubs = await release.$relatedQuery('hubs')
-            .whereNotIn('publicKey', mySubscriptions.map(subscription => subscription.to))
+            .whereNotIn('publicKey', mySubscriptionTos)
             .andWhereNot('authorityId', account.id)
           await addSuggestionsBatch(suggestions, relatedHubs, 'hubRelease', account)
         }
       }
 
-      for await (let mySubscription of mySubscriptions) {
-        if (mySubscription.subscriptionType === 'hub') {
-          const relatedSubscriptions = await Subscription.query().where('to', mySubscription.to)
-          for await (let relatedSubscription of relatedSubscriptions) {
-            const relatedHubSubscriptions = await Subscription.query()
-              .whereNotIn('to', mySubscriptions.map(subscription => subscription.to))
-              .andWhere('from', relatedSubscription.from)
-              .andWhere('subscriptionType', 'hub')
-            for await (let relatedHubSubscription of relatedHubSubscriptions) {
-              const hub = await Hub.query().findOne({ publicKey: relatedHubSubscription.to })
-              await addSuggestion(suggestions, hub, 'hubSubscription', account)
-            }
-          }  
-        } else {
-          const relatedHubSubscriptions = await Subscription.query()
-            .whereNotIn('to', mySubscriptions.map(subscription => subscription.to))
-            .andWhere('from', mySubscription.to)
-            .andWhere('subscriptionType', 'hub')
-          for await (let relatedHubSubscription of relatedHubSubscriptions) {
-            const hub = await Hub.query().findOne({ publicKey: relatedHubSubscription.to })
-            await addSuggestion(suggestions, hub, 'hubSubscription', account)
-          }
+      // Optimize subscription-based suggestions
+      const hubSubscriptions = mySubscriptions.filter(sub => sub.subscriptionType === 'hub')
+      const accountSubscriptions = mySubscriptions.filter(sub => sub.subscriptionType === 'account')
+      
+      if (hubSubscriptions.length > 0) {
+        // Batch fetch all related subscriptions for hub subscriptions
+        const hubTos = hubSubscriptions.map(sub => sub.to)
+        const relatedSubscriptions = await Subscription.query()
+          .whereIn('to', hubTos)
+          .andWhere('subscriptionType', 'account')
+        
+        // Group by 'to' for efficient processing
+        const subscriptionsByTo = relatedSubscriptions.reduce((acc, sub) => {
+          if (!acc[sub.to]) acc[sub.to] = []
+          acc[sub.to].push(sub)
+          return acc
+        }, {})
+        
+        // Batch fetch all related hub subscriptions
+        const relatedFroms = relatedSubscriptions.map(sub => sub.from)
+        const allRelatedHubSubscriptions = await Subscription.query()
+          .whereIn('from', relatedFroms)
+          .whereNotIn('to', mySubscriptionTos)
+          .andWhere('subscriptionType', 'hub')
+        
+        // Process hub subscription suggestions
+        for (const relatedHubSub of allRelatedHubSubscriptions) {
+          const hub = await Hub.query().findOne({ publicKey: relatedHubSub.to })
+          await addSuggestion(suggestions, hub, 'hubSubscription', account)
+        }
+      }
+      
+      if (accountSubscriptions.length > 0) {
+        // Batch fetch hub subscriptions for account subscriptions
+        const accountTos = accountSubscriptions.map(sub => sub.to)
+        const relatedHubSubscriptions = await Subscription.query()
+          .whereIn('from', accountTos)
+          .whereNotIn('to', mySubscriptionTos)
+          .andWhere('subscriptionType', 'hub')
+        
+        // Batch fetch all related hubs
+        const hubPublicKeys = relatedHubSubscriptions.map(sub => sub.to)
+        const relatedHubs = await Hub.query().whereIn('publicKey', hubPublicKeys)
+        
+        for (const hub of relatedHubs) {
+          await addSuggestion(suggestions, hub, 'hubSubscription', account)
         }
       }
     } else {
@@ -872,9 +904,13 @@ router.get('/:publicKey/hubSuggestions', async (ctx) => {
       const ninaRecommendedHubSubscriptions = await Subscription.query()
         .where('from', process.env.HUB_SUGGESTIONS_PUBLIC_KEY)
         .andWhere('subscriptionType', 'hub')
-      for await (let ninaRecommendedHubSubscription of ninaRecommendedHubSubscriptions) {
-        if (Object.values(suggestions).filter(suggestion => suggestion.hub.publicKey === ninaRecommendedHubSubscription.to).length === 0) {
-          const hub = await Hub.query().findOne({ publicKey: ninaRecommendedHubSubscription.to })
+      
+      // Batch fetch all recommended hubs
+      const recommendedHubKeys = ninaRecommendedHubSubscriptions.map(sub => sub.to)
+      const recommendedHubs = await Hub.query().whereIn('publicKey', recommendedHubKeys)
+      
+      for (const hub of recommendedHubs) {
+        if (Object.values(suggestions).filter(suggestion => suggestion.hub.publicKey === hub.publicKey).length === 0) {
           await hub.format()
           suggestions[hub.publicKey] = {
             hub,
