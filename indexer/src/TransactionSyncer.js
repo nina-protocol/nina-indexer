@@ -393,7 +393,7 @@ class TransactionSyncer {
       if (txInfo.meta && txInfo.meta.innerInstructions) {
         for (let innerInstruction of txInfo.meta.innerInstructions) {
           for (let instruction of innerInstruction.instructions) {
-            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID || instruction.programId.toBase58() === process.env.NINA_PROGRAM_V2_ID) {
               logTimestampedMessage('Found Nina instruction in inner instructions');
               ninaInstruction = instruction;
               break;
