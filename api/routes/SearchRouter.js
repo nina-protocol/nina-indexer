@@ -47,13 +47,7 @@ router.get('/all', async (ctx) => {
 
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
       Account.query()
-        .modify((queryBuilder) => {
-          if (query) {
-            queryBuilder
-              .where('displayName', 'ilike', `%${query}%`)
-              .orWhere('handle', 'ilike', `%${query}%`);
-          }
-        })
+        .whereIn('id', publisherIds)
         .orderBy('id', sort)
         .range(offset, offset + limit - 1),
 
@@ -88,13 +82,7 @@ router.get('/all', async (ctx) => {
       })(),
 
       Hub.query()
-        .modify((queryBuilder) => {
-          if (query) {
-            queryBuilder
-              .where('handle', 'ilike', `%${query}%`)
-              .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`);
-          }
-        })
+        .whereIn('id', hubIds)
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1),
 
