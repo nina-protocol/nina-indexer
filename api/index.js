@@ -33,7 +33,8 @@ app.use(ratelimit({
   },
   whitelist: (ctx) => {
     if (
-      ctx.request.query.api_key === process.env.NINA_API_KEY
+      ctx.request.query.api_key === process.env.NINA_API_KEY ||
+      ctx.request.headers['x-vercel-id']
     ) {
       return true;
     }
