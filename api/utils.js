@@ -46,6 +46,7 @@ export const getReleaseSearchSubQuery = async (query) => {
         const releases = await Release.query()
           .select('id', 'metadata')
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
 
         return releases.map(row => row.id);
       }
