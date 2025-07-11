@@ -10,7 +10,7 @@ import {
 import { ref } from 'objection'
 import _  from 'lodash';
 
-import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery } from '../utils.js';
+import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
 
 const idList = [
   '13572',
@@ -37,32 +37,44 @@ router.get('/all', async (ctx) => {
 
     // If we have a query, check for releases first since that's the most common search
     let releaseIds = [];
+    let publisherIds = [];
+    let hubIds = [];
     if (query) {
       releaseIds = await getReleaseSearchSubQuery(query);
+      publisherIds = await getPublisherSubQuery(query);
+      hubIds = await getPublishedThroughHubSubQuery(query);
     }
 
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
       Account.query()
-        .modify((queryBuilder) => {
-          if (query) {
-            queryBuilder
-              .where('displayName', 'ilike', `%${query}%`)
-              .orWhere('handle', 'ilike', `%${query}%`);
-          }
-        })
+        .whereIn('id', publisherIds)
         .orderBy('id', sort)
         .range(offset, offset + limit - 1),
 
       (async () => {
-        if (query && releaseIds.length === 0) {
+        if (query && releaseIds.length === 0 && publisherIds.length === 0 && hubIds.length === 0) {
           return { results: [], total: 0 };
         }
         return Release.query()
           .where('archived', false)
           .whereNotIn('publisherId', idList)
           .modify((queryBuilder) => {
-            if (query && releaseIds.length > 0) {
+            if (releaseIds.length > 0) {
               queryBuilder.whereIn('id', releaseIds);
+            }
+            if (publisherIds.length > 0) {
+              if (releaseIds.length > 0) {
+                queryBuilder.orWhereIn('publisherId', publisherIds);
+              } else {
+                queryBuilder.whereIn('publisherId', publisherIds);
+              }
+            }
+            if (hubIds.length > 0) {
+              if (releaseIds.length > 0 || publisherIds.length > 0) {
+                queryBuilder.orWhereIn('hubId', hubIds);
+              } else {
+                queryBuilder.whereIn('hubId', hubIds);
+              }
             }
           })
           .orderBy('datetime', sort)
@@ -70,13 +82,7 @@ router.get('/all', async (ctx) => {
       })(),
 
       Hub.query()
-        .modify((queryBuilder) => {
-          if (query) {
-            queryBuilder
-              .where('handle', 'ilike', `%${query}%`)
-              .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`);
-          }
-        })
+        .whereIn('id', hubIds)
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1),
 
