@@ -148,7 +148,6 @@ router.get('/all', async (ctx) => {
       const hubIds = await getPublishedThroughHubSubQuery(query);
       const postsQuery = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
         .modify((queryBuilder) => {
           if (hubIds && hubIds.length > 0) {
             queryBuilder.orWhereIn('hubId', hubIds);
