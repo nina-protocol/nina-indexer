@@ -50,7 +50,7 @@ export const getReleaseSearchSubQuery = async (query) => {
         return releases.map(row => row.id);
       }
     );
-
+    
     return releaseIds;
   } catch (error) {
     console.error('Error in getReleaseSearchSubQuery:', error);
