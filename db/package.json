@@ -1,6 +1,6 @@
 {
   "name": "@nina-protocol/nina-db",
-  "version": "0.0.102",
+  "version": "0.0.106",
   "description": "",
   "source": "src/index.js",
   "main": "dist/index.js",

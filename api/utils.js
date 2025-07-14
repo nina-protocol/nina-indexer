@@ -46,15 +46,12 @@ export const getReleaseSearchSubQuery = async (query) => {
         const releases = await Release.query()
           .select('id', 'metadata')
           .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:description').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
           .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:collection.name').castText(), 'ilike', `%${query}%`);
 
         return releases.map(row => row.id);
       }
     );
-
+    
     return releaseIds;
   } catch (error) {
     console.error('Error in getReleaseSearchSubQuery:', error);
