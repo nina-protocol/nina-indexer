@@ -35,15 +35,10 @@ router.get('/all', async (ctx) => {
       query
     };
 
-    // If we have a query, check for releases first since that's the most common search
-    let releaseIds = [];
-    let publisherIds = [];
-    let hubIds = [];
-    if (query) {
-      releaseIds = await getReleaseSearchSubQuery(query);
-      publisherIds = await getPublisherSubQuery(query);
-      hubIds = await getPublishedThroughHubSubQuery(query);
-    }
+    let releaseIds = await getReleaseSearchSubQuery(query);
+    let publisherIds = await getPublisherSubQuery(query);
+    let hubIds = await getPublishedThroughHubSubQuery(query);
+
 
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
       Account.query()
