@@ -3,6 +3,7 @@ import {
   Account,
   Exchange,
   Hub,
+  Post,
   Release,
   Subscription,
   Transaction,
@@ -11,12 +12,15 @@ import { ref } from 'objection'
 import * as anchor from '@project-serum/anchor';
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
-
-import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
+import config from '../../db/src/knexfile.js'
+import Knex from 'knex';
 
 const router = new KoaRouter({
   prefix: '/accounts'
 })
+
+
+const db = Knex(config.development)
 
 router.get('/', async(ctx) => {
   try {
@@ -771,26 +775,94 @@ router.get('/:publicKey/activity', async (ctx) => {
     const account = await Account.findOrCreate(ctx.params.publicKey);
     const releases = await account.$relatedQuery('revenueShares')
     const hubs = await account.$relatedQuery('hubs')
-    const transactions = await Transaction.query()
-      .whereIn('releaseId', releases.map(release => release.id))
-      .orWhereIn('hubId', hubs.map(hub => hub.id))
-      .orWhere('authorityId', account.id)
-      .orWhere('toAccountId', account.id)
-      .orWhereIn('toHubId', hubs.map(hub => hub.id))
-      .orderBy('blocktime', 'desc')
-      .range(offset, offset + limit)
+    
+    const releaseIds = releases.map(release => release.id);
+    const hubIds = hubs.map(hub => hub.id);
 
-    const activityItems = []
-    for await (let transaction of transactions.results) {
-      await transaction.format()
-      activityItems.push(transaction)
-    }
-
+    const transactions = await db.raw(`
+      (SELECT * FROM transactions WHERE "releaseId" = ANY(?))
+      UNION
+      (SELECT * FROM transactions WHERE "hubId" = ANY(?))
+      UNION  
+      (SELECT * FROM transactions WHERE "authorityId" = ?)
+      UNION
+      (SELECT * FROM transactions WHERE "toAccountId" = ?)
+      UNION
+      (SELECT * FROM transactions WHERE "toHubId" = ANY(?))
+      ORDER BY blocktime DESC
+      LIMIT ? OFFSET ?
+    `, [releaseIds, hubIds, account.id, account.id, hubIds, limit, offset]);
+    
+         // Extract unique IDs from transaction results (deduplicated)
+     const allHubIds = [...new Set([
+       ...transactions.rows.map(t => t.hubId).filter(Boolean),
+       ...transactions.rows.map(t => t.toHubId).filter(Boolean)
+     ])];
+     const allAccountIds = [...new Set([
+       ...transactions.rows.map(t => t.authorityId).filter(Boolean),
+       ...transactions.rows.map(t => t.toAccountId).filter(Boolean)
+     ])];
+     const transactionReleaseIds = [...new Set(transactions.rows.map(t => t.releaseId).filter(Boolean))];
+     const transactionPostIds = [...new Set(transactions.rows.map(t => t.postId).filter(Boolean))];
+     
+     // Batch load all related data in parallel (deduplicated)
+     const [allHubs, allAccounts, transactionReleases, transactionPosts] = await Promise.all([
+       allHubIds.length > 0 ? Hub.query().whereIn('id', allHubIds) : [],
+       allAccountIds.length > 0 ? Account.query().whereIn('id', allAccountIds) : [],
+       transactionReleaseIds.length > 0 ? Release.query().whereIn('id', transactionReleaseIds) : [],
+       transactionPostIds.length > 0 ? Post.query().whereIn('id', transactionPostIds) : []
+     ]);
+     
+     // Create single lookup maps for O(1) access
+     const hubMap = new Map(allHubs.map(hub => [hub.id, hub]));
+     const accountMap = new Map(allAccounts.map(account => [account.id, account]));
+     const releaseMap = new Map(transactionReleases.map(release => [release.id, release]));
+     const postMap = new Map(transactionPosts.map(post => [post.id, post]));
+    
+         // Process transactions with proper async/await
+     const activityItems = await Promise.all(transactions.rows.map(async (transaction) => {
+       if (transaction.hubId && hubMap.has(transaction.hubId)) {
+         transaction.hub = hubMap.get(transaction.hubId);
+         await transaction.hub.format();
+         delete transaction.hubId;
+       }
+       if (transaction.toHubId && hubMap.has(transaction.toHubId)) {
+         transaction.toHub = hubMap.get(transaction.toHubId);
+         await transaction.toHub.format();
+         delete transaction.toHubId;
+       }
+       if (transaction.authorityId && accountMap.has(transaction.authorityId)) {
+         transaction.authority = accountMap.get(transaction.authorityId);
+         await transaction.authority.format();
+         delete transaction.authorityId;
+       }
+       if (transaction.toAccountId && accountMap.has(transaction.toAccountId)) {
+         transaction.toAccount = accountMap.get(transaction.toAccountId);
+         await transaction.toAccount.format();
+         delete transaction.toAccountId;
+       }
+       if (transaction.releaseId && releaseMap.has(transaction.releaseId)) {
+         transaction.release = releaseMap.get(transaction.releaseId);
+         await transaction.release.format();
+         delete transaction.releaseId;
+       }
+       if (transaction.postId && postMap.has(transaction.postId)) {
+         transaction.post = postMap.get(transaction.postId);
+         await transaction.post.format();
+         delete transaction.postId;
+       }
+     
+       transaction.datetime = new Date(transaction.blocktime * 1000).toISOString();
+       delete transaction.id;
+       
+       return transaction;
+     }));
     ctx.body = {
       activityItems,
       total: transactions.total
     };
   } catch (err) {
+    console.log('err', err)
     ctx.status = 404
     ctx.body = {
       message: err
