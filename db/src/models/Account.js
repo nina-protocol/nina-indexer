@@ -4,6 +4,7 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import Release from './Release.js';
 import Verification from './Verification.js';
+import Subscription from './Subscription.js';
 
 export default class Account extends Model {
   static tableName= 'accounts';
@@ -41,6 +42,9 @@ export default class Account extends Model {
       this.verifications = verifications;
     }
     delete this.id
+    // Use count() instead of range(0,0) to avoid temporary object creation
+    const followersCount = await Subscription.query().where('to', this.publicKey).count('* as count').first();
+    this.followers = parseInt(followersCount.count);
   }
 
   static relationMappings = () => ({    

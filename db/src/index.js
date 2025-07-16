@@ -31,6 +31,7 @@ export const Hub = Models.Hub
 export const Post = Models.Post
 export const Release = Models.Release
 export const Subscription = Models.Subscription
+export const Tag = Models.Tag
 export const Transaction = Models.Transaction
 export const Verification = Models.Verification
 export const config = knexConfig

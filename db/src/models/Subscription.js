@@ -12,9 +12,8 @@ class Subscription extends Model {
   static get jsonSchema() {
     return {
       type: 'object',
-      required: ['publicKey', 'datetime'],
+      required: ['datetime'],
       properties: {
-        publicKey: { type: 'string' },
         datetime: { type: 'string' },
         from: { type: 'string' },
         to: { type: 'string' },
@@ -26,16 +25,16 @@ class Subscription extends Model {
     };
   }
 
-  static async findOrCreate({publicKey, from, to, datetime, subscriptionType}) {
-    let subscription = await Subscription.query().findOne({ publicKey });
+  static async findOrCreate({from, to, datetime, subscriptionType}) {
+    let subscription = await Subscription.query().findOne({ from, to });
     if (subscription) {
       return subscription;
     }
 
     subscription = await Subscription.query().insert({
-      publicKey, from, to, datetime, subscriptionType
+      from, to, datetime, subscriptionType
     });
-    console.log('Inserted subscription: ', publicKey)
+    console.log('Inserted subscription: ', from, to)
     return subscription;
   }
 

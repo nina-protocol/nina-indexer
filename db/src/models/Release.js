@@ -1,4 +1,5 @@
-import anchor from '@project-serum/anchor';
+import * as anchorSerum from '@project-serum/anchor';
+import * as anchorCoral from '@coral-xyz/anchor';
 import { Metaplex } from '@metaplex-foundation/js';
 import { Model } from 'objection';
 import { stripHtmlIfNeeded, tweetNewRelease }from '../utils/index.js';
@@ -6,19 +7,28 @@ import  Account from './Account.js';
 import Exchange from './Exchange.js';
 import Hub from './Hub.js';
 import Post from './Post.js';
+import Tag from './Tag.js';
 import axios from 'axios';
+import promiseRetry from 'promise-retry';
 import { customAlphabet } from 'nanoid';
+import { getTokenMetadata } from '@solana/spl-token';
+
+const ensureHttps = (uri) => {
+  if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+    return `https://${uri}`;
+  }
+  return uri;
+};
 
 const alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
 const randomStringGenerator = customAlphabet(alphabet, 12);
-
 export default class Release extends Model {
   static tableName = 'releases';
   
   static idColumn = 'id';
   static jsonSchema = {
     type: 'object',
-    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug'],
+    required: ['publicKey', 'mint', 'metadata', 'datetime', 'slug', 'price'],
     properties: {
       publicKey: { type: 'string' },
       mint: { type: 'string' },
@@ -43,48 +53,96 @@ export default class Release extends Model {
           }
         }
       },
+      price: { type: 'string' },
+      archived: { type: 'boolean' },
     },
   }
-
-  static findOrCreate = async (publicKey) => {
-    let release = await Release.query().findOne({ publicKey });
-    if (release) {
-      return release;
-    }
-
-    const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
-    const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'processed'})  
-    const program = await anchor.Program.at(
-      process.env.NINA_PROGRAM_ID,
-      provider,
-    )
-    const metaplex = new Metaplex(connection);
-    const releaseAccount = await program.account.release.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
-    let metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
-    let json
+  
+  static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID) => {
     try {
-      json = (await axios.get(metadataAccount.uri)).data
+      console.log('Release.findOrCreate', publicKey, programId)
+      let release = await Release.query().findOne({ publicKey });
+      if (release) {
+        console.log('release found', release)
+        return release;
+      }
+  
+      let anchor = programId === process.env.NINA_PROGRAM_V2_ID ? anchorCoral : anchorSerum;
+      const connection = new anchor.web3.Connection(process.env.SOLANA_CLUSTER_URL);
+      const provider = new anchor.AnchorProvider(connection, {}, {commitment: 'confirmed'})  
+      const program = await anchor.Program.at(
+        programId,
+        provider,
+      )
+      const programModelName = programId === process.env.NINA_PROGRAM_V2_ID ? 'releaseV2' : 'release';
+      const metaplex = new Metaplex(connection);
+      let attempts = 0;
+      const releaseAccount = await promiseRetry(
+        async (retry) => {
+          try {
+            attempts += 1
+            const result = await program.account[programModelName].fetch(new anchor.web3.PublicKey(publicKey), 'confirmed')
+            return result
+          } catch (error) {
+            console.log('error fetching release account', error)
+            retry(error)
+          }
+        }, {
+          retries: 50,
+          minTimeout: 500,
+          maxTimeout: 1500,
+        }
+      )
+  
+      let metadataAccount
+      if (programId === process.env.NINA_PROGRAM_V2_ID) {
+        metadataAccount = await getTokenMetadata(connection, releaseAccount.mint, 'confirmed')
+      } else {
+        metadataAccount = (await metaplex.nfts().findAllByMintList({mints: [releaseAccount.releaseMint]}, { commitment: 'confirmed' }))[0];
+      }
+      if (!metadataAccount) {
+        throw new Error('No metadata account found for release - is not a complete release')
+      }
+      let json
+      try {
+        json = (await axios.get(ensureHttps(metadataAccount.uri.replace('www.','').replace('arweave.net', 'gateway.irys.xyz')))).data
+      } catch (error) {
+        json = (await axios.get(ensureHttps(metadataAccount.uri.replace('gateway.irys.xyz', 'arweave.net')))).data
+      }
+  
+      const slug = await this.generateSlug(json);
+      let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
+      release = await this.createRelease({
+        publicKey,
+        mint: programId === process.env.NINA_PROGRAM_V2_ID ? releaseAccount.mint.toBase58() : releaseAccount.releaseMint.toBase58(),
+        metadata: json,
+        datetime: programId === process.env.NINA_PROGRAM_V2_ID ? new Date().toISOString() : new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
+        slug,
+        publisherId: publisher.id,
+        releaseAccount,
+        programId,
+      });
+  
+      if (hubPublicKey) {
+  
+        const hub = await Hub.query().findOne({ publicKey: hubPublicKey })
+        await release.$query().patch({ hubId: hub.id })
+        await Hub.relatedQuery('releases').for(hub.id).patch({
+          visible: true,
+        }).where( {id: release.id });
+      }
+  
+      return release;  
     } catch (error) {
-      json = (await axios.get(metadataAccount.uri.replace('arweave.net', 'ar-io.net'))).data
+      console.log('error finding or creating release: ', error)
+      return null;
     }
-
-    const slug = await this.generateSlug(json);
-    let publisher = await Account.findOrCreate(releaseAccount.authority.toBase58());
-    release = await this.createRelease({
-      publicKey,
-      mint: releaseAccount.releaseMint.toBase58(),
-      metadata: json,
-      datetime: new Date(releaseAccount.releaseDatetime.toNumber() * 1000).toISOString(),
-      slug,
-      publisherId: publisher.id,
-      releaseAccount
-    });
-    return release;
   }
 
-  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount}) => {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId}) => {
     const slug = await this.generateSlug(metadata);
-
+    const price = releaseAccount.account?.price?.toNumber() || releaseAccount?.price?.toNumber() || 0;
+    const paymentMint = releaseAccount.account?.paymentMint.toBase58() || releaseAccount?.paymentMint.toBase58();
     const release = await Release.query().insertGraph({
       publicKey,
       mint,
@@ -92,9 +150,21 @@ export default class Release extends Model {
       slug,
       datetime,
       publisherId,
+      price: `${price}`,
+      paymentMint,
+      archived: false,
+      programId,
     })
-    await this.processRevenueShares(releaseAccount, release);
-    tweetNewRelease(metadata, publisherId);
+    if (metadata.properties.tags) {
+      for await (let tag of metadata.properties.tags) {
+        const tagRecord = await Tag.findOrCreate(tag);
+        await Release.relatedQuery('tags').for(release.id).relate(tagRecord.id).onConflict(['tagId', 'releaseId']).ignore();
+      }
+    }
+    if (programId === process.env.NINA_PROGRAM_ID) {
+      await this.processRevenueShares(releaseAccount, release);
+    }
+    tweetNewRelease(metadata, publisherId, slug);
     return release;
   }
 
@@ -105,8 +175,10 @@ export default class Release extends Model {
         if (recipient.recipientAuthority.toBase58() !== "11111111111111111111111111111111") {
           const recipientAccount = await Account.findOrCreate(recipient.recipientAuthority.toBase58());
           const revenueShares = (await recipientAccount.$relatedQuery('revenueShares')).map(revenueShare => revenueShare.id);
-          if (!revenueShares.includes(releaseRecord.id)) {
+          if (!revenueShares.includes(releaseRecord.id) && recipient.percentShare.toNumber() > 0) {
             await Account.relatedQuery('revenueShares').for(recipientAccount.id).relate(releaseRecord.id);
+          } else if (revenueShares.includes(releaseRecord.id) && recipient.percentShare.toNumber() === 0) {
+            await Account.relatedQuery('revenueShares').for(recipientAccount.id).unrelate().where('id', releaseRecord.id);
           }
         }
       } catch (error) {
@@ -232,6 +304,18 @@ export default class Release extends Model {
         },
         to: 'accounts.id',
       },
-    }
+    },
+    tags: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Tag,
+      join: {
+        from: 'releases.id',
+        through: {
+          from: 'tags_releases.releaseId',
+          to: 'tags_releases.tagId',
+        },
+        to: 'tags.id',
+      },
+    },
   })
 }

@@ -4,6 +4,7 @@ import Hub from './Hub.js';
 import Post from './Post.js';
 import Release from './Release.js';
 import Subscription from './Subscription.js';
+import Tag from './Tag.js';
 import Transaction from './Transaction.js';
 import Verification from './Verification.js';
 
@@ -14,6 +15,7 @@ const models = {
   Post,
   Release,
   Subscription,
+  Tag,
   Transaction,
   Verification,
 };

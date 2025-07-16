@@ -17,6 +17,10 @@ jobs:
     needs: [continuous-integration]
     if: github.ref == 'refs/heads/deploy_prod'
     steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.18' # Declare Node.js version 20.18
      # Step 1
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -27,6 +31,8 @@ jobs:
      # Step 2
       - name: Deploy Nina Indexer
         id: deploy
+        env:
+          REDIS_URL: ${{ secrets.REDIS_URL }}
         run: |
           aws deploy create-deployment \
             --application-name Nina_Indexer_Prod \
