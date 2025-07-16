@@ -313,6 +313,7 @@ class TransactionSyncer {
     const accounts = this.getRelevantAccounts(txInfo);
 
     if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
+    if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
     if (logMessages.some(log => log.includes('ReleaseUpdate'))) return 'ReleaseUpdate';
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
@@ -338,7 +339,6 @@ class TransactionSyncer {
     if (logMessages.some(log => log.includes('ReleaseRevenueShareCollectViaHub'))) return 'ReleaseRevenueShareCollectViaHub';
     if (logMessages.some(log => log.includes('ReleaseRevenueShareCollect'))) return 'ReleaseRevenueShareCollect';
     if (logMessages.some(log => log.includes('ReleaseRevenueShareTransfer'))) return 'ReleaseRevenueShareTransfer';
-    if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
     if (logMessages.some(log => log.includes('ExchangeInit'))) return 'ExchangeInit';
     if (logMessages.some(log => log.includes('ExchangeCancel'))) return 'ExchangeCancel';
     if (logMessages.some(log => log.includes('ExchangeAccept'))) return 'ExchangeAccept';
