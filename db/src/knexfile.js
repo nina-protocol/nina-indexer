@@ -2,6 +2,11 @@
  * @type { Object.<string, import("knex").Knex.Config> }
  */
 import "dotenv/config.js";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default {
   development: {
@@ -13,7 +18,7 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: join(__dirname, 'migrations'),
     },
     auth: {
       client: 'postgresql',
@@ -34,7 +39,7 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: join(__dirname, 'migrations'),
     },
     auth: {
       client: 'postgresql',
@@ -55,7 +60,7 @@ export default {
       password: process.env.POSTGRES_PASSWORD,
     },
     migrations: {
-      directory: './node_modules/@nina-protocol/nina-db/dist/migrations',
+      directory: join(__dirname, 'migrations'),
     },
     auth: {
       client: 'postgresql',
