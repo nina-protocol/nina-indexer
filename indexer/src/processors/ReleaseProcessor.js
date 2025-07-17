@@ -6,11 +6,16 @@ import * as anchor from '@project-serum/anchor';
 import { hubDataService } from '../services/hubData.js';
 import { Metaplex } from '@metaplex-foundation/js';
 import { releaseDataService } from '../services/releaseData.js';
+import { getTokenMetadata } from '@solana/spl-token';
 
 export class ReleaseProcessor extends BaseProcessor {
     constructor() {
       super();
       this.RELEASE_TRANSACTION_TYPES = new Set([
+        // program v2
+        'ReleaseInitV2',
+        'ReleaseUpdate',
+        // program v1
         'ReleaseInitWithCredit',
         'ReleaseInitViaHub',
         'ReleasePurchaseViaHub',
@@ -25,11 +30,10 @@ export class ReleaseProcessor extends BaseProcessor {
       ]);
     }
 
-    async initialize(program) {
-      super.initialize(program);
+    async initialize(program, programV2) {
+      super.initialize(program, programV2);
       this.metaplex = new Metaplex(program.provider.connection);
     }
-  
   
     canProcessTransaction(type) {
       return this.RELEASE_TRANSACTION_TYPES.has(type);
@@ -84,7 +88,8 @@ export class ReleaseProcessor extends BaseProcessor {
 
     async processTransaction(task) {
       try {
-        const { transaction, txid, accounts, txInfo } = task;
+        const { transaction, txid, accounts, txInfo, programId } = task;
+        console.log('programId', programId)
         if (!this.canProcessTransaction(transaction.type)) return;
 
         // Verify authority exists
@@ -96,6 +101,22 @@ export class ReleaseProcessor extends BaseProcessor {
 
         // Process based on transaction type
         switch (transaction.type) {
+          case 'ReleaseInitV2':
+            try {
+              let releasePublicKey = accounts[2].toBase58();
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
+              if (release) {
+                logTimestampedMessage(`Successfully processed ReleaseInitV2 ${txid} for release ${releasePublicKey}`);
+                return {success: true, ids: { releaseId: release.id }};
+              } else {
+                logTimestampedMessage(`Release not found for ReleaseInitV2 ${txid} with publicKey ${releasePublicKey}`);
+              }
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseInitV2 for ${txid}: ${error.message}`);
+              return { success: false };
+            }
+            break;
+
           case 'ReleaseInitWithCredit':
             try {
               let releasePublicKey;
@@ -153,7 +174,7 @@ export class ReleaseProcessor extends BaseProcessor {
                   return { success: false };
                 }
               }
-              const release = await Release.findOrCreate(releasePublicKey);
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInitWithCredit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
@@ -169,7 +190,7 @@ export class ReleaseProcessor extends BaseProcessor {
           case 'ReleaseInit': {
             try {
               const releasePublicKey = accounts[0].toBase58();
-              const release = await Release.findOrCreate(releasePublicKey);
+              const release = await Release.findOrCreate(releasePublicKey, null, programId);
               if (release) {
                 logTimestampedMessage(`Successfully processed ReleaseInit ${txid} for release ${releasePublicKey}`);
                 return {success: true, ids: { releaseId: release.id }};
@@ -348,7 +369,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 }
               } else {
                 // Create new release with hub reference
-                release = await Release.findOrCreate(releasePublicKey, hubPublicKey);
+                release = await Release.findOrCreate(releasePublicKey, hubPublicKey, programId);
               }
 
               if (release) {
@@ -540,6 +561,72 @@ export class ReleaseProcessor extends BaseProcessor {
               return { success: false };
             }
           }
+
+          case 'ReleaseUpdate':
+            try {
+              const releasePublicKey = accounts[3].toBase58();
+              console.log('accounts', accounts)
+              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseUpdate ${txid} with publicKey ${releasePublicKey}`);
+                return { success: false };
+              }
+              console.log('this.programV2', this.programV2)
+              const releaseAccount = await this.programV2.account.releaseV2.fetch(
+                new anchor.web3.PublicKey(releasePublicKey),
+                'confirmed'
+              );
+              if (!releaseAccount) {
+                logTimestampedMessage(`Release account not found on-chain for ${releasePublicKey}`);
+                return { success: false };
+              }
+
+              const metadataAccount = await getTokenMetadata(this.programV2.provider.connection, releaseAccount.mint, 'confirmed');
+              const json = await fetchFromArweave(metadataAccount.uri);
+              await release.$query().patch({
+                metadata: json,
+              });
+
+              const tagsBefore = await release.$relatedQuery('tags');
+              console.log('tagsBefore', tagsBefore);
+              if (json.properties.tags) {
+                const newTags = json.properties.tags.filter(tag =>
+                  !tagsBefore.find(t => t.value === Tag.sanitizeValue(tag))
+                );  
+                console.log('newTags: ', newTags);
+                for (const tag of newTags) {
+                  const tagRecord = await Tag.findOrCreate(tag);
+                  await Release.relatedQuery('tags')
+                    .for(release.id)
+                    .relate(tagRecord.id)
+                    .onConflict(['tagId', 'releaseId'])
+                    .ignore();
+                  logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+                }
+
+                if (tagsBefore.length > 0) {
+                  const deletedTags = tagsBefore.filter(tag =>
+                    !json.properties.tags.find(t => t === Tag.sanitizeValue(tag.value))
+                  );
+                  console.log('deletedTags: ', deletedTags);
+                  // Remove deleted tags
+                  for (const tag of deletedTags) {
+                    const tagRecord = await Tag.findOrCreate(tag.value);
+                    await Release.relatedQuery('tags')
+                      .for(release.id)
+                      .unrelate()
+                      .where('tagId', tagRecord.id);
+                    logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+                  }
+                }
+              }
+              logTimestampedMessage(`Successfully processed ReleaseUpdate ${txid} for release ${releasePublicKey}`);
+              return {success: true, ids: { releaseId: release.id }};
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseUpdate for ${txid}: ${error.message}`);
+              return { success: false };
+            }
+            
           case 'ReleaseCloseEdition': {
             try {
               let releasePublicKey;

@@ -13,6 +13,8 @@ export const environmentIsSetup = () => {
     throw('NINA_PROGRAM_ID is not set');
   } else if (process.env.REDIS_URL === undefined) {
     throw('REDIS_URL is not set');
+  } else if (process.env.NINA_PROGRAM_V2_ID === undefined) {
+    throw('NINA_PROGRAM_V2_ID is not set');
   }
 
   return true

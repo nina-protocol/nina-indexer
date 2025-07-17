@@ -7,10 +7,12 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
+nvm use 20.18.0
+
 echo "Running as $(whoami)"
 
 # Determine the environment
-if [ "$(hostname)" == "dev.api.ninaprotocol.com" ]; then
+if [ "$(hostname)" == "dev.api.ninaprotocol.com" -o   "$(hostname)" == "services-dev"]; then
     ENV="dev"
 elif [ "$(hostname)" == "api.ninaprotocol.com" ]; then
     ENV="prod"

@@ -1,6 +1,7 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Transaction, Account, Release } from '@nina-protocol/nina-db';
 import * as anchor from '@project-serum/anchor';
+import * as anchorCoral from '@coral-xyz/anchor';
 import { releaseProcessor } from './processors/ReleaseProcessor.js';
 import { hubProcessor } from './processors/HubProcessor.js';
 import { logTimestampedMessage } from './utils/logging.js';
@@ -15,6 +16,9 @@ class TransactionSyncer {
   constructor() {
     this.connection = new Connection(process.env.SOLANA_CLUSTER_URL);
     this.programId = new PublicKey(process.env.NINA_PROGRAM_ID);
+    console.log('this.programId', this.programId)
+    this.programV2Id = new PublicKey(process.env.NINA_PROGRAM_V2_ID);
+    console.log('this.programV2Id', this.programV2Id)
     this.batchSize = 200;
     this.provider = new anchor.AnchorProvider(this.connection, {}, { commitment: 'confirmed' });
     this.isSyncing = false;
@@ -22,11 +26,14 @@ class TransactionSyncer {
 
   async initialize() {
     this.program = await anchor.Program.at(this.programId, this.provider);
+    console.log('this.program', this.program.programId.toBase58())
+    this.programV2 = await anchorCoral.Program.at(this.programV2Id, this.provider);
+    console.log('this.programV2', this.programV2.programId.toBase58())
     await hubDataService.initialize(this.program);
-    await releaseProcessor.initialize(this.program);
+    await releaseProcessor.initialize(this.program, this.programV2);
     await hubProcessor.initialize(this.program);
     await postsProcessor.initialize(this.program);
-    await releaseDataService.initialize(this.program);
+    await releaseDataService.initialize(this.program, this.programV2);
   }
 
   async syncTransactions() {
@@ -38,21 +45,36 @@ class TransactionSyncer {
       this.isSyncing = true;
       logTimestampedMessage('Starting transaction sync...');
   
-      let lastSyncedSignature = await this.getLastSyncedSignature();
-  
-      let signatures = await this.fetchSignatures(lastSyncedSignature, undefined, lastSyncedSignature === null)
-      if (signatures) {
-        signatures = signatures.reverse();  
+      let { lastSignatureV1, lastSignatureV2 } = await this.getLastSyncedSignature();
+      let signaturesV1 = await this.fetchSignatures(this.programId, lastSignatureV1, undefined, lastSignatureV1 === null)
+      let signaturesV2 = await this.fetchSignatures(this.programV2Id, lastSignatureV2, undefined, lastSignatureV2 === null)
 
-        signatures.forEach(signatureInfo => {
+      if (signaturesV1) {
+        signaturesV1 = signaturesV1.reverse();  
+
+        signaturesV1.forEach(signatureInfo => {
           logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
         });
     
-        const insertedCount = await this.processAndInsertTransactions(signatures);
+        const insertedCount = await this.processAndInsertTransactions(signaturesV1);
     
-        logTimestampedMessage(`Transaction sync completed. Fetched ${signatures.length} signatures. Inserted ${insertedCount} new transactions.`);  
+        logTimestampedMessage(`Transaction V1 sync completed. Fetched ${signaturesV1.length} signatures. Inserted ${insertedCount} new transactions.`);  
       } else {
-        logTimestampedMessage('Unable to fetch signatures. Skipping sync.');
+        logTimestampedMessage('Unable to fetch V1signatures. Skipping sync.');
+      }
+
+      if (signaturesV2) {
+        signaturesV2 = signaturesV2.reverse();  
+
+        signaturesV2.forEach(signatureInfo => {
+          logTimestampedMessage(`Fetched signature ${signatureInfo.signature} at blocktime ${signatureInfo.blockTime}`);
+        });
+
+        const insertedCount = await this.processAndInsertTransactions(signaturesV2);
+
+        logTimestampedMessage(`Transaction V2 sync completed. Fetched ${signaturesV2.length} signatures. Inserted ${insertedCount} new transactions.`);  
+      } else {
+        logTimestampedMessage('Unable to fetch V2 signatures. Skipping sync.');
       }
     } catch (error) {
       logTimestampedMessage(`Error in syncTransactions: ${error.message}`);
@@ -61,14 +83,17 @@ class TransactionSyncer {
   }
 
   async getLastSyncedSignature() {
-    const lastTransaction = await Transaction.query().orderBy('blocktime', 'desc').first();
-    const lastSignature = lastTransaction ? lastTransaction.txid : null;
-    logTimestampedMessage(`Last synced signature from DB: ${lastSignature}`);
-    return lastSignature;
+    const lastTransactionV1 = await Transaction.query().where('programId', process.env.NINA_PROGRAM_ID).orderBy('blocktime', 'desc').first();
+    const lastTransactionV2 = await Transaction.query().where('programId', process.env.NINA_PROGRAM_V2_ID).orderBy('blocktime', 'desc').first();
+    const lastSignatureV1 = lastTransactionV1 ? lastTransactionV1.txid : null;
+    const lastSignatureV2 = lastTransactionV2 ? lastTransactionV2.txid : null;
+    logTimestampedMessage(`Last synced signature from DB: v1: ${lastSignatureV1} v2: ${lastSignatureV2}`);
+    return {lastSignatureV1, lastSignatureV2};
   }
 
-  async fetchSignatures (tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
-    console.log(`fetchSignatures: ${tx} ${isBefore} ${existingSignatures.length}`)
+  async fetchSignatures (programId, tx=undefined, lastTx=undefined, isBefore=true, existingSignatures=[]) {
+    console.log(`fetchSignatures for programId: ${programId.toBase58()} tx: ${tx} isBefore: ${isBefore} existingSignatures: ${existingSignatures.length}`)
+    
     try {
       const options = {}
       if (tx && isBefore) {
@@ -80,7 +105,7 @@ class TransactionSyncer {
         }
       }
       console.log('options: ', options)
-      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(this.programId, options))
+      const newSignatures = await callRpcMethodWithRetry(() => this.connection.getSignaturesForAddress(programId, options))
       for (let i = 0; i < newSignatures.length; i ++) {
         console.log(`newSignatures[${i}]: ${newSignatures[i].signature} ${newSignatures[i].blockTime}`)
       }
@@ -96,7 +121,7 @@ class TransactionSyncer {
         existingSignatures.push(...newSignatures)
         logTimestampedMessage(`Fetched ${existingSignatures.length} signatures.`);
         if (existingSignatures.length % this.batchSize === 0) {
-          return await this.fetchSignatures(signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
+          return await this.fetchSignatures(programId, signature.signature || signature, lastTx?.signature, isBefore, existingSignatures)
         }  
       }
       return existingSignatures
@@ -197,12 +222,21 @@ class TransactionSyncer {
       const txid = txInfo.transaction.signatures[0];
       let type = await this.determineTransactionType(txInfo);
       const accounts = this.getRelevantAccounts(txInfo);
-  
+      console.log('txInfo', txInfo)
+      console.log('accounts', accounts)
+      let programId = txInfo.meta.logMessages.some(log => log.includes(process.env.NINA_PROGRAM_V2_ID)) ? process.env.NINA_PROGRAM_V2_ID : null;
+      if (!programId) {
+        programId = txInfo.meta.logMessages.some(log => log.includes(process.env.NINA_PROGRAM_ID)) ? process.env.NINA_PROGRAM_ID : null;
+      }
+      if (!programId) {
+        throw new Error(`Warning: Unable to determine program ID for transaction ${txInfo.transaction.signatures[0]}`);
+      }
+
       if (!accounts || accounts.length === 0) {
         throw new Error(`Warning: No relevant accounts found for transaction ${txInfo.transaction.signatures[0]}`);
       }
 
-      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages);
+      let accountPublicKey = await this.getAccountPublicKey(accounts, type, txInfo.meta.logMessages, programId);
 
       if (!accountPublicKey) {
         throw new Error(`Warning: Unable to determine account public key for transaction ${txInfo.transaction.signatures[0]}`);
@@ -216,6 +250,7 @@ class TransactionSyncer {
         blocktime: txInfo.blockTime,
         type,
         authorityId: authority.id,
+        programId,
       };
 
       const task = {
@@ -224,6 +259,7 @@ class TransactionSyncer {
         accounts,
         txInfo,
         transaction,
+        programId,
       }
       return task;
     } catch (error) {
@@ -248,6 +284,7 @@ class TransactionSyncer {
 
       console.log('handleDomainProcessingForSingleTransaction txInfo', txInfo)
       const task = await this.buildProcessorTaskForTransaction(txInfo);
+      console.log('task', task)
       if (releaseProcessor.canProcessTransaction(task.type)) {
         const { success } = await releaseProcessor.processTransaction(task);
         if (!success) {
@@ -275,6 +312,9 @@ class TransactionSyncer {
     const logMessages = txInfo.meta.logMessages;
     const accounts = this.getRelevantAccounts(txInfo);
 
+    if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
+    if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
+    if (logMessages.some(log => log.includes('ReleaseUpdate'))) return 'ReleaseUpdate';
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchase'))) return 'ReleasePurchase';
@@ -299,12 +339,10 @@ class TransactionSyncer {
     if (logMessages.some(log => log.includes('ReleaseRevenueShareCollectViaHub'))) return 'ReleaseRevenueShareCollectViaHub';
     if (logMessages.some(log => log.includes('ReleaseRevenueShareCollect'))) return 'ReleaseRevenueShareCollect';
     if (logMessages.some(log => log.includes('ReleaseRevenueShareTransfer'))) return 'ReleaseRevenueShareTransfer';
-    if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
     if (logMessages.some(log => log.includes('ExchangeInit'))) return 'ExchangeInit';
     if (logMessages.some(log => log.includes('ExchangeCancel'))) return 'ExchangeCancel';
     if (logMessages.some(log => log.includes('ExchangeAccept'))) return 'ExchangeAccept';
     if (logMessages.some(log => log.includes('HubWithdraw'))) return 'HubWithdraw';
-
     // Special detection logic for to handle special cases from before the type was printed in the logs
     try {
       if (accounts?.length === 10) {
@@ -348,14 +386,14 @@ class TransactionSyncer {
 
   getRelevantAccounts(txInfo) {
     let ninaInstruction = txInfo.transaction.message.instructions.find(
-      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID
+      i => i.programId.toBase58() === process.env.NINA_PROGRAM_ID || i.programId.toBase58() === process.env.NINA_PROGRAM_V2_ID
     );
 
     if (!ninaInstruction) {
       if (txInfo.meta && txInfo.meta.innerInstructions) {
         for (let innerInstruction of txInfo.meta.innerInstructions) {
           for (let instruction of innerInstruction.instructions) {
-            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID) {
+            if (instruction.programId.toBase58() === process.env.NINA_PROGRAM_ID || instruction.programId.toBase58() === process.env.NINA_PROGRAM_V2_ID) {
               logTimestampedMessage('Found Nina instruction in inner instructions');
               ninaInstruction = instruction;
               break;
@@ -369,14 +407,22 @@ class TransactionSyncer {
     return ninaInstruction ? ninaInstruction.accounts : [];
   }
 
-  async getAccountPublicKey(accounts, type, logs) {
+  async getAccountPublicKey(accounts, type, logs, programId = process.env.NINA_PROGRAM_ID) {
     try {
       switch (type) {
+        case 'ReleaseInitV2':
+          console.log('ReleaseInitV2 accounts', accounts)
+          return accounts[1].toBase58();
+        case 'ReleaseUpdate':
+          console.log('ReleaseUpdate accounts', accounts)
+          return accounts[1].toBase58();
         case 'ReleaseInitViaHub':
           return this.isFileServicePayer(accounts) && accounts.length > 18 ? accounts[18].toBase58() : accounts[0].toBase58();
         case 'ReleasePurchaseViaHub':
         case 'ReleasePurchase':
-          if (logs.some(log => log.includes('ReleasePurchase'))) {
+          if (programId === process.env.NINA_PROGRAM_V2_ID) {
+            return accounts[1].toBase58();
+          } else if (logs.some(log => log.includes('ReleasePurchase'))) {
             return accounts[1].toBase58();
           } else if (accounts?.length === 10) {
             if (accounts[0].toBase58() === accounts[1].toBase58()) {
@@ -420,7 +466,11 @@ class TransactionSyncer {
             return accounts[0].toBase58();
           }
         case 'ReleaseInit':
-          return accounts[4].toBase58();
+          if (programId === process.env.NINA_PROGRAM_V2_ID) {
+            return accounts[2].toBase58();
+          } else {
+            return accounts[4].toBase58();
+          }
         case 'ReleaseCloseEdition':
         case 'HubContentToggleVisibility':
         case 'HubRemoveCollaborator':

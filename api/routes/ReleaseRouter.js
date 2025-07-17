@@ -10,6 +10,8 @@ import axios from 'axios';
 import {
   formatColumnForJsonFields,
   getReleaseSearchSubQuery,
+  getPublisherSubQuery,
+  getPublishedThroughHubSubQuery,
   BIG_LIMIT
 } from '../utils.js';
 import { warmCache } from '../../indexer/src/utils/helpers.js';
@@ -42,9 +44,14 @@ router.get('/', async (ctx) => {
 
     // Get release IDs if we have a query
     let releaseIds = [];
+    let publisherIds = [];
+    let hubIds = [];
     if (query) {
       releaseIds = await getReleaseSearchSubQuery(query);
-      if (releaseIds.length === 0) {
+      publisherIds = await getPublisherSubQuery(query);
+      hubIds = await getPublishedThroughHubSubQuery(query);
+
+      if (releaseIds.length === 0 && publisherIds.length === 0 && hubIds.length === 0) {
         ctx.body = response;
         return;
       }
@@ -58,6 +65,20 @@ router.get('/', async (ctx) => {
         .modify((queryBuilder) => {
           if (releaseIds.length > 0) {
             queryBuilder.whereIn('id', releaseIds);
+          }
+          if (publisherIds.length > 0) {
+            if (releaseIds.length > 0) {
+              queryBuilder.orWhereIn('publisherId', publisherIds);
+            } else {
+              queryBuilder.whereIn('publisherId', publisherIds);
+            }
+          }
+          if (hubIds.length > 0) {
+            if (releaseIds.length > 0 || publisherIds.length > 0) {
+              queryBuilder.orWhereIn('hubId', hubIds);
+            } else {
+              queryBuilder.whereIn('hubId', hubIds);
+            }
           }
         });
     };
