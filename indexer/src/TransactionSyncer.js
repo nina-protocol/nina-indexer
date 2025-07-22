@@ -458,7 +458,11 @@ class TransactionSyncer {
         case 'SubscriptionUnsubscribe':
           return accounts[1].toBase58();
         case 'ReleaseClaim':
-          return accounts[3].toBase58();
+          if (programId === process.env.NINA_PROGRAM_V2_ID) {
+            return accounts[1].toBase58();
+          } else {
+            return accounts[3].toBase58();
+          }
         case 'HubInit':
           if (this.isFileServicePayer(accounts)) {
             return accounts[1].toBase58();
