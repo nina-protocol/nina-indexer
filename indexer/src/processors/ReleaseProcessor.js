@@ -204,8 +204,15 @@ export class ReleaseProcessor extends BaseProcessor {
 
           case 'ReleaseClaim': {
             try {
-              const releasePublicKey = accounts[1].toBase58();
-              const collectorPublicKey = accounts[3].toBase58();
+              let releasePublicKey
+              let collectorPublicKey
+              if (programId === process.env.NINA_PROGRAM_ID) {
+                releasePublicKey = accounts[1].toBase58();
+                collectorPublicKey = accounts[3].toBase58();
+              } else {
+                releasePublicKey = accounts[2].toBase58();
+                collectorPublicKey = accounts[1].toBase58();
+              }
 
               // Ensure the release exists
               const release = await Release.query().findOne({ publicKey: releasePublicKey });
