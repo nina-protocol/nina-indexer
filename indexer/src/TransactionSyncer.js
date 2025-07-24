@@ -312,6 +312,7 @@ class TransactionSyncer {
     const logMessages = txInfo.meta.logMessages;
     const accounts = this.getRelevantAccounts(txInfo);
 
+    if (logMessages.some(log => log.includes('ReleaseInitAndPurchase'))) return 'ReleaseInitAndPurchase';
     if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
     if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
     if (logMessages.some(log => log.includes('ReleaseUpdate'))) return 'ReleaseUpdate';
@@ -410,6 +411,8 @@ class TransactionSyncer {
   async getAccountPublicKey(accounts, type, logs, programId = process.env.NINA_PROGRAM_ID) {
     try {
       switch (type) {
+        case 'ReleaseInitAndPurchase':
+          return accounts[0].toBase58();
         case 'ReleaseInitV2':
           console.log('ReleaseInitV2 accounts', accounts)
           return accounts[1].toBase58();
