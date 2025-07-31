@@ -13,6 +13,7 @@ export class ReleaseProcessor extends BaseProcessor {
       super();
       this.RELEASE_TRANSACTION_TYPES = new Set([
         // program v2
+        'ReleaseInitAndPurchase',
         'ReleaseInitV2',
         'ReleaseUpdate',
         // program v1
@@ -101,6 +102,35 @@ export class ReleaseProcessor extends BaseProcessor {
 
         // Process based on transaction type
         switch (transaction.type) {
+          case 'ReleaseInitAndPurchase':
+            try {
+              const releasePublicKey = accounts[3].toBase58();
+              const release = await Release.query().findOne({ solanaAddress: releasePublicKey });
+              if (!release) {
+                logTimestampedMessage(`Release not found for ReleaseInitAndPurchase ${txid} with publicKey ${releasePublicKey}`);
+                return;
+              }
+
+              const collectorPublicKey = accounts[0].toBase58();
+              const collector = await Account.query().findOne({ publicKey: collectorPublicKey });
+              if (!collector) {
+                logTimestampedMessage(`Collector not found for ReleaseInitAndPurchase ${txid} with publicKey ${collectorPublicKey}`);
+                return;
+              }
+
+              // Add collector to release's collectors
+              await Release.relatedQuery('collectors')
+                .for(release.id)
+                .relate(collector.id)
+                .onConflict(['releaseId', 'accountId'])
+                .ignore();
+
+              return { success: true, ids: { releaseId: release.id } };
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseInitAndPurchase for ${txid}: ${error.message}`);
+              return { success: false };
+            }
+
           case 'ReleaseInitV2':
             try {
               let releasePublicKey = accounts[2].toBase58();
@@ -260,11 +290,11 @@ export class ReleaseProcessor extends BaseProcessor {
               } else {
                 // Standard case
                 releasePublicKey = accounts[2].toBase58();
-                collectorPublicKey = accounts[1].toBase58();
+                collectorPublicKey = accounts[programId === process.env.NINA_PROGRAM_ID ? 1 : 0].toBase58();
               }
 
               // Ensure the release exists
-              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              const release = await Release.query().findOne({ solanaAddress: releasePublicKey });
               if (!release) {
                 logTimestampedMessage(`Release not found for ReleasePurchase ${txid} with publicKey ${releasePublicKey}`);
                 return;
