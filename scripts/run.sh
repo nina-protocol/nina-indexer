@@ -7,6 +7,8 @@ export NVM_DIR="$HOME/.nvm"
 
 nvm use 20.18.0
 
+pm2 update
+
 echo "Running as $(whoami)"
 source ~/.bashrc
 
