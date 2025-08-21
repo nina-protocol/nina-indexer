@@ -290,7 +290,7 @@ export class ReleaseProcessor extends BaseProcessor {
               } else {
                 // Standard case
                 releasePublicKey = accounts[2].toBase58();
-                collectorPublicKey = accounts[programId === process.env.NINA_PROGRAM_ID ? 1 : 0].toBase58();
+                collectorPublicKey = accounts[1].toBase58();
               }
 
               // Ensure the release exists
