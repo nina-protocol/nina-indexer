@@ -161,7 +161,7 @@ export default class Release extends Model {
     }
   };
 
-  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId}) => {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId, solanaAddress}) => {
     const slug = await this.generateSlug(metadata);
     const price =
       releaseAccount.account?.price?.toNumber() ||
@@ -181,6 +181,7 @@ export default class Release extends Model {
       paymentMint,
       archived: false,
       programId,
+      solanaAddress,
     })
     if (metadata.properties.tags) {
       for await (let tag of metadata.properties.tags) {
