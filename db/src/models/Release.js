@@ -58,7 +58,7 @@ export default class Release extends Model {
     },
   }
   
-  static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID) => {
+  static findOrCreate = async (publicKey, hubPublicKey=null, programId=process.env.NINA_PROGRAM_V2_ID, isLazy=false) => {
     try {
       console.log('Release.findOrCreate', publicKey, programId)
       let release = await Release.query().findOne({ publicKey });
@@ -140,6 +140,7 @@ export default class Release extends Model {
         publisherId: publisher.id,
         releaseAccount,
         programId,
+        solanaAddress: isLazy ? null : publicKey,
       });
 
       if (hubPublicKey) {
@@ -160,7 +161,7 @@ export default class Release extends Model {
     }
   };
 
-  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId}) => {
+  static createRelease = async ({publicKey, mint, metadata, datetime, publisherId, releaseAccount, programId, solanaAddress}) => {
     const slug = await this.generateSlug(metadata);
     const price =
       releaseAccount.account?.price?.toNumber() ||
@@ -180,6 +181,7 @@ export default class Release extends Model {
       paymentMint,
       archived: false,
       programId,
+      solanaAddress,
     })
     if (metadata.properties.tags) {
       for await (let tag of metadata.properties.tags) {
