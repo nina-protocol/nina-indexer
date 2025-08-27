@@ -111,7 +111,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 return;
               }
 
-              const collectorPublicKey = accounts[0].toBase58();
+              const collectorPublicKey = accounts[1].toBase58();
               const collector = await Account.query().findOne({ publicKey: collectorPublicKey });
               if (!collector) {
                 logTimestampedMessage(`Collector not found for ReleaseInitAndPurchase ${txid} with publicKey ${collectorPublicKey}`);

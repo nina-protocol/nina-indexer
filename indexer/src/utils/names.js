@@ -1,102 +1,102 @@
 import * as anchor from '@project-serum/anchor';
 import { NameRegistryState, getNameAccountKey, getHashedName } from "@bonfida/spl-name-service";
 import { deserializeUnchecked, serialize } from 'borsh';
-import Web3 from 'web3';
-import ENS from 'ethereum-ens';
+// import Web3 from 'web3';
+// import ENS from 'ethereum-ens';
 import formUrlEncoded from 'form-urlencoded';
 import fetch from 'node-fetch';
 
 export const NINA_ID = new anchor.web3.PublicKey("idHukURpSwMbvcRER9pN97tBSsH4pdLSUhnHYwHftd5")
-export const NINA_ID_ETH_TLD = new anchor.web3.PublicKey("9yQ5NdLpFdALfRjjfBLCQiddvMekwRbCtuSYDCi4mpFc")
+// export const NINA_ID_ETH_TLD = new anchor.web3.PublicKey("9yQ5NdLpFdALfRjjfBLCQiddvMekwRbCtuSYDCi4mpFc")
 export const NINA_ID_IG_TLD = new anchor.web3.PublicKey("7JVHPSJdVBNRgYdY3ibP33YksBzjpuBVasLj91Jj9jQA")
 export const NINA_ID_SC_TLD = new anchor.web3.PublicKey("MguVXe9Z18YDWxm3AZkSdiuRiEJ1UzvEyevFAxycsjw")
 export const NINA_ID_TW_TLD = new anchor.web3.PublicKey("6nPJTCeFnp3QiLBDtPPkZqMkW3KccVgr1izLTF1Lq7VL")
 export const NAME_PROGRAM_ID = new anchor.web3.PublicKey("namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX")
-export const web3 = new Web3(process.env.ETH_CLUSTER_URL);
-const ens = new ENS(web3)
-let soundcloudToken = null
-let soundcloudTokenDate = null
-export class ReverseEthAddressRegistryState {
-  static schema = new Map([
-    [
-      ReverseEthAddressRegistryState,
-      {
-        kind: 'struct',
-        fields: [
-          ['ethAddressRegistryKey', [32]],
-          ['ethAddress', 'string'],
-        ],
-      },
-    ],
-  ]);
-  constructor(obj) {
-    this.ethAddressRegistryKey = obj.ethAddressRegistryKey;
-    this.ethAddress = obj.ethAddress;
-  }
+// export const web3 = new Web3(process.env.ETH_CLUSTER_URL);
+// const ens = new ENS(web3)
+// let soundcloudToken = null
+// let soundcloudTokenDate = null
+// export class ReverseEthAddressRegistryState {
+//   static schema = new Map([
+//     [
+//       ReverseEthAddressRegistryState,
+//       {
+//         kind: 'struct',
+//         fields: [
+//           ['ethAddressRegistryKey', [32]],
+//           ['ethAddress', 'string'],
+//         ],
+//       },
+//     ],
+//   ]);
+//   constructor(obj) {
+//     this.ethAddressRegistryKey = obj.ethAddressRegistryKey;
+//     this.ethAddress = obj.ethAddress;
+//   }
 
-  static retrieve = async(
-    connection,
-    reverseEthAddressAccountKey
-  ) => {
-    const reverseEthAddressAccount = await connection.getAccountInfo(
-      reverseEthAddressAccountKey,
-      'processed'
-    );
+//   static retrieve = async(
+//     connection,
+//     reverseEthAddressAccountKey
+//   ) => {
+//     const reverseEthAddressAccount = await connection.getAccountInfo(
+//       reverseEthAddressAccountKey,
+//       'processed'
+//     );
 
-    if (!reverseEthAddressAccountKey) {
-      throw new Error('Invalid reverse Eth Address account provided');
-    }
+//     if (!reverseEthAddressAccountKey) {
+//       throw new Error('Invalid reverse Eth Address account provided');
+//     }
 
-    const res = deserializeUnchecked(
-      this.schema,
-      ReverseEthAddressRegistryState,
-      reverseEthAddressAccount.data.slice(NameRegistryState.HEADER_LEN)
-    );
+//     const res = deserializeUnchecked(
+//       this.schema,
+//       ReverseEthAddressRegistryState,
+//       reverseEthAddressAccount.data.slice(NameRegistryState.HEADER_LEN)
+//     );
 
-    return res;
-  }
+//     return res;
+//   }
 
-  static createLookupInstructions = async (ethAddress, publicKey) => {
-    const nameAccountKey = await getNameAccountKey(await getHashedName(ethAddress), NINA_ID, NINA_ID_ETH_TLD);
-    const hashedVerifiedPubkey = await getHashedName(publicKey.toString());
-    const reverseRegistryKey = await getNameAccountKey(
-      hashedVerifiedPubkey,
-      NINA_ID,
-      NINA_ID_ETH_TLD
-    );
+//   static createLookupInstructions = async (ethAddress, publicKey) => {
+//     const nameAccountKey = await getNameAccountKey(await getHashedName(ethAddress), NINA_ID, NINA_ID_ETH_TLD);
+//     const hashedVerifiedPubkey = await getHashedName(publicKey.toString());
+//     const reverseRegistryKey = await getNameAccountKey(
+//       hashedVerifiedPubkey,
+//       NINA_ID,
+//       NINA_ID_ETH_TLD
+//     );
 
-    let ReverseEthAddressRegistryStateBuff = serialize(
-      ReverseEthAddressRegistryState.schema,
-      new ReverseEthAddressRegistryState({
-        ethAddressRegistryKey: nameAccountKey.toBytes(),
-        ethAddress,
-      })
-    );
+//     let ReverseEthAddressRegistryStateBuff = serialize(
+//       ReverseEthAddressRegistryState.schema,
+//       new ReverseEthAddressRegistryState({
+//         ethAddressRegistryKey: nameAccountKey.toBytes(),
+//         ethAddress,
+//       })
+//     );
 
-    const createIx = createInstruction(
-      NAME_PROGRAM_ID,
-      SystemProgram.programId,
-      reverseRegistryKey,
-      publicKey,
-      publicKey,
-      hashedVerifiedPubkey,
-      new Numberu64(LAMPORTS_FOR_REVERSE_REGISTRY * 2),
-      new Numberu32(ReverseEthAddressRegistryStateBuff.length),
-      NINA_ID,
-      NINA_ID_ETH_TLD,
-      NINA_ID
-    )
-    const reverseRegistryIx = updateInstruction(
-      NAME_PROGRAM_ID,
-      reverseRegistryKey,
-      new Numberu32(0),
-      Buffer.from (ReverseEthAddressRegistryStateBuff),
-      NINA_ID,
-      NINA_ID_ETH_TLD
-    )
-    return [createIx, reverseRegistryIx];
-  }
-}
+//     const createIx = createInstruction(
+//       NAME_PROGRAM_ID,
+//       SystemProgram.programId,
+//       reverseRegistryKey,
+//       publicKey,
+//       publicKey,
+//       hashedVerifiedPubkey,
+//       new Numberu64(LAMPORTS_FOR_REVERSE_REGISTRY * 2),
+//       new Numberu32(ReverseEthAddressRegistryStateBuff.length),
+//       NINA_ID,
+//       NINA_ID_ETH_TLD,
+//       NINA_ID
+//     )
+//     const reverseRegistryIx = updateInstruction(
+//       NAME_PROGRAM_ID,
+//       reverseRegistryKey,
+//       new Numberu32(0),
+//       Buffer.from (ReverseEthAddressRegistryStateBuff),
+//       NINA_ID,
+//       NINA_ID_ETH_TLD
+//     )
+//     return [createIx, reverseRegistryIx];
+//   }
+// }
 
 export class ReverseSoundcloudRegistryState {
   static schema = new Map([
