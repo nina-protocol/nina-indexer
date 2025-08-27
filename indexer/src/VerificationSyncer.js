@@ -6,15 +6,15 @@ import * as anchor from '@project-serum/anchor';
 import {
   NAME_PROGRAM_ID,
   NINA_ID,
-  NINA_ID_ETH_TLD,
+  // NINA_ID_ETH_TLD,
   NINA_ID_SC_TLD,
   NINA_ID_TW_TLD,
   NINA_ID_IG_TLD,
-  ReverseEthAddressRegistryState,
+  // ReverseEthAddressRegistryState,
   ReverseSoundcloudRegistryState,
   ReverseTwitterRegistryState,
   ReverseInstagramRegistryState,
-  getEnsForEthAddress,
+  // getEnsForEthAddress,
   getTwitterProfile,
   getSoundcloudProfile,
 } from './utils/names.js';
@@ -117,7 +117,7 @@ class VerificationSyncer {
         publicKey: publicKey.toBase58(),
       }
       const { registry } = await NameRegistryState.retrieve(this.provider.connection, publicKey)
-      if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
+      /*if (registry.parentName.toBase58() === NINA_ID_ETH_TLD.toBase58()) {
         const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_ETH_TLD);
         const name = await ReverseEthAddressRegistryState.retrieve(this.provider.connection, nameAccountKey)
         const account = await Account.findOrCreate(registry.owner.toBase58());
@@ -132,7 +132,9 @@ class VerificationSyncer {
         } catch (error) {
           console.warn(error)
         }
-      } else if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
+      } else */
+      
+      if (registry.parentName.toBase58() === NINA_ID_IG_TLD.toBase58()) {
         const nameAccountKey = await getNameAccountKey(await getHashedName(registry.owner.toBase58()), NINA_ID, NINA_ID_IG_TLD);
         const name = await ReverseInstagramRegistryState.retrieve(this.provider.connection, nameAccountKey)
         const account = await Account.findOrCreate(registry.owner.toBase58());
