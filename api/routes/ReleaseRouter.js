@@ -143,6 +143,9 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
     if (!release) {
       release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
     }
+    if (!release) {
+      release = await Release.query().findOne({solanaAddress: ctx.params.publicKeyOrSlug})
+    }
 
     if (txid) {
       const success = await TransactionSyncer.handleDomainProcessingForSingleTransaction(txid)
