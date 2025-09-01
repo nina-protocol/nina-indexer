@@ -1,6 +1,7 @@
 import redis from './index.js';
 import Subscription from '../models/Subscription.js';
 import Account from '../models/Account.js';
+import Hub from '../models/Hub.js';
 import { formatColumnForJsonFields, BIG_LIMIT } from '../utils/index.js';
 
 const SUBSCRIPTION_TO = 'subscription:to'
