@@ -412,7 +412,7 @@ class TransactionSyncer {
     try {
       switch (type) {
         case 'ReleaseInitAndPurchase':
-          return accounts[0].toBase58();
+          return accounts[1].toBase58();
         case 'ReleaseInitV2':
           console.log('ReleaseInitV2 accounts', accounts)
           return accounts[1].toBase58();
