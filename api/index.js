@@ -4,7 +4,8 @@ import Koa from 'koa'
 import ratelimit from 'koa-ratelimit';
 import bodyParser from 'koa-bodyparser'
 import cors from '@koa/cors';
-import { connectDb } from '@nina-protocol/nina-db';
+import { connectDb, redis } from '@nina-protocol/nina-db';
+import cron from 'node-cron';
 
 import RootRouter from './routes/RootRouter.js'
 import { environmentIsSetup } from "../scripts/env_check.js";
@@ -53,8 +54,13 @@ try {
   environmentIsSetup()
   app.listen(process.env.PORT, async () => {
     await connectDb()
+    redis.startRedis()
     await TransactionSyncer.initialize()
     logTimestampedMessage(`Nina Api listening on port ${process.env.PORT}!`)
+
+    cron.schedule('* * * * *', async() => {
+      redis.checkPoolHealth();
+    })
   })
 } catch (error) {
   console.error('Environment is not properly setup.  Check .env file and try again.')

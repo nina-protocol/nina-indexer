@@ -46,3 +46,13 @@ export const tweetNewRelease = async (metadata, publisherId, slug) => {
     }
   }
 }
+
+export const BIG_LIMIT = 5000;
+
+export const formatColumnForJsonFields = (column, fieldName='metadata') => {
+  if (column.includes(':')) {
+    column = fieldName + ':' + column.split(':')[1]
+    column = ref(column).castText()
+  }
+  return column
+}

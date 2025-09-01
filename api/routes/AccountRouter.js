@@ -6,6 +6,7 @@ import {
   Release,
   Subscription,
   Transaction,
+  SubscriptionsWithCache,
 } from '@nina-protocol/nina-db';
 import { ref } from 'objection'
 import * as anchor from '@project-serum/anchor';
@@ -583,47 +584,10 @@ router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
 router.get('/:publicKeyOrHandle/following/:followingPublicKeyOrHandle', async (ctx) => {
   try {
     const { publicKeyOrHandle, followingPublicKeyOrHandle } = ctx.params;
-    let account = await Account.query().findOne({publicKey: publicKeyOrHandle});
-    if (!account) {
-      account = await Account.query().findOne({handle: publicKeyOrHandle});
-      if (!account) {
-        ctx.status = 404
-        ctx.body = {
-          success: false,
-          following:false,
-          message: `Account not found with publicKey: ${publicKeyOrHandle}`
-        }
-        return;
-      }
-    }
-    let followingAccount = await Account.query().findOne({publicKey: followingPublicKeyOrHandle});
-    if (!followingAccount) {
-      followingAccount = await Account.query().findOne({handle: followingPublicKeyOrHandle});
-      if (!followingAccount) {
-        followingAccount = await Hub.query().findOne({publicKey: followingPublicKeyOrHandle});
-        if (!followingAccount) {
-          followingAccount = await Hub.query().findOne({handle: followingPublicKeyOrHandle});
-        }
-        if (!followingAccount) {
-          ctx.status = 404
-          ctx.body = {
-            success: false,
-            following:false,
-            message: `Account not found with publicKey: ${followingPublicKeyOrHandle}`
-          }
-          return;
-        }
-      }
-    }
-    const publicKey = account.publicKey
-    const followingPublicKey = followingAccount.publicKey
-    const subscriptions = await Subscription.query()
-      .where('from', publicKey)
-      .andWhere('to', followingPublicKey)
-
+    const isFollowing = await SubscriptionsWithCache.getUserFollowingAccountWithCache(publicKeyOrHandle, followingPublicKeyOrHandle)
     ctx.body = {
       success: true,
-      isFollowing : subscriptions.length > 0,
+      isFollowing,
     };
   } catch (err) {
     console.log(err)
@@ -637,39 +601,10 @@ router.get('/:publicKeyOrHandle/following/:followingPublicKeyOrHandle', async (c
 
 router.get('/:publicKeyOrHandle/followers', async (ctx) => {
   try {
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
-    if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
-      if (!account) {
-        accountNotFound(ctx);
-        return;
-      }
-    }
-    const publicKey = account.publicKey
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
-    column = formatColumnForJsonFields(column);
-    const subscriptions = await Subscription.query()
-      .where('to', publicKey)
-      .orderBy(column, sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
-    
-    const followers = []
-    for await (let subscription of subscriptions.results) {
-      if (subscription.subscriptionType === 'account') {
-        const account = await Account.findOrCreate(subscription.from);
-        await account.format();
-        delete subscription.id
-
-        followers.push({
-          account,
-          subscription,
-        })
-      }
-    }
-
+    const { followers, total } = await SubscriptionsWithCache.getFollowersForAccountWithCache(ctx.params.publicKeyOrHandle, ctx.query)
     ctx.body = {
       followers,
-      total: subscriptions.total,
+      total,
     };
   } catch (err) {
     console.log(err)

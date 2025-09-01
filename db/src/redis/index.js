@@ -23,6 +23,10 @@ const ALERT_THRESHOLDS = {
   ERROR_WINDOW: 5 * 60 * 1000 // 5 minutes
 };
 
+// Get a client from the pool using round-robin with timeout
+let currentClientIndex = 0;
+let totalRequests = 0;
+
 // Create Redis connection pool
 const createRedisPool = (size = POOL_SIZE) => {
   const pool = [];
@@ -93,9 +97,6 @@ const createRedisPool = (size = POOL_SIZE) => {
 const redisPool = createRedisPool();
 let isPoolInitialized = false;
 
-// Get a client from the pool using round-robin with timeout
-let currentClientIndex = 0;
-let totalRequests = 0;
 const getClient = () => {
   if (!isPoolInitialized) {
     throw new Error('Redis pool not initialized');
@@ -117,7 +118,6 @@ const getClient = () => {
   return client;
 };
 
-// Test Redis connection
 const testRedisConnection = async (client) => {
   try {
     await client.set('test:connection', 'ok', 'EX', 10);
@@ -152,6 +152,7 @@ const initializePool = async () => {
   }
 };
 
+
 // Health check function
 export const checkPoolHealth = () => {
   const health = {
@@ -184,58 +185,6 @@ export const checkPoolHealth = () => {
   return health;
 };
 
-// Cache wrapper function
-export const withCache = async (key, fn, ttl = CACHE_TTL) => {
-  const client = getClient();
-  try {
-    // Try to get from cache first
-    const cachedResult = await client.get(key);
-    
-    if (cachedResult) {
-      try {
-        const parsed = JSON.parse(cachedResult);
-        if (Array.isArray(parsed)) {
-          return parsed.map(id => {
-            if (typeof id === 'object' && id !== null) {
-              return id.id;
-            }
-            return typeof id === 'string' ? parseInt(id, 10) : id;
-          }).filter(id => !isNaN(id));
-        }
-        return parsed;
-      } catch (parseError) {
-        await client.del(key);
-      }
-    }
-
-    const result = await fn();
-    
-    if (result != null) {
-      try {
-        const toCache = Array.isArray(result) 
-          ? result.map(id => {
-              if (typeof id === 'object' && id !== null) {
-                return id.id;
-              }
-              return typeof id === 'string' ? parseInt(id, 10) : id;
-            }).filter(id => !isNaN(id))
-          : result;
-
-        await client.setex(key, ttl, JSON.stringify(toCache));
-      } catch (cacheError) {
-        console.error('[Redis] Cache error:', cacheError);
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    try {
-      return await fn();
-    } catch (fnError) {
-      throw fnError;
-    }
-  }
-};
 
 // Clear cache for a specific key
 export const clearCache = async (key) => {
@@ -291,62 +240,143 @@ export const cleanupPool = async () => {
   }
 };
 
-// Handle process termination
-process.on('SIGTERM', async () => {
-  console.log('[Redis] Received SIGTERM signal');
-  await cleanupPool();
-  process.exit(0);
-});
-
-process.on('SIGINT', async () => {
-  console.log('[Redis] Received SIGINT signal');
-  await cleanupPool();
-  process.exit(0);
-});
-
-// Handle PM2 restarts and crashes
-process.on('uncaughtException', async (error) => {
-  console.error('[Redis] Uncaught Exception:', error);
-  await cleanupPool();
-  process.exit(1);
-});
-
-process.on('unhandledRejection', async (reason, promise) => {
-  console.error('[Redis] Unhandled Rejection at:', promise, 'reason:', reason);
-  await cleanupPool();
-  process.exit(1);
-});
-
-// Handle PM2 graceful shutdown
-if (process.env.NODE_ENV === 'production') {
-  process.on('message', async (msg) => {
-    if (msg === 'shutdown') {
-      console.log('[Redis] Received PM2 shutdown message');
-      await cleanupPool();
-      process.exit(0);
+// Cache wrapper function
+export const withCache = async (key, fn, ttl = CACHE_TTL, override = false) => {
+  console.log('withCache', key, override)
+  const client = getClient();
+  try {
+    // Try to get from cache first
+    const cachedResult = await client.get(key);
+    
+    if (cachedResult && !override) {
+      console.log('found cached result')
+      try {
+        const parsed = JSON.parse(cachedResult);
+        if (Array.isArray(parsed)) {
+          return parsed.map(id => {
+            if (typeof id === 'object' && id !== null) {
+              return id.id;
+            }
+            return typeof id === 'string' ? parseInt(id, 10) : id;
+          }).filter(id => !isNaN(id));
+        }
+        return parsed;
+      } catch (parseError) {
+        await client.del(key);
+      }
     }
+
+    const result = await fn();
+    
+    if (result != null) {
+      console.log('no result - adding to cache for: ', key)
+      try {
+        const toCache = Array.isArray(result) 
+          ? result.map(id => {
+              if (typeof id === 'object' && id !== null) {
+                return id.id;
+              }
+              return typeof id === 'string' ? parseInt(id, 10) : id;
+            }).filter(id => !isNaN(id))
+          : result;
+
+        await client.setex(key, ttl, JSON.stringify(toCache));
+      } catch (cacheError) {
+        console.error('[Redis] Cache error:', cacheError);
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    try {
+      return await fn();
+    } catch (fnError) {
+      throw fnError;
+    }
+  }
+};
+
+const startRedis = async() => {
+  // Initialize the pool
+  initializePool().then(() => {
+    // Run health check after pool is initialized
+    checkPoolHealth();
+  }).catch(error => {
+    console.error('[Redis] Failed to initialize pool:', error);
+    process.exit(1);
   });
+
+  // Handle process termination
+  process.on('SIGTERM', async () => {
+    console.log('[Redis] Received SIGTERM signal');
+    await cleanupPool();
+    process.exit(0);
+  });
+
+  process.on('SIGINT', async () => {
+    console.log('[Redis] Received SIGINT signal');
+    await cleanupPool();
+    process.exit(0);
+  });
+
+  // Handle PM2 restarts and crashes
+  process.on('uncaughtException', async (error) => {
+    console.error('[Redis] Uncaught Exception:', error);
+    await cleanupPool();
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', async (reason, promise) => {
+    console.error('[Redis] Unhandled Rejection at:', promise, 'reason:', reason);
+    await cleanupPool();
+    process.exit(1);
+  });
+
+  // Handle PM2 graceful shutdown
+  if (process.env.NODE_ENV === 'production') {
+    process.on('message', async (msg) => {
+      if (msg === 'shutdown') {
+        console.log('[Redis] Received PM2 shutdown message');
+        await cleanupPool();
+        process.exit(0);
+      }
+    });
+  }
 }
 
-// Initialize the pool
-initializePool().then(() => {
-  // Run health check after pool is initialized
-  checkPoolHealth();
-}).catch(error => {
-  console.error('[Redis] Failed to initialize pool:', error);
-  process.exit(1);
-});
+async function deleteCacheMatchingPattern(pattern, { count = 1000, useUnlink = true } = {}) {
+  const client = getClient(); // <-- get a pooled client
+  let cursor = '0';
 
-// Run health check every 2.5 minutes
-setInterval(() => {
-  checkPoolHealth();
-}, 2.5 * 60 * 1000);
+  do {
+    // ioredis scan signature: scan(cursor, ...args) -> [nextCursor, keys[]]
+    const [nextCursor, keys] = await client.scan(cursor, 'MATCH', pattern, 'COUNT', count);
+
+    if (keys.length) {
+      console.log('deleteCacheMatchingPattern: deleting keys:', keys)
+      const pipeline = client.pipeline();
+      // Prefer UNLINK for async deletion (doesn't block Redis); fall back to DEL
+      if (useUnlink && typeof client.unlink === 'function') {
+        keys.forEach(k => pipeline.unlink(k));
+      } else {
+        keys.forEach(k => pipeline.del(k));
+      }
+      await pipeline.exec();
+    }
+
+    cursor = nextCursor;
+  } while (cursor !== '0');
+}
+
 
 export default {
   getClient,
-  withCache,
+  testRedisConnection,
+  checkPoolHealth,
   clearCache,
   clearCacheByPattern,
   cleanupPool,
-  checkPoolHealth
-}; 
+  withCache,
+  startRedis,
+  deleteCacheMatchingPattern,
+};
