@@ -3,6 +3,8 @@ import Knex from 'knex'
 import { Model } from 'objection'
 import Models from './models/index.js'
 import knexConfig from './knexfile.js'
+import RedisSubscriptions from './redis/subscriptions.js'
+import IndexerRedis from './redis/index.js'
 
 export const initDb = async (config) => {
   const db = Knex(config.development)
@@ -35,3 +37,5 @@ export const Tag = Models.Tag
 export const Transaction = Models.Transaction
 export const Verification = Models.Verification
 export const config = knexConfig
+export const redis = IndexerRedis
+export const SubscriptionsWithCache = RedisSubscriptions
