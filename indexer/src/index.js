@@ -35,6 +35,7 @@ const startProcessing = async () => {
     logTimestampedMessage('Indexer processing started.');
     await initDb(config);
     logTimestampedMessage('initDb completed.');
+
     await TransactionSyncer.initialize();
     await CollectorSyncer.initialize();
     await ReleaseFilter.filterRestrictedReleases();
@@ -61,7 +62,6 @@ const startProcessing = async () => {
         logTimestampedMessage(`Starting scheduled collector sync`);
         await CollectorSyncer.syncCollectors();
     });
-
 };
 
 try {
