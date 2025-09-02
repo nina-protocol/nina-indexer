@@ -3,7 +3,7 @@ import { stripHtmlIfNeeded } from '../utils/index.js';
 import Account from './Account.js';
 import Release from './Release.js';
 import Post from './Post.js';
-import Subscription from './Subscription.js';
+import SubscriptionsWithCache from '../redis/subscriptions.js';
 
 export default class Hub extends Model {
   static get tableName() {
@@ -35,9 +35,8 @@ export default class Hub extends Model {
 
     stripHtmlIfNeeded(this.data, 'description');
 
-    // Use count() instead of range(0,0) to avoid temporary object creation
-    const followersCount = await Subscription.query().where('to', this.publicKey).count('* as count').first();
-    this.followers = parseInt(followersCount.count);
+    const followersCount = await SubscriptionsWithCache.getFollowCountForAccountWithCache(this.publicKey, true);
+    this.followers = followersCount;
   }
   
   static relationMappings = () => ({

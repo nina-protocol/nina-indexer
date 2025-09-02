@@ -120,9 +120,44 @@ const deleteCacheAfterAccountFollow = async(
     await redis.deleteCacheMatchingPattern(`following:${fromPublicKey}:${toHandle}`)
     await redis.deleteCacheMatchingPattern(`following:${fromHandle}:${toPublicKey}`)
     await redis.deleteCacheMatchingPattern(`following:${fromHandle}:${toHandle}`)
-    
+    await redis.deleteCacheMatchingPattern(`${SUBSCRIPTION_TO}:count:${toPublicKey}`)
+    await redis.deleteCacheMatchingPattern(`${SUBSCRIPTION_TO}:count:${toHandle}`)
   } catch (error) {
     console.log('deleteCacheAfterAccountFollow error: ', error)
+  }
+}
+
+const getFollowCountForAccountWithCache = async (publicKeyOrHandle, isHub=false, override=false) => {
+  try {
+    let dbRecord = null;
+    return redis.withCache(`${SUBSCRIPTION_TO}:count:${publicKeyOrHandle}`, async () => {
+      if (isHub) {
+        dbRecord = await Hub.query().findOne({publicKey: publicKeyOrHandle});
+        if (!dbRecord) {
+          dbRecord = await Hub.query().findOne({handle: publicKeyOrHandle});
+          if (!dbRecord) {
+            throw new Error(`Hub not found for publicKeyOrHandle ${publicKeyOrHandle}`)
+          }
+        }
+      } else {
+        dbRecord = await Account.query().findOne({publicKey: publicKeyOrHandle});
+        if (!dbRecord) {
+          dbRecord = await Account.query().findOne({handle: publicKeyOrHandle});
+          if (!dbRecord) {
+            throw new Error(`Account not found for publicKeyOrHandle ${publicKeyOrHandle}`)
+          }
+        }
+      }
+      
+      if (dbRecord) {
+        const count = await Subscription.query().where('to', dbRecord.publicKey).count('* as count').first();
+        return parseInt(count.count);
+      } else {
+        return 0;
+      }
+    }, undefined, override)
+  } catch (error) {
+    console.log('getFollowCountForAccountWithCache error: ', error)
   }
 }
 
@@ -130,4 +165,5 @@ export default {
   getFollowersForAccountWithCache,
   getUserFollowingAccountWithCache,
   deleteCacheAfterAccountFollow,
+  getFollowCountForAccountWithCache,
 }
