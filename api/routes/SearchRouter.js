@@ -50,12 +50,14 @@ router.get('/all', async (ctx) => {
         if (query && releaseIds.length === 0 && publisherIds.length === 0 && hubIds.length === 0) {
           return { results: [], total: 0 };
         }
+        const blockedPublisherIds = Array.isArray(idList) ? idList : []; // or wherever you source this
+
         return Release.query()
           .where('archived', false)
-          .whereNotIn('publisherId', idList)
+          .whereNotIn('publisherId', blockedPublisherIds)
           .modify((queryBuilder) => {
             if (releaseIds.length > 0) {
-              queryBuilder.whereIn('id', releaseIds);
+              queryBuilder.whereRaw('releases.id = ANY(?::int[])', [releaseIds]);
             }
             if (publisherIds.length > 0) {
               if (releaseIds.length > 0) {
