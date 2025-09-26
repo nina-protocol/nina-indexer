@@ -215,9 +215,27 @@ router.get('/:publicKey/collectors', async (ctx) => {
         throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
       }
     }
+    const earliestReleasePurchaseTx = await Transaction.query()
+      .where('releaseId', release.id)
+      .whereIn('type', ['ReleasePurchase', 'ReleasePurchaseViaHub', 'ReleaseInitAndPurchase', 'ReleaseClaim'])
+      .orderBy('blocktime', 'asc')
+      .first();
+    if (!earliestReleasePurchaseTx) {
+      ctx.body = {
+        collectors: [],
+        total: 0,
+      };
+      return;
+    }
+    const earliestCollectorId = earliestReleasePurchaseTx.authorityId;
+    const earliestCollector = await Account.query().findById(earliestCollectorId);
     const collectors = await release.$relatedQuery('collectors')
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
-
+      .whereNot('id', earliestCollectorId)
+      .range(Number(offset), Number(offset) + Number(limit) - offset === 0 ? 2 : 1);
+    if (earliestCollector) {
+      collectors.results.unshift(earliestCollector);
+      collectors.total++;
+    }
     for await (let account of collectors.results) {
       if (ctx.request.query.withCollection) {
         const collectedReleases = await account.$relatedQuery('collected')
