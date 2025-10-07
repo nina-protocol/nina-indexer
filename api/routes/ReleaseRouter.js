@@ -230,7 +230,7 @@ router.get('/:publicKey/collectors', async (ctx) => {
       const earliestCollector = await Account.query().findById(earliestCollectorId);
       collectors = await release.$relatedQuery('collectors')
         .whereNot('id', earliestCollectorId)
-        .range(Number(offset), Number(offset) + Number(limit) - offset === 0 ? 2 : 1);
+        .range(Number(offset), Number(offset) + Number(limit) - 1);
   
       if (earliestCollector) {
         collectors.results.unshift(earliestCollector);
