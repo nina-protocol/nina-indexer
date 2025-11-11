@@ -183,6 +183,16 @@ export default class Release extends Model {
       programId,
       solanaAddress,
     })
+    if (metadata.properties.tags) {
+      for await (let tag of metadata.properties.tags) {
+        const tagRecord = await Tag.findOrCreate(tag);
+        await Release.relatedQuery("tags")
+          .for(release.id)
+          .relate(tagRecord.id)
+          .onConflict(["tagId", "releaseId"])
+          .ignore();
+      }
+    }
     
     if (programId === process.env.NINA_PROGRAM_ID) {
       await this.processRevenueShares(releaseAccount, release);
