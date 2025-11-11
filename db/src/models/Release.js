@@ -143,6 +143,37 @@ export default class Release extends Model {
         solanaAddress: isLazy ? null : publicKey,
       });
 
+      // Ensure tags are processed even if createRelease didn't handle them (for lazy minted releases)
+      // This is a safety net to ensure tags are always created when metadata is available
+      if (release && json?.properties?.tags) {
+        try {
+          const existingTags = await release.$relatedQuery('tags');
+          const existingTagValues = existingTags.map(t => t.value.toLowerCase());
+          const metadataTags = json.properties.tags.filter(t => t && typeof t === 'string');
+          
+          for (const tagValue of metadataTags) {
+            const sanitizedTag = Tag.sanitizeValue(tagValue);
+            if (!existingTagValues.includes(sanitizedTag)) {
+              try {
+                const tagRecord = await Tag.findOrCreate(tagValue);
+                await Release.relatedQuery("tags")
+                  .for(release.id)
+                  .relate(tagRecord.id)
+                  .onConflict(["tagId", "releaseId"])
+                  .ignore();
+                console.log(`Successfully added tag ${tagValue} to release ${publicKey} in findOrCreate`);
+              } catch (tagError) {
+                console.log(`Error adding tag ${tagValue} to release ${publicKey} in findOrCreate:`, tagError);
+                // Continue with other tags
+              }
+            }
+          }
+        } catch (tagsError) {
+          console.log(`Error processing tags for release ${publicKey} in findOrCreate:`, tagsError);
+          // Don't fail release creation if tag processing fails
+        }
+      }
+
       if (hubPublicKey) {
         const hub = await Hub.query().findOne({ publicKey: hubPublicKey });
         await release.$query().patch({ hubId: hub.id });
@@ -184,6 +215,32 @@ export default class Release extends Model {
       solanaAddress,
     })
     
+    // Process tags with proper error handling - ensure tags are created for all releases including lazy minted
+    try {
+      if (metadata?.properties?.tags && Array.isArray(metadata.properties.tags) && metadata.properties.tags.length > 0) {
+        for (const tag of metadata.properties.tags) {
+          if (tag && typeof tag === 'string') {
+            try {
+              const tagRecord = await Tag.findOrCreate(tag);
+              await Release.relatedQuery("tags")
+                .for(release.id)
+                .relate(tagRecord.id)
+                .onConflict(["tagId", "releaseId"])
+                .ignore();
+              console.log(`Successfully added tag ${tag} to release ${publicKey} in createRelease`);
+            } catch (tagError) {
+              console.log(`Error processing tag ${tag} for release ${publicKey} in createRelease:`, tagError);
+              // Continue processing other tags even if one fails
+            }
+          }
+        }
+      } else {
+        console.log(`No tags found in metadata for release ${publicKey} (metadata.properties.tags: ${metadata?.properties?.tags})`);
+      }
+    } catch (tagsError) {
+      console.log(`Error processing tags for release ${publicKey} in createRelease:`, tagsError);
+      // Don't throw - release is already created, tags are optional but we'll try again in findOrCreate
+    }
     if (programId === process.env.NINA_PROGRAM_ID) {
       await this.processRevenueShares(releaseAccount, release);
     }
