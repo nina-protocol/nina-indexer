@@ -541,7 +541,7 @@ export class ReleaseProcessor extends BaseProcessor {
                 release = await Release.query().findOne({solanaAddress: releasePublicKey})
               }
               if (!release) {
-                throw new Error(`Release not ReleaseUpdateMetaplex for ${txid}: ${error.message}`)
+                throw new Error(`Release not found ReleaseUpdateMetaplex for ${txid}: releasePublicKey: ${releasePublicKey}`)
               }
 
               const releaseAccount = await this.programV2.account.releaseV2.fetch(
@@ -597,6 +597,7 @@ export class ReleaseProcessor extends BaseProcessor {
               return {success: true, ids: { releaseId: release.id }};              
             } catch (error) {
               logTimestampedMessage(`Error processing ReleaseUpdateMetaplex for ${txid}: ${error.message}`)
+              return { success: false }
             }
           }
           case 'ReleaseUpdateMetadata': {
