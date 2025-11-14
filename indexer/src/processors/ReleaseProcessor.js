@@ -534,7 +534,7 @@ export class ReleaseProcessor extends BaseProcessor {
           case 'ReleaseUpdateMetaplex': {
             try {
               console.log('ReleaseUpdateMetaplex')
-              const releasePublicKey = this.isFileServicePayer(accounts) ? accounts[2] : accounts[1]
+              const releasePublicKey = this.isFileServicePayer(accounts) ? accounts[2].toBase58() : accounts[1].toBase58()
               console.log('releasePublicKey', releasePublicKey)
               let release = await Release.query().findOne({publicKey: releasePublicKey})
               console.log('release 1st try', release)
