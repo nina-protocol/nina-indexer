@@ -16,6 +16,7 @@ export class ReleaseProcessor extends BaseProcessor {
         'ReleaseInitAndPurchase',
         'ReleaseInitV2',
         'ReleaseUpdate',
+        'ReleaseUpdateMetaplex',
         // program v1
         'ReleaseInitWithCredit',
         'ReleaseInitViaHub',
