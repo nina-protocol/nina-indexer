@@ -530,6 +530,74 @@ export class ReleaseProcessor extends BaseProcessor {
               return { success: false };
             }
           }
+          case 'ReleaseUpdateMetaplex': {
+            try {
+              console.log('ReleaseUpdateMetaplex')
+              const releasePublicKey = this.isFileServicePayer(accounts) ? accounts[2] : accounts[1]
+
+              let release = await Release.query().findOne({publicKey: releasePublicKey})
+              if (!release) {
+                release = await Release.query().findOne({solanaAddress: releasePublicKey})
+              }
+              if (!release) {
+                throw new Error(`Release not ReleaseUpdateMetaplex for ${txid}: ${error.message}`)
+              }
+
+              const releaseAccount = await this.programV2.account.releaseV2.fetch(
+                new anchor.web3.PublicKey(release.solanaAddress),
+                'confirmed'
+              )
+              let metadataAccount = (await this.metaplex.nfts().findAllByMintList({mints: [releaseAccount.mint]}, { commitment: 'confirmed' }))[0];
+
+              // Fetch metadata JSON using fetchFromArweave utility
+              const json = await fetchFromArweave(metadataAccount.uri);
+
+              // Update release metadata
+              await release.$query().patch({
+                metadata: json,
+              });
+
+              // Process tags
+              const tagsBefore = await release.$relatedQuery('tags');
+              console.log('tagsBefore: ', tagsBefore);
+              if (json.properties.tags) {
+                const newTags = json.properties.tags.filter(tag =>
+                  !tagsBefore.find(t => t.value === Tag.sanitizeValue(tag))
+                );  
+                console.log('newTags: ', newTags);
+                // Add new tags
+                for (const tag of newTags) {
+                  const tagRecord = await Tag.findOrCreate(tag);
+                  await Release.relatedQuery('tags')
+                    .for(release.id)
+                    .relate(tagRecord.id)
+                    .onConflict(['tagId', 'releaseId'])
+                    .ignore();
+                  logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+                }
+              }
+              if (tagsBefore.length > 0) {
+                const deletedTags = tagsBefore.filter(tag =>
+                  !json.properties.tags.find(t => t === Tag.sanitizeValue(tag.value))
+                );
+                console.log('deletedTags: ', deletedTags);
+                // Remove deleted tags
+                for (const tag of deletedTags) {
+                  const tagRecord = await Tag.findOrCreate(tag.value);
+                  await Release.relatedQuery('tags')
+                    .for(release.id)
+                    .unrelate()
+                    .where('tagId', tagRecord.id);
+                  logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+                }
+              }
+
+              logTimestampedMessage(`Successfully processed ReleaseUpdateMetadata ${txid} for release ${releasePublicKey}`);
+              return {success: true, ids: { releaseId: release.id }};              
+            } catch (error) {
+              logTimestampedMessage(`Error processing ReleaseUpdateMetaplex for ${txid}: ${error.message}`)
+            }
+          }
           case 'ReleaseUpdateMetadata': {
             try {
               console.log('ReleaseUpdateMetadata✅ ')
