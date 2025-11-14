@@ -24,6 +24,7 @@ class Transaction extends Model {
             'ReleaseInitAndPurchase',
             'ReleaseInitV2',
             'ReleaseUpdate',
+            'ReleaseUpdateMetaplex',
             'ExchangeAccept',
             'ExchangeCancel',
             'ExchangeInit',
