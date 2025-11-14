@@ -535,11 +535,14 @@ export class ReleaseProcessor extends BaseProcessor {
             try {
               console.log('ReleaseUpdateMetaplex')
               const releasePublicKey = this.isFileServicePayer(accounts) ? accounts[2] : accounts[1]
-
+              console.log('releasePublicKey', releasePublicKey)
               let release = await Release.query().findOne({publicKey: releasePublicKey})
+              console.log('release 1st try', release)
               if (!release) {
+                console.log('no release - finding by release.solanaAddress', releasePublicKey)
                 release = await Release.query().findOne({solanaAddress: releasePublicKey})
               }
+              console.log('release 2nd try', release)
               if (!release) {
                 throw new Error(`Release not found ReleaseUpdateMetaplex for ${txid}: releasePublicKey: ${releasePublicKey}`)
               }
