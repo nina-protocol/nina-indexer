@@ -17,6 +17,8 @@
     "start:api": "yarn && node api/index.js",
     "test:api": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/api.test.js --timeout 180000 --recursive",
     "test:search": "MOCHA_ENDPOINT_URL=http://localhost:4001 NODE_ENV=local mocha ./test/search.test.js --timeout 180000 --recursive",
+    "test:tags": "node test-tag-creation.js",
+    "backfill:tags": "node backfill-tag-releases.js",
     "redis:start": "brew services start redis"
   },
   "dependencies": {

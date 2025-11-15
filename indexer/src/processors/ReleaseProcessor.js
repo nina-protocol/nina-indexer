@@ -697,38 +697,56 @@ export class ReleaseProcessor extends BaseProcessor {
                 metadata: json,
               });
 
-              const tagsBefore = await release.$relatedQuery('tags');
-              console.log('tagsBefore', tagsBefore);
-              if (json.properties.tags) {
-                const newTags = json.properties.tags.filter(tag =>
-                  !tagsBefore.find(t => t.value === Tag.sanitizeValue(tag))
-                );  
-                console.log('newTags: ', newTags);
-                for (const tag of newTags) {
-                  const tagRecord = await Tag.findOrCreate(tag);
-                  await Release.relatedQuery('tags')
-                    .for(release.id)
-                    .relate(tagRecord.id)
-                    .onConflict(['tagId', 'releaseId'])
-                    .ignore();
-                  logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
-                }
-
-                if (tagsBefore.length > 0) {
-                  const deletedTags = tagsBefore.filter(tag =>
-                    !json.properties.tags.find(t => t === Tag.sanitizeValue(tag.value))
-                  );
-                  console.log('deletedTags: ', deletedTags);
-                  // Remove deleted tags
-                  for (const tag of deletedTags) {
-                    const tagRecord = await Tag.findOrCreate(tag.value);
-                    await Release.relatedQuery('tags')
-                      .for(release.id)
-                      .unrelate()
-                      .where('tagId', tagRecord.id);
-                    logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+              // Process tags with proper error handling
+              try {
+                const tagsBefore = await release.$relatedQuery('tags');
+                console.log('tagsBefore', tagsBefore);
+                if (json?.properties?.tags && Array.isArray(json.properties.tags) && json.properties.tags.length > 0) {
+                  const newTags = json.properties.tags.filter(tag =>
+                    tag && typeof tag === 'string' && !tagsBefore.find(t => t.value === Tag.sanitizeValue(tag))
+                  );  
+                  console.log('newTags: ', newTags);
+                  for (const tag of newTags) {
+                    try {
+                      const tagRecord = await Tag.findOrCreate(tag);
+                      await Release.relatedQuery('tags')
+                        .for(release.id)
+                        .relate(tagRecord.id)
+                        .onConflict(['tagId', 'releaseId'])
+                        .ignore();
+                      logTimestampedMessage(`Added tag ${tag} to release ${releasePublicKey}`);
+                    } catch (tagError) {
+                      logTimestampedMessage(`Error adding tag ${tag} to release ${releasePublicKey}: ${tagError.message}`);
+                      // Continue with other tags
+                    }
                   }
+
+                  if (tagsBefore.length > 0) {
+                    const deletedTags = tagsBefore.filter(tag =>
+                      !json.properties.tags.find(t => t && typeof t === 'string' && Tag.sanitizeValue(t) === Tag.sanitizeValue(tag.value))
+                    );
+                    console.log('deletedTags: ', deletedTags);
+                    // Remove deleted tags
+                    for (const tag of deletedTags) {
+                      try {
+                        const tagRecord = await Tag.findOrCreate(tag.value);
+                        await Release.relatedQuery('tags')
+                          .for(release.id)
+                          .unrelate()
+                          .where('tagId', tagRecord.id);
+                        logTimestampedMessage(`Removed tag ${tag.value} from release ${releasePublicKey}`);
+                      } catch (tagError) {
+                        logTimestampedMessage(`Error removing tag ${tag.value} from release ${releasePublicKey}: ${tagError.message}`);
+                        // Continue with other tags
+                      }
+                    }
+                  }
+                } else {
+                  logTimestampedMessage(`No tags found in metadata for release ${releasePublicKey} (metadata.properties.tags: ${json?.properties?.tags})`);
                 }
+              } catch (tagsError) {
+                logTimestampedMessage(`Error processing tags for ReleaseUpdate ${txid}: ${tagsError.message}`);
+                // Don't fail the entire transaction if tag processing fails
               }
               logTimestampedMessage(`Successfully processed ReleaseUpdate ${txid} for release ${releasePublicKey}`);
               return {success: true, ids: { releaseId: release.id }};

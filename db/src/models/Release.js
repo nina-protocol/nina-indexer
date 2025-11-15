@@ -193,6 +193,7 @@ export default class Release extends Model {
           .ignore();
       }
     }
+    
     if (programId === process.env.NINA_PROGRAM_ID) {
       await this.processRevenueShares(releaseAccount, release);
     }
