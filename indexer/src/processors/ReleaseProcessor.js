@@ -676,7 +676,10 @@ export class ReleaseProcessor extends BaseProcessor {
             try {
               const releasePublicKey = accounts[3].toBase58();
               console.log('accounts', accounts)
-              const release = await Release.query().findOne({ publicKey: releasePublicKey });
+              let release = await Release.query().findOne({ publicKey: releasePublicKey });
+              if (!release) {
+                release = await Release.query().findOne({ solanaAddress: releasePublicKey });
+              }
               if (!release) {
                 logTimestampedMessage(`Release not found for ReleaseUpdate ${txid} with publicKey ${releasePublicKey}`);
                 return { success: false };
