@@ -315,6 +315,7 @@ class TransactionSyncer {
     if (logMessages.some(log => log.includes('ReleaseInitAndPurchase'))) return 'ReleaseInitAndPurchase';
     if (logMessages.some(log => log.includes('ReleaseInitV2'))) return 'ReleaseInitV2';
     if (logMessages.some(log => log.includes('ReleaseUpdateMetadata'))) return 'ReleaseUpdateMetadata';
+    if (logMessages.some(log => log.includes('ReleaseUpdateMetaplex'))) return 'ReleaseUpdateMetaplex';
     if (logMessages.some(log => log.includes('ReleaseUpdate'))) return 'ReleaseUpdate';
     if (logMessages.some(log => log.includes('ReleaseInitViaHub'))) return 'ReleaseInitViaHub';
     if (logMessages.some(log => log.includes('ReleasePurchaseViaHub'))) return 'ReleasePurchaseViaHub';
@@ -415,6 +416,9 @@ class TransactionSyncer {
           return accounts[1].toBase58();
         case 'ReleaseInitV2':
           console.log('ReleaseInitV2 accounts', accounts)
+          return accounts[1].toBase58();
+        case 'ReleaseUpdateMetaplex':
+          console.log('ReleaseUpdateMetaplex accounts', accounts)
           return accounts[1].toBase58();
         case 'ReleaseUpdate':
           console.log('ReleaseUpdate accounts', accounts)
