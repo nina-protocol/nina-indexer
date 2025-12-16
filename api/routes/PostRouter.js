@@ -21,12 +21,20 @@ router.get('/', async (ctx) => {
   try {
     const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
     const posts = await Post
-      .query()
-      .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query))
-      .orderBy(column, sort)
-      .range(Number(offset), Number(offset) + Number(limit) - 1);
+    .query()
+    .where('archived', false)
+    .where(async (qb) => {
+      qb
+        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query));
+    })
+    .orderBy(column, sort)
+    .range(
+      Number(offset),
+      Number(offset) + Number(limit) - 1
+    );
+    
     for await (let post of posts.results) {
       await post.format();
       post.type = 'post'
@@ -49,6 +57,7 @@ router.get('/sitemap', async (ctx) => {
   try {
     const posts = await Post
       .query()  
+      .where('archived', false)
       .select(ref('data:slug').castText())
       .orderBy('datetime', 'desc')
     ctx.body = {
@@ -147,7 +156,7 @@ const postNotFound = (ctx) => {
 }
 
 const findPostForPublicKeyOrSlug = async (publicKeyOrSlug) => {
-  let post = await Post.query().findOne({publicKey: publicKeyOrSlug})
+  let post = await Post.query().where('archived', false).findOne({publicKey: publicKeyOrSlug})
   if (!post) {
     post = await Post.query().where(ref('data:slug').castText(), 'like', `%${publicKeyOrSlug}%`).first()
   }

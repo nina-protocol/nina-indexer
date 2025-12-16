@@ -315,6 +315,7 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
     const posts = await account.$relatedQuery('posts')
       .orderBy(column, sort)
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      .where('archived', false)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
       
     for await (let post of posts.results) {
