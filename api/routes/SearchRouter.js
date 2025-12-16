@@ -151,6 +151,7 @@ router.get('/all', async (ctx) => {
       const hubIds = await getPublishedThroughHubSubQuery(query);
       const postsQuery = await Post.query()
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .where('archived', false)
         .modify((queryBuilder) => {
           if (hubIds && hubIds.length > 0) {
             queryBuilder.orWhereIn('hubId', hubIds);
@@ -213,10 +214,14 @@ router.post('/v2', async (ctx) => {
     }
     
     const posts = await Post.query()
-      .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
-
+      .where('archived', false)
+      .where(async (qb) => {
+        qb
+          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+          .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query));
+      });
+  
     for await (let post of posts) {
       post.type = 'post'
       await post.format();
