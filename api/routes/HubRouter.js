@@ -270,7 +270,8 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
     let posts = await hub.$relatedQuery('posts')
       .orderBy(formatColumnForJsonFields(column, 'data'), sort)
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-
+      .where('archived', false)
+      
     for await(let post of posts) {
       post.type = 'post'
       await post.format();
@@ -400,6 +401,7 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
     const hub = await hubForPublicKeyOrHandle(ctx)
     let posts = await hub.$relatedQuery('posts')
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .where('archived', false)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
