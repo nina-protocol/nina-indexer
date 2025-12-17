@@ -20,6 +20,7 @@ const router = new KoaRouter({
 router.get('/', async (ctx) => {
   try {
     const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
+    const hubIds = await getPublishedThroughHubSubQuery(query);
     const posts = await Post
     .query()
     .where('archived', false)
@@ -27,7 +28,7 @@ router.get('/', async (ctx) => {
       qb
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query));
+        .orWhereIn('hubId', hubIds);
     })
     .orderBy(column, sort)
     .range(
