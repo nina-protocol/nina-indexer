@@ -217,8 +217,8 @@ router.post('/v2', async (ctx) => {
     const posts = await Post.query()
     .where('archived', false)
     .where(function () {
-      this.where(ref('data:title').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
+        .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
         .orWhereIn('hubId', hubIds);
     })
     .orderBy('datetime', 'desc')
