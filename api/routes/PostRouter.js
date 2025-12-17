@@ -27,7 +27,7 @@ router.get('/', async (ctx) => {
       qb
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-        .orWhereIn('hubId', await getPublishedThroughHubSubQuery(query));
+        .orWhereIn('hubId', getPublishedThroughHubSubQuery(query));
     })
     .orderBy(column, sort)
     .range(
