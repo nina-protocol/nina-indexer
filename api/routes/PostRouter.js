@@ -23,7 +23,7 @@ router.get('/', async (ctx) => {
     const posts = await Post
     .query()
     .where('archived', false)
-    .where(async (qb) => {
+    .where((qb) => {
       qb
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
