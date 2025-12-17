@@ -215,14 +215,15 @@ router.post('/v2', async (ctx) => {
     
     const hubIds = await getPublishedThroughHubSubQuery(query);
     const posts = await Post.query()
-      .where('archived', false)
-      .where((qb) => {
-        qb
-          .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-          .orWhereIn('hubId', hubIds);
-      });
-  
+    .where('archived', false)
+    .where(function () {
+      this.where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+        .orWhereIn('hubId', hubIds);
+    })
+    .orderBy('datetime', 'desc')
+    .range(Number(offset), Number(offset) + Number(limit) - 1);
+    
     for await (let post of posts) {
       post.type = 'post'
       await post.format();
