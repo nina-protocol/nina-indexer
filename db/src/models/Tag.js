@@ -1,5 +1,6 @@
 import { Model } from 'objection';
 import Release from './Release.js';
+import Post from './Post.js';
 
 export default class Tag extends Model {
   static tableName = 'tags';
@@ -38,6 +39,18 @@ export default class Tag extends Model {
           to: 'tags_releases.releaseId',
         },
         to: 'releases.id',
+      },
+    },
+    posts: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Post,
+      join: {
+        from: 'tags.id',
+        through: {
+          from: 'tags_posts.tagId',
+          to: 'tags_posts.postId',
+        },
+        to: 'posts.id',
       },
     },
   });
