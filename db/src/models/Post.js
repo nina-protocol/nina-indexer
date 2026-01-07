@@ -3,6 +3,7 @@ import { stripHtmlIfNeeded } from '../utils/index.js';
 import Account from './Account.js';
 import Hub from './Hub.js';
 import Release from './Release.js';
+import Tag from './Tag.js';
 
 class Post extends Model {
   static get tableName() {
@@ -83,6 +84,18 @@ class Post extends Model {
           to: 'posts_releases.releaseId',
         },
         to: 'releases.id',
+      },
+    },
+    tags: {
+      relation: Model.ManyToManyRelation,
+      modelClass: Tag,
+      join: {
+        from: 'posts.id',
+        through: {
+          from: 'tags_posts.postId',
+          to: 'tags_posts.tagId',
+        },
+        to: 'tags.id',
       },
     },
   })
