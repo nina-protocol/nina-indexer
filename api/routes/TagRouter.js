@@ -150,6 +150,11 @@ router.get('/:value', async (ctx) => {
         delete release.id
       }
 
+      // format posts first before converting to plain objects
+      for (const post of allPosts) {
+        await post.format();
+      }
+
       // get favorite counts for all posts in this tag
       const postPublicKeys = allPosts.map(post => post.publicKey);
       const postFavoriteCounts = await authDb('favorites')
@@ -181,11 +186,6 @@ router.get('/:value', async (ctx) => {
         Number(offset),
         Number(offset) + Number(limit)
       );
-
-      // format posts
-      for (const post of paginatedPosts) {
-        await post.format();
-      }
 
       ctx.body = {
         releases: paginatedReleases,
