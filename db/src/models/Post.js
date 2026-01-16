@@ -25,7 +25,9 @@ class Post extends Model {
     };
   }
 
-  async format() {
+  async format(options = {}) {
+    const { includeBlocks = true } = options;
+
     const publisher = await this.$relatedQuery('publisher').select('publicKey');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
 
@@ -36,11 +38,16 @@ class Post extends Model {
       delete this.hub.id;
       delete this.hub.authorityId;
     }
-    
+
     delete this.publisherId
     delete this.id
     delete this.hubId
-  
+
+    // Strip blocks for list views unless explicitly requested
+    if (!includeBlocks && this.data?.blocks) {
+      delete this.data.blocks;
+    }
+
     stripHtmlIfNeeded(this.data, 'body');
   }
 
