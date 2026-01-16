@@ -2,6 +2,7 @@ import { ref } from 'objection'
 import {
   Account,
   Hub,
+  Post,
   Release,
 } from '@nina-protocol/nina-db'
 
@@ -49,6 +50,21 @@ export const getReleaseSearchSubQuery = async (query) => {
   }
 };
 
+export const getPostSearchSubQuery = async (query) => {
+  try {
+    const posts = await Post.query()
+      .select('id', 'data')
+      .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      .orWhere(ref('data:tags').castText(), 'ilike', `%${query}%`)
+
+    return posts.map(row => row.id);
+  } catch (error) {
+    console.error('Error in getPostSearchSubQuery:', error);
+    return [];
+  }
+};
+
 export const getPublisherSubQuery = async (query) => {
   try {
     const publishers = await Account.query()
@@ -67,7 +83,7 @@ export const getPublisherSubQuery = async (query) => {
     }).filter(id => id !== null);
 
     return publisherIds;
-    
+
   } catch (error) {
     console.error('Error in getPublisherSubQuery:', error);
     return [];

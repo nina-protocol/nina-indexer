@@ -7,6 +7,7 @@ import {
 import { ref } from 'objection'
 import * as anchor from '@project-serum/anchor';
 import {
+  getPostSearchSubQuery,
   getPublishedThroughHubSubQuery,
 } from '../utils.js';
 import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
@@ -21,13 +22,15 @@ router.get('/', async (ctx) => {
   try {
     const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
     const hubIds = await getPublishedThroughHubSubQuery(query);
+    const postIds = await getPostSearchSubQuery(query);
     const posts = await Post
     .query()
     .where('archived', false)
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
-        .orWhereIn('hubId', hubIds);
+        .orWhereIn('hubId', hubIds)
+        .orWhereIn('id', postIds);
     })
     .orderBy(column, sort)
     .range(

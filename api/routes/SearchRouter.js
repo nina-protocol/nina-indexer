@@ -10,7 +10,7 @@ import {
 import { ref } from 'objection'
 import _  from 'lodash';
 
-import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
+import { getReleaseSearchSubQuery, getPostSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
 
 const idList = [
   '13572',
@@ -148,11 +148,13 @@ router.get('/all', async (ctx) => {
     }
 
     if (includePosts === 'true') {
-      const hubIds = await getPublishedThroughHubSubQuery(query);
+      const postIds = await getPostSearchSubQuery(query);
       const postsQuery = await Post.query()
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
         .where('archived', false)
         .modify((queryBuilder) => {
+          if (postIds && postIds.length > 0) {
+            queryBuilder.whereIn('id', postIds);
+          }
           if (hubIds && hubIds.length > 0) {
             queryBuilder.orWhereIn('hubId', hubIds);
           }
@@ -214,12 +216,14 @@ router.post('/v2', async (ctx) => {
     }
     
     const hubIds = await getPublishedThroughHubSubQuery(query);
+    const postIds = await getPostSearchSubQuery(query);
     const posts = await Post.query()
     .where('archived', false)
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
-        .orWhereIn('hubId', hubIds);
+        .orWhereIn('hubId', hubIds)
+        .orWhereIn('id', postIds);
     })
     .orderBy('datetime', 'desc')
     .range(Number(offset), Number(offset) + Number(limit) - 1);

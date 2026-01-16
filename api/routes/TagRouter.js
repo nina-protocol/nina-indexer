@@ -1,5 +1,5 @@
 import KoaRouter from 'koa-router'
-import { Account, Hub, Tag } from '@nina-protocol/nina-db';
+import { Account, Hub, Post, Tag } from '@nina-protocol/nina-db';
 import _ from 'lodash';
 import knex from 'knex'
 import knexConfig from '../../db/src/knexfile.js'
@@ -73,10 +73,18 @@ router.get('/:value', async (ctx) => {
       return;
     }
 
-    //  get all releases for the tag
+    // Get all releases for the tag
     let releasesQuery = Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false);
     let allReleases = await releasesQuery;
-    const total = allReleases.length;
+    const totalReleases = allReleases.length;
+
+    // Get all posts for the tag
+    let postsQuery = Tag.relatedQuery('posts').for(tag.id).where('posts.archived', false);
+    let allPosts = await postsQuery;
+    const totalPosts = allPosts.length;
+
+    let paginatedReleases;
+    let paginatedPosts;
 
     if (column === 'favorites') {
       // daterange param
@@ -94,12 +102,12 @@ router.get('/:value', async (ctx) => {
       }
 
       // get favorite counts for all releases in this tag
-      const publicKeys = allReleases.map(release => release.publicKey);
-      const favoriteCounts = await authDb('favorites')
+      const releasePublicKeys = allReleases.map(release => release.publicKey);
+      const releaseFavoriteCounts = await authDb('favorites')
         .select('public_key')
         .count('* as favorite_count')
         .where('favorite_type', 'release')
-        .whereIn('public_key', publicKeys)
+        .whereIn('public_key', releasePublicKeys)
         .modify(queryBuilder => {
           if (Object.keys(dateCondition).length > 0) {
             queryBuilder.where('created_at', '>=', dateCondition.created_at.$gte);
@@ -108,10 +116,10 @@ router.get('/:value', async (ctx) => {
         .groupBy('public_key');
 
       // map the favorite counts to the releases
-      const favoriteCountMap = _.keyBy(favoriteCounts, 'public_key');
+      const releaseFavoriteCountMap = _.keyBy(releaseFavoriteCounts, 'public_key');
       allReleases = allReleases.map(release => ({
         ...release,
-        favoriteCount: parseInt(favoriteCountMap[release.publicKey]?.favorite_count || 0)
+        favoriteCount: parseInt(releaseFavoriteCountMap[release.publicKey]?.favorite_count || 0)
       }));
 
       allReleases = _.orderBy(
@@ -120,14 +128,13 @@ router.get('/:value', async (ctx) => {
         [sort.toLowerCase(), 'asc']
       );
 
-      const paginatedReleases = allReleases.slice(
+      paginatedReleases = allReleases.slice(
         Number(offset),
         Number(offset) + Number(limit)
       );
 
       // format releases
       for (const release of paginatedReleases) {
-        // release.filter() was undefined, so we are adding hub and publisher manually
         const publisher = await Account.query().findOne({ id: release.publisherId })
         await publisher.format()
         release.publisherAccount = publisher
@@ -143,9 +150,48 @@ router.get('/:value', async (ctx) => {
         delete release.id
       }
 
+      // format posts first before converting to plain objects
+      for (const post of allPosts) {
+        await post.format();
+      }
+
+      // get favorite counts for all posts in this tag
+      const postPublicKeys = allPosts.map(post => post.publicKey);
+      const postFavoriteCounts = await authDb('favorites')
+        .select('public_key')
+        .count('* as favorite_count')
+        .where('favorite_type', 'post')
+        .whereIn('public_key', postPublicKeys)
+        .modify(queryBuilder => {
+          if (Object.keys(dateCondition).length > 0) {
+            queryBuilder.where('created_at', '>=', dateCondition.created_at.$gte);
+          }
+        })
+        .groupBy('public_key');
+
+      // map the favorite counts to the posts
+      const postFavoriteCountMap = _.keyBy(postFavoriteCounts, 'public_key');
+      allPosts = allPosts.map(post => ({
+        ...post,
+        favoriteCount: parseInt(postFavoriteCountMap[post.publicKey]?.favorite_count || 0)
+      }));
+
+      allPosts = _.orderBy(
+        allPosts,
+        ['favoriteCount', 'publicKey'],
+        [sort.toLowerCase(), 'asc']
+      );
+
+      paginatedPosts = allPosts.slice(
+        Number(offset),
+        Number(offset) + Number(limit)
+      );
+
       ctx.body = {
         releases: paginatedReleases,
-        total
+        posts: paginatedPosts,
+        total: totalReleases,
+        totalPosts
       };
     } else {
       // for non-favorite sorting, use the existing query with pagination
@@ -160,9 +206,22 @@ router.get('/:value', async (ctx) => {
         await release.format();
       }
 
+      const posts = await postsQuery
+        .orderBy(column, sort)
+        .range(
+          Number(offset),
+          Number(offset) + Number(limit) - 1
+        );
+
+      for (const post of posts.results) {
+        await post.format();
+      }
+
       ctx.body = {
         releases: releases.results,
-        total: releases.total
+        posts: posts.results,
+        total: releases.total,
+        totalPosts: posts.total
       };
     }
   } catch (error) {
