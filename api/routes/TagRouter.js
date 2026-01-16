@@ -64,7 +64,8 @@ router.get('/', async (ctx) => {
 
 router.get('/:value', async (ctx) => {
   try {
-    let { offset = 0, limit = 20, sort = 'desc', column = 'datetime', daterange } = ctx.query;
+    let { offset = 0, limit = 20, sort = 'desc', column = 'datetime', daterange, full = 'false' } = ctx.query;
+    const includeBlocks = full === 'true';
     const tag = await Tag.query().findOne({ value: ctx.params.value.toLowerCase() });
 
     if (!tag) {
@@ -152,7 +153,7 @@ router.get('/:value', async (ctx) => {
 
       // format posts first before converting to plain objects
       for (const post of allPosts) {
-        await post.format();
+        await post.format({ includeBlocks });
       }
 
       // get favorite counts for all posts in this tag
@@ -214,7 +215,7 @@ router.get('/:value', async (ctx) => {
         );
 
       for (const post of posts.results) {
-        await post.format();
+        await post.format({ includeBlocks });
       }
 
       ctx.body = {

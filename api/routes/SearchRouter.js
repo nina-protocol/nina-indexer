@@ -22,7 +22,8 @@ const router = new KoaRouter({
 
 router.get('/all', async (ctx) => {
   try {
-    let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
+    let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false', full = 'false' } = ctx.query;
+    const includeBlocks = full === 'true';
     offset = Number(offset);
     limit = Number(limit);
     
@@ -162,7 +163,7 @@ router.get('/all', async (ctx) => {
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1);
 
-      response.posts = await formatResults(postsQuery, 'post', post => post.format());
+      response.posts = await formatResults(postsQuery, 'post', post => post.format({ includeBlocks }));
     }
 
     ctx.status = 200;
@@ -177,8 +178,9 @@ router.get('/all', async (ctx) => {
 });
 
 router.post('/v2', async (ctx) => {
-  try { 
-    let { offset=0, limit=20, sort='desc', query='' } = ctx.request.body;
+  try {
+    let { offset=0, limit=20, sort='desc', query='', full='false' } = ctx.request.body;
+    const includeBlocks = full === 'true';
     console.log('query', ctx.request.body)
     const accounts = await Account.query()
       .where('displayName', 'ilike', `%${query}%`)
@@ -227,10 +229,10 @@ router.post('/v2', async (ctx) => {
     })
     .orderBy('datetime', 'desc')
     .range(Number(offset), Number(offset) + Number(limit) - 1);
-    
+
     for await (let post of posts) {
       post.type = 'post'
-      await post.format();
+      await post.format({ includeBlocks });
     }
 
     const all = [...formattedReleasesResponse, ...hubs, ...posts, ...accounts]
