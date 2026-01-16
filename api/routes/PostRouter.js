@@ -7,6 +7,7 @@ import {
 import { ref } from 'objection'
 import * as anchor from '@project-serum/anchor';
 import {
+  getPostSearchSubQuery,
   getPublishedThroughHubSubQuery,
 } from '../utils.js';
 import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
@@ -19,24 +20,27 @@ const router = new KoaRouter({
 
 router.get('/', async (ctx) => {
   try {
-    const { offset=0, limit=20, sort='desc', column='datetime', query=''} = ctx.query;
+    const { offset=0, limit=20, sort='desc', column='datetime', query='', full='false'} = ctx.query;
+    const includeBlocks = full === 'true';
     const hubIds = await getPublishedThroughHubSubQuery(query);
+    const postIds = await getPostSearchSubQuery(query);
     const posts = await Post
     .query()
     .where('archived', false)
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
-        .orWhereIn('hubId', hubIds);
+        .orWhereIn('hubId', hubIds)
+        .orWhereIn('id', postIds);
     })
     .orderBy(column, sort)
     .range(
       Number(offset),
       Number(offset) + Number(limit) - 1
     );
-    
+
     for await (let post of posts.results) {
-      await post.format();
+      await post.format({ includeBlocks });
       post.type = 'post'
     }
     ctx.body = {

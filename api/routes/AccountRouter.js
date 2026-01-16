@@ -68,7 +68,8 @@ router.get('/sitemap', async (ctx) => {
 
 router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
-    const { v2, archived } = ctx.query;
+    const { v2, archived, full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
       account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
@@ -112,7 +113,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
       }
       posts = await account.$relatedQuery('posts')
       for await (let post of posts) {
-        await post.format();
+        await post.format({ includeBlocks });
       }
 
       revenueShares = await account.$relatedQuery('revenueShares')
@@ -144,7 +145,8 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/all', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', archived=false } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', archived=false, full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
 
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -177,7 +179,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
       .orderBy(formatColumnForJsonFields(column, 'data'), sort)
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
     for await (let post of posts) {
-      await post.format();
+      await post.format({ includeBlocks });
       post.type = 'post'
     }
 
@@ -302,7 +304,8 @@ router.get('/:publicKeyOrHandle/hubs', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/posts', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     column = formatColumnForJsonFields(column, 'data');
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
     if (!account) {
@@ -317,9 +320,9 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
       .where('archived', false)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
-      
+
     for await (let post of posts.results) {
-      await post.format();
+      await post.format({ includeBlocks });
     }
     ctx.body = {
       posts: posts.results,
