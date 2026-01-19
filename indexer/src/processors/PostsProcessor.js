@@ -1,5 +1,5 @@
 import { BaseProcessor } from './base/BaseProcessor.js';
-import { Account, Hub, Post, Release } from '@nina-protocol/nina-db';
+import { Account, Hub, Post, Release, Tag } from '@nina-protocol/nina-db';
 import { logTimestampedMessage } from '../utils/logging.js';
 import { callRpcMethodWithRetry, decode, fetchFromArweave } from '../utils/index.js';
 import * as anchor from '@project-serum/anchor';
@@ -140,6 +140,24 @@ export class PostsProcessor extends BaseProcessor {
                 
               // Process post content
               await this.processPostContent(postData, post.id);
+
+              // Process tags from post data
+              if (postData.tags && Array.isArray(postData.tags)) {
+                for (const tag of postData.tags) {
+                  try {
+                    const tagRecord = await Tag.findOrCreate(tag);
+                    await Post.relatedQuery('tags')
+                      .for(post.id)
+                      .relate(tagRecord.id)
+                      .onConflict(['tagId', 'postId'])
+                      .ignore();
+                    logTimestampedMessage(`Added tag ${tag} to post ${postPublicKey}`);
+                  } catch (tagError) {
+                    logTimestampedMessage(`Error adding tag ${tag} to post ${postPublicKey}: ${tagError.message}`);
+                  }
+                }
+              }
+
               // Process reference release if provided
               if (releasePublicKey) {
                 const release = await Release.query().findOne({ publicKey: releasePublicKey });

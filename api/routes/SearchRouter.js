@@ -10,7 +10,7 @@ import {
 import { ref } from 'objection'
 import _  from 'lodash';
 
-import { getReleaseSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
+import { getReleaseSearchSubQuery, getPostSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
 
 const idList = [
   '13572',
@@ -22,7 +22,8 @@ const router = new KoaRouter({
 
 router.get('/all', async (ctx) => {
   try {
-    let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false' } = ctx.query;
+    let { offset = 0, limit = 2, sort = 'desc', query = '', includePosts = 'false', full = 'false' } = ctx.query;
+    const includeBlocks = full === 'true';
     offset = Number(offset);
     limit = Number(limit);
     
@@ -148,10 +149,13 @@ router.get('/all', async (ctx) => {
     }
 
     if (includePosts === 'true') {
-      const hubIds = await getPublishedThroughHubSubQuery(query);
+      const postIds = await getPostSearchSubQuery(query);
       const postsQuery = await Post.query()
-        .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .where('archived', false)
         .modify((queryBuilder) => {
+          if (postIds && postIds.length > 0) {
+            queryBuilder.whereIn('id', postIds);
+          }
           if (hubIds && hubIds.length > 0) {
             queryBuilder.orWhereIn('hubId', hubIds);
           }
@@ -159,7 +163,7 @@ router.get('/all', async (ctx) => {
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1);
 
-      response.posts = await formatResults(postsQuery, 'post', post => post.format());
+      response.posts = await formatResults(postsQuery, 'post', post => post.format({ includeBlocks }));
     }
 
     ctx.status = 200;
@@ -174,8 +178,9 @@ router.get('/all', async (ctx) => {
 });
 
 router.post('/v2', async (ctx) => {
-  try { 
-    let { offset=0, limit=20, sort='desc', query='' } = ctx.request.body;
+  try {
+    let { offset=0, limit=20, sort='desc', query='', full='false' } = ctx.request.body;
+    const includeBlocks = full === 'true';
     console.log('query', ctx.request.body)
     const accounts = await Account.query()
       .where('displayName', 'ilike', `%${query}%`)
@@ -212,14 +217,22 @@ router.post('/v2', async (ctx) => {
       await hub.format()
     }
     
+    const hubIds = await getPublishedThroughHubSubQuery(query);
+    const postIds = await getPostSearchSubQuery(query);
     const posts = await Post.query()
-      .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+    .where('archived', false)
+    .where(function () {
+      this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
+        .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
+        .orWhereIn('hubId', hubIds)
+        .orWhereIn('id', postIds);
+    })
+    .orderBy('datetime', 'desc')
+    .range(Number(offset), Number(offset) + Number(limit) - 1);
 
     for await (let post of posts) {
       post.type = 'post'
-      await post.format();
+      await post.format({ includeBlocks });
     }
 
     const all = [...formattedReleasesResponse, ...hubs, ...posts, ...accounts]

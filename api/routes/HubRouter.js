@@ -75,7 +75,8 @@ router.get('/sitemap', async (ctx) => {
 router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
     let hub = await hubForPublicKeyOrHandle(ctx)
-    const { hubOnly } = ctx.query;
+    const { hubOnly, full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     if (!hub) {
       const publicKey = ctx.params.publicKeyOrHandle
       const hubAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed'))
@@ -143,7 +144,7 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
     }
 
     for await (let post of posts) {
-      await post.format();
+      await post.format({ includeBlocks });
     }
     await hub.format();
 
@@ -255,7 +256,8 @@ router.get('/:publicKeyOrHandle/collaborators', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/all', async (ctx) => {
   try {
-    let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=20, sort='desc', column='datetime', query='', full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     const hub = await hubForPublicKeyOrHandle(ctx)
     const releases = await Release
       .query()
@@ -270,10 +272,11 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
     let posts = await hub.$relatedQuery('posts')
       .orderBy(formatColumnForJsonFields(column, 'data'), sort)
       .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+      .where('archived', false)
 
     for await(let post of posts) {
       post.type = 'post'
-      await post.format();
+      await post.format({ includeBlocks });
     }
 
     const formattedReleases = [];
@@ -395,16 +398,18 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
 
 router.get('/:publicKeyOrHandle/posts', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     column = formatColumnForJsonFields(column, 'data');
     const hub = await hubForPublicKeyOrHandle(ctx)
     let posts = await hub.$relatedQuery('posts')
         .where(ref('data:title').castText(), 'ilike', `%${query}%`)
+        .where('archived', false)
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
 
     for await (let post of posts.results) {
-      await post.format();
+      await post.format({ includeBlocks });
     }
 
     ctx.body = {

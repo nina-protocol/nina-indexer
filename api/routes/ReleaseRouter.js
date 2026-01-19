@@ -175,7 +175,8 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
 
 router.get('/:publicKeyOrSlug/posts', async (ctx) => {
   try {
-    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
+    let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', full='false' } = ctx.query;
+    const includeBlocks = full === 'true';
     column = formatColumnForJsonFields(column);
     let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
     if (!release) {
@@ -188,7 +189,7 @@ router.get('/:publicKeyOrSlug/posts', async (ctx) => {
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
     for await (let post of posts.results) {
-      await post.format();
+      await post.format({ includeBlocks });
     }
     ctx.body = {
       posts: posts.results,
