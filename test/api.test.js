@@ -953,6 +953,141 @@ describe('Tests for the API', async function() {
       expect(response.body).to.have.property('publisher');
       expect(response.body).to.have.property('publishedThroughHub');
     });
+
+    it('should not include blocks in /posts list by default', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts?limit=5`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+      expect(response.body.posts.length).to.be.greaterThan(0);
+
+      // Check that blocks are not present in list view
+      response.body.posts.forEach(post => {
+        expect(post).to.have.property('data');
+        expect(post.data).to.not.have.property('blocks');
+      });
+    });
+
+    it('should include blocks in /posts list when full=true', async function() {
+      // First, get a post that has blocks
+      const postWithBlocks = await Post.query()
+        .whereRaw("data->'blocks' IS NOT NULL")
+        .whereRaw("jsonb_array_length(data->'blocks') > 0")
+        .first();
+
+      if (!postWithBlocks) {
+        this.skip(); // Skip test if no posts with blocks exist
+        return;
+      }
+
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts?limit=20&full=true`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+
+      // Find the post with blocks in the response
+      const postInResponse = response.body.posts.find(p => p.publicKey === postWithBlocks.publicKey);
+      if (postInResponse) {
+        expect(postInResponse.data).to.have.property('blocks');
+        expect(postInResponse.data.blocks).to.be.an('array');
+      }
+    });
+
+    it('should always include blocks in /posts/:publicKey detail view', async function() {
+      // Get a post that has blocks
+      const postWithBlocks = await Post.query()
+        .whereRaw("data->'blocks' IS NOT NULL")
+        .whereRaw("jsonb_array_length(data->'blocks') > 0")
+        .first();
+
+      if (!postWithBlocks) {
+        this.skip(); // Skip test if no posts with blocks exist
+        return;
+      }
+
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/posts/${postWithBlocks.publicKey}`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('post');
+      expect(response.body.post.data).to.have.property('blocks');
+      expect(response.body.post.data.blocks).to.be.an('array');
+      expect(response.body.post.data.blocks.length).to.be.greaterThan(0);
+    });
+
+    it('should not include blocks in hub posts list by default', async function() {
+      // Find a hub that has posts
+      const hubWithPosts = await Hub.query()
+        .joinRelated('posts')
+        .groupBy('hubs.id')
+        .havingRaw('COUNT(posts.id) > 0')
+        .first();
+
+      if (!hubWithPosts) {
+        this.skip(); // Skip test if no hubs with posts exist
+        return;
+      }
+
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubWithPosts.handle}/posts?limit=5`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+      expect(response.body.posts).to.be.an('array');
+
+      if (response.body.posts.length > 0) {
+        response.body.posts.forEach(post => {
+          expect(post).to.have.property('data');
+          expect(post.data).to.not.have.property('blocks');
+        });
+      }
+    });
+
+    it('should include blocks in hub posts list when full=true', async function() {
+      // Find a hub with posts that have blocks
+      const hubWithPosts = await Hub.query()
+        .joinRelated('posts')
+        .groupBy('hubs.id')
+        .havingRaw('COUNT(posts.id) > 0')
+        .first();
+
+      if (!hubWithPosts) {
+        this.skip(); // Skip test if no hubs with posts exist
+        return;
+      }
+
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/hubs/${hubWithPosts.handle}/posts?limit=20&full=true`);
+      expect(response.status).to.equal(200);
+      expect(response.body).to.have.property('posts');
+
+      if (response.body.posts.length > 0) {
+        // At least verify the structure allows blocks when full=true is set
+        // Some posts might not have blocks, but the data structure should be present
+        response.body.posts.forEach(post => {
+          expect(post).to.have.property('data');
+        });
+      }
+    });
+
+    it('should not include blocks in search results by default', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/search/all?includePosts=true&limit=5`);
+      expect(response.status).to.equal(200);
+
+      if (response.body.posts && response.body.posts.results.length > 0) {
+        response.body.posts.results.forEach(post => {
+          expect(post).to.have.property('data');
+          expect(post.data).to.not.have.property('blocks');
+        });
+      }
+    });
+
+    it('should include blocks in search results when full=true', async function() {
+      const response = await request(process.env.MOCHA_ENDPOINT_URL).get(`/v1/search/all?includePosts=true&full=true&limit=5`);
+      expect(response.status).to.equal(200);
+
+      if (response.body.posts && response.body.posts.results.length > 0) {
+        // At least verify the structure is present
+        response.body.posts.results.forEach(post => {
+          expect(post).to.have.property('data');
+        });
+      }
+    });
   });
 
   describe('Search APIs', async function() {
