@@ -27,6 +27,7 @@ router.get('/', async (ctx) => {
     const posts = await Post
     .query()
     .where('archived', false)
+    .withGraphFetched('releases')
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
@@ -40,6 +41,12 @@ router.get('/', async (ctx) => {
     );
 
     for await (let post of posts.results) {
+      // Format releases from the relation
+      if (post.releases && post.releases.length > 0) {
+        for await (let release of post.releases) {
+          await release.format();
+        }
+      }
       await post.format({ includeBlocks });
       post.type = 'post'
     }
@@ -100,43 +107,28 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
     if (publishedThroughHub) {
       await publishedThroughHub.format();
     }
+    // Format releases from the relation (via posts_releases join table)
+    if (post.releases && post.releases.length > 0) {
+      for await (let release of post.releases) {
+        await release.format();
+      }
+    }
+
     await post.format();
 
+    // Still process hub blocks if needed
     if (post.data.blocks) {
-      const releases = []
       for await (let block of post.data.blocks) {
-        switch (block.type) {
-          case 'release':
-            for await (let release of block.data) {
-              const releaseRecord = await Release.query().findOne({ publicKey: release });
-              if (releaseRecord) {
-                await releaseRecord.format();
-                releases.push(releaseRecord)
-              }
+        if (block.type === 'hub') {
+          const hubs = []
+          for await (let hub of block.data) {
+            const hubRecord = await Hub.query().findOne({ publicKey: hub });
+            if (hubRecord) {
+              await hubRecord.format();
+              hubs.push(hubRecord)
             }
-            block.data.release = releases
-            break;
-          case 'featuredRelease':
-            const releaseRecord = await Release.query().findOne({ publicKey: block.data });
-            if (releaseRecord) {
-              await releaseRecord.format();
-              block.data = releaseRecord
-            }
-            break;
-          
-          case 'hub':
-            const hubs = []
-            for await (let hub of block.data) {
-              const hubRecord = await Hub.query().findOne({ publicKey: hub });
-              if (hubRecord) {
-                await hubRecord.format();
-                hubs.push(hubRecord)
-              }
-            }
-            block.data.hubs = hubs
-            break;
-          default:
-            break;
+          }
+          block.data.hubs = hubs
         }
       }
     }
@@ -160,9 +152,15 @@ const postNotFound = (ctx) => {
 }
 
 const findPostForPublicKeyOrSlug = async (publicKeyOrSlug) => {
-  let post = await Post.query().where('archived', false).findOne({publicKey: publicKeyOrSlug})
+  let post = await Post.query()
+    .where('archived', false)
+    .withGraphFetched('releases')
+    .findOne({publicKey: publicKeyOrSlug})
   if (!post) {
-    post = await Post.query().where(ref('data:slug').castText(), 'like', `%${publicKeyOrSlug}%`).first()
+    post = await Post.query()
+      .withGraphFetched('releases')
+      .where(ref('data:slug').castText(), 'like', `%${publicKeyOrSlug}%`)
+      .first()
   }
   return post
 }
