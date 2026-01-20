@@ -130,13 +130,23 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
       for await (let block of post.data.blocks) {
         switch (block.type) {
           case 'release':
-            // Populate release objects from already-loaded releases (backwards compatibility)
+            // Populate release objects: use Map first, fall back to DB query for backwards compatibility
             const releases = []
             if (Array.isArray(block.data)) {
               for (const item of block.data) {
                 const publicKey = item?.publicKey || (typeof item === 'string' ? item : null);
                 if (publicKey) {
-                  const releaseRecord = releasesMap.get(publicKey);
+                  // Try Map lookup first (fast path)
+                  let releaseRecord = releasesMap.get(publicKey);
+
+                  // Fall back to DB query if not in Map (ensures full backwards compatibility)
+                  if (!releaseRecord) {
+                    releaseRecord = await Release.query().findOne({ publicKey });
+                    if (releaseRecord) {
+                      await releaseRecord.format();
+                    }
+                  }
+
                   if (releaseRecord) {
                     releases.push(releaseRecord)
                   }
@@ -147,10 +157,20 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
             break;
 
           case 'featuredRelease':
-            // Populate release object from already-loaded releases (backwards compatibility)
+            // Populate release object: use Map first, fall back to DB query for backwards compatibility
             const publicKey = typeof block.data === 'string' ? block.data : block.data?.publicKey;
             if (publicKey) {
-              const releaseRecord = releasesMap.get(publicKey);
+              // Try Map lookup first (fast path)
+              let releaseRecord = releasesMap.get(publicKey);
+
+              // Fall back to DB query if not in Map (ensures full backwards compatibility)
+              if (!releaseRecord) {
+                releaseRecord = await Release.query().findOne({ publicKey });
+                if (releaseRecord) {
+                  await releaseRecord.format();
+                }
+              }
+
               if (releaseRecord) {
                 block.data = releaseRecord
               }
