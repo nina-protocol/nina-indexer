@@ -267,7 +267,7 @@ describe('Posts with Releases via posts_releases join table', async function() {
           AND p.data->'blocks' IS NOT NULL
           AND EXISTS (
             SELECT 1
-            FROM jsonb_array_elements(p.data->'blocks') AS block
+            FROM json_array_elements(p.data->'blocks') AS block
             WHERE block->>'type' = 'hub'
           )
         LIMIT 1
