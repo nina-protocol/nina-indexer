@@ -116,19 +116,61 @@ router.get('/:publicKeyOrSlug', async (ctx) => {
 
     await post.format();
 
-    // Still process hub blocks if needed
+    // Process blocks: populate release and hub data for backwards compatibility
+    // Uses already-loaded post.releases instead of N+1 queries for efficiency
     if (post.data.blocks) {
+      // Create lookup map of releases by publicKey for O(1) access
+      const releasesMap = new Map();
+      if (post.releases) {
+        post.releases.forEach(release => {
+          releasesMap.set(release.publicKey, release);
+        });
+      }
+
       for await (let block of post.data.blocks) {
-        if (block.type === 'hub') {
-          const hubs = []
-          for await (let hub of block.data) {
-            const hubRecord = await Hub.query().findOne({ publicKey: hub });
-            if (hubRecord) {
-              await hubRecord.format();
-              hubs.push(hubRecord)
+        switch (block.type) {
+          case 'release':
+            // Populate release objects from already-loaded releases (backwards compatibility)
+            const releases = []
+            if (Array.isArray(block.data)) {
+              for (const item of block.data) {
+                const publicKey = item?.publicKey || (typeof item === 'string' ? item : null);
+                if (publicKey) {
+                  const releaseRecord = releasesMap.get(publicKey);
+                  if (releaseRecord) {
+                    releases.push(releaseRecord)
+                  }
+                }
+              }
             }
-          }
-          block.data.hubs = hubs
+            block.data.release = releases
+            break;
+
+          case 'featuredRelease':
+            // Populate release object from already-loaded releases (backwards compatibility)
+            const publicKey = typeof block.data === 'string' ? block.data : block.data?.publicKey;
+            if (publicKey) {
+              const releaseRecord = releasesMap.get(publicKey);
+              if (releaseRecord) {
+                block.data = releaseRecord
+              }
+            }
+            break;
+
+          case 'hub':
+            const hubs = []
+            for await (let hub of block.data) {
+              const hubRecord = await Hub.query().findOne({ publicKey: hub });
+              if (hubRecord) {
+                await hubRecord.format();
+                hubs.push(hubRecord)
+              }
+            }
+            block.data.hubs = hubs
+            break;
+
+          default:
+            break;
         }
       }
     }
