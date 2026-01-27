@@ -28,10 +28,12 @@ class Post extends Model {
   async format(options = {}) {
     const { includeBlocks = true } = options;
 
-    const publisher = await this.$relatedQuery('publisher').select('publicKey');
+    const publisher = await this.$relatedQuery('publisher');
     const publishedThroughHub = await this.$relatedQuery('publishedThroughHub');
 
+    await publisher.format();
     this.publisher = publisher.publicKey;
+    this.publisherAccount = publisher;
     if (publishedThroughHub) {
       this.publishedThroughHub = publishedThroughHub.publicKey;
       this.hub = publishedThroughHub;
