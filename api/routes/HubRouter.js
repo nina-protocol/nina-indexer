@@ -175,25 +175,12 @@ router.get('/:publicKeyOrHandle/followers', async (ctx) => {
 
     const followers = []
     const accounts = await Account.query().whereIn('publicKey', subscriptions.results.map(subscription => subscription.from))
-    
-    // Batch fetch all follower counts to avoid N+1 queries
-    const accountPublicKeys = accounts.map(account => account.publicKey)
-    const followerCounts = await Subscription.query()
-      .whereIn('to', accountPublicKeys)
-      .select('to', Subscription.raw('count(*) as count'))
-      .groupBy('to')
-    
-    // Create a map for quick lookup
-    const followerCountMap = followerCounts.reduce((acc, row) => {
-      acc[row.to] = parseInt(row.count)
-      return acc
-    }, {})
-    
+
     for await (let account of accounts) {
       await account.format();
       followers.push({
         account,
-        followers: followerCountMap[account.publicKey] || 0,
+        followers: account.followers || 0,
         subscription: subscriptions.results.find(subscription => subscription.from === account.publicKey)
       })
     }
