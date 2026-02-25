@@ -1,6 +1,7 @@
 import KoaRouter from 'koa-router'
-import { Account, Hub, Post, Tag } from '@nina-protocol/nina-db';
+import { Account, Hub, Post, Tag, redis } from '@nina-protocol/nina-db';
 import _ from 'lodash';
+import axios from 'axios';
 import knex from 'knex'
 import knexConfig from '../../db/src/knexfile.js'
 
@@ -61,6 +62,90 @@ router.get('/', async (ctx) => {
     }
   }
 })
+
+router.get('/trending', async (ctx) => {
+  try {
+    const { window = '7d', limit = 20, override = 'false' } = ctx.query;
+    const cacheKey = `tags:trending:batch:${window}:${limit}`;
+
+    const result = await redis.withCache(cacheKey, async () => {
+      const endpoint = process.env.NINA_RECOMMENDATIONS_ENDPOINT;
+      if (!endpoint) {
+        throw new Error('NINA_RECOMMENDATIONS_ENDPOINT is not configured');
+      }
+
+      // Fetch trending tags from recommendation engine
+      const response = await axios.get(`${endpoint}/tags/trending`, {
+        params: { window, limit },
+        timeout: 10000,
+      });
+
+      const trendingTags = response.data?.data?.tags || response.data?.tags || [];
+
+      // Weekly date range for favorites sorting
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 7);
+
+      const tags = [];
+
+      for (const trendingTag of trendingTags) {
+        const tag = await Tag.query().findOne({ value: trendingTag.tagValue.toLowerCase() });
+        if (!tag) continue;
+
+        // Get non-archived releases for this tag
+        const allReleases = await Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false);
+        if (allReleases.length === 0) continue;
+
+        // Get weekly favorite counts
+        const releasePublicKeys = allReleases.map(release => release.publicKey);
+        const releaseFavoriteCounts = await authDb('favorites')
+          .select('public_key')
+          .count('* as favorite_count')
+          .where('favorite_type', 'release')
+          .whereIn('public_key', releasePublicKeys)
+          .where('created_at', '>=', startDate.toISOString())
+          .groupBy('public_key');
+
+        const releaseFavoriteCountMap = _.keyBy(releaseFavoriteCounts, 'public_key');
+        let rankedReleases = allReleases.map(release => ({
+          release,
+          favoriteCount: parseInt(releaseFavoriteCountMap[release.publicKey]?.favorite_count || 0)
+        }));
+
+        // Sort by favorites desc, take top 5
+        rankedReleases = _.orderBy(rankedReleases, ['favoriteCount', 'publicKey'], ['desc', 'asc']);
+        rankedReleases = rankedReleases.slice(0, 5);
+
+        // Format releases (must call format() on Objection model instances before spreading)
+        const formattedReleases = [];
+        for (const { release } of rankedReleases) {
+          await release.format();
+          formattedReleases.push({ ...release, type: 'release' });
+        }
+
+        if (formattedReleases.length === 0) continue;
+
+        tags.push({
+          tagValue: trendingTag.tagValue,
+          rank: trendingTag.rank,
+          alltimeRank: trendingTag.alltimeRank,
+          rankDiff: trendingTag.rankDiff,
+          releases: formattedReleases,
+        });
+      }
+
+      return { tags, timeWindow: window };
+    }, 86400, override === 'true');
+
+    ctx.body = result;
+  } catch (error) {
+    console.warn(error);
+    ctx.status = 400;
+    ctx.body = {
+      success: false,
+    };
+  }
+});
 
 router.get('/:value', async (ctx) => {
   try {
