@@ -63,7 +63,7 @@ router.get('/', async (ctx) => {
   }
 })
 
-router.get('/trending', async (ctx) => {
+router.get('/stats/trending', async (ctx) => {
   try {
     const { window = '7d', limit = 20, override = 'false' } = ctx.query;
     const cacheKey = `tags:trending:batch:${window}:${limit}`;
