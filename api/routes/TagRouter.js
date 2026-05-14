@@ -4,6 +4,7 @@ import _ from 'lodash';
 import axios from 'axios';
 import knex from 'knex'
 import knexConfig from '../../db/src/knexfile.js'
+import { getDeletedAccountIdsSubQuery } from '../utils.js';
 
 const router = new KoaRouter({
   prefix: '/tags'
@@ -93,7 +94,7 @@ router.get('/stats/trending', async (ctx) => {
         if (!tag) continue;
 
         // Get non-archived releases for this tag
-        const allReleases = await Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false);
+        const allReleases = await Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false).whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery());
         if (allReleases.length === 0) continue;
 
         // Get weekly favorite counts
@@ -160,12 +161,12 @@ router.get('/:value', async (ctx) => {
     }
 
     // Get all releases for the tag
-    let releasesQuery = Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false);
+    let releasesQuery = Tag.relatedQuery('releases').for(tag.id).where('releases.archived', false).whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery());
     let allReleases = await releasesQuery;
     const totalReleases = allReleases.length;
 
     // Get all posts for the tag
-    let postsQuery = Tag.relatedQuery('posts').for(tag.id).where('posts.archived', false);
+    let postsQuery = Tag.relatedQuery('posts').for(tag.id).where('posts.archived', false).whereNotIn('posts.publisherId', getDeletedAccountIdsSubQuery());
     let allPosts = await postsQuery;
     const totalPosts = allPosts.length;
 

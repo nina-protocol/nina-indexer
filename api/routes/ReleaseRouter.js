@@ -12,6 +12,7 @@ import {
   getReleaseSearchSubQuery,
   getPublisherSubQuery,
   getPublishedThroughHubSubQuery,
+  getDeletedAccountIdsSubQuery,
   BIG_LIMIT
 } from '../utils.js';
 import { warmCache } from '../../indexer/src/utils/helpers.js';
@@ -62,6 +63,7 @@ router.get('/', async (ctx) => {
       return Release.query()
         .where('archived', false)
         .whereNotIn('publisherId', idList)
+        .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
         .modify((queryBuilder) => {
           if (releaseIds.length > 0) {
             queryBuilder.whereIn('id', releaseIds);
@@ -122,6 +124,7 @@ router.get('/sitemap', async (ctx) => {
       .query()
       .where('archived', false)
       .whereNotIn('publicKey', restrictedReleasesPublicKeys)
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .select('slug')
       .orderBy('datetime', 'desc')
     ctx.body = {
@@ -139,12 +142,12 @@ router.get('/sitemap', async (ctx) => {
 router.get('/:publicKeyOrSlug', async (ctx) => {
   try {
     const { txid } = ctx.query;
-    let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+    let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     if (!release) {
-      release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
+      release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     }
     if (!release) {
-      release = await Release.query().findOne({solanaAddress: ctx.params.publicKeyOrSlug})
+      release = await Release.query().findOne({solanaAddress: ctx.params.publicKeyOrSlug}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     }
 
     if (txid) {
@@ -178,9 +181,9 @@ router.get('/:publicKeyOrSlug/posts', async (ctx) => {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', full='false' } = ctx.query;
     const includeBlocks = full === 'true';
     column = formatColumnForJsonFields(column);
-    let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug})
+    let release = await Release.query().findOne({publicKey: ctx.params.publicKeyOrSlug}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     if (!release) {
-      release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug})
+      release = await Release.query().findOne({slug: ctx.params.publicKeyOrSlug}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     }
     if (!release) {
       throw new Error(`Release not found with identifier: ${ctx.params.publicKeyOrSlug}`)
@@ -210,10 +213,10 @@ router.get('/:publicKey/collectors', async (ctx) => {
   try {
     const { offset=0, limit=BIG_LIMIT } = ctx.query;
 
-    let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+    let release = await Release.query().findOne({publicKey: ctx.params.publicKey}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     if (!release) {
-      release = await Release.query().findOne({slug: ctx.params.publicKey})
-      
+      release = await Release.query().findOne({slug: ctx.params.publicKey}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+
       if (!release) {
         throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
       }
@@ -300,10 +303,10 @@ router.get('/:publicKey/hubs', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime' } = ctx.query;
     column = formatColumnForJsonFields(column);
-    let release = await Release.query().findOne({publicKey: ctx.params.publicKey})
+    let release = await Release.query().findOne({publicKey: ctx.params.publicKey}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     if (!release) {
-      release = await Release.query().findOne({slug: ctx.params.publicKey})
-      
+      release = await Release.query().findOne({slug: ctx.params.publicKey}).whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+
       if (!release) {
         throw new Error(`Release not found with identifier: ${ctx.params.publicKey}`)
       }
