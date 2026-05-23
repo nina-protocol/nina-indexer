@@ -19,8 +19,11 @@ export const getPublishedThroughHubSubQuery = async (query) => {
   try {
     const hubs = await Hub.query()
     .select('id')
-    .where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-    .orWhere('handle', 'ilike', `%${query}%`);
+    .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
+    .where(function () {
+      this.where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+    });
 
     // Ensure we're returning an array of numbers
     const hubIds = hubs.map(hub => {
@@ -40,8 +43,11 @@ export const getReleaseSearchSubQuery = async (query) => {
     // Get release IDs based only on text content
       const releases = await Release.query()
         .select('id', 'metadata')
-        .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-        .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+        .where(function () {
+          this.where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+            .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+        })
 
       return releases.map(row => row.id);
   } catch (error) {
@@ -54,9 +60,12 @@ export const getPostSearchSubQuery = async (query) => {
   try {
     const posts = await Post.query()
       .select('id', 'data')
-      .where(ref('data:title').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:tags').castText(), 'ilike', `%${query}%`)
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+      .where(function () {
+        this.where(ref('data:title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:tags').castText(), 'ilike', `%${query}%`)
+      })
 
     return posts.map(row => row.id);
   } catch (error) {
@@ -69,8 +78,11 @@ export const getPublisherSubQuery = async (query) => {
   try {
     const publishers = await Account.query()
     .select('id')
-    .where('displayName', 'ilike', `%${query}%`)
-    .orWhere('handle', 'ilike', `%${query}%`);
+    .whereNull('deleted_at')
+    .where(function () {
+      this.where('displayName', 'ilike', `%${query}%`)
+        .orWhere('handle', 'ilike', `%${query}%`)
+    });
 
     // Ensure we're returning an array of numbers
     const publisherIds = publishers.map(publisher => {
@@ -89,6 +101,9 @@ export const getPublisherSubQuery = async (query) => {
     return [];
   }
 }
+
+export const getDeletedAccountIdsSubQuery = () =>
+  Account.query().select('id').whereNotNull('deleted_at');
 
 export const sleep = (time) => new Promise(resolve => setTimeout(resolve, time))
 

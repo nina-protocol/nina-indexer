@@ -24,8 +24,11 @@ router.get('/', async(ctx) => {
     const { offset=0, limit=20, sort='desc', query= '' } = ctx.query;
     const accounts = await Account
       .query()
-      .where('handle', 'ilike', `%${query}%`)
-      .orWhere('displayName', 'ilike', `%${query}%`)
+      .whereNull('deleted_at')
+      .where((builder) => {
+        builder.where('handle', 'ilike', `%${query}%`)
+          .orWhere('displayName', 'ilike', `%${query}%`)
+      })
       .orderBy('displayName', sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
       
@@ -52,7 +55,8 @@ router.get('/', async(ctx) => {
 router.get('/sitemap', async (ctx) => {
   try {
     const accounts = await Account
-      .query()  
+      .query()
+      .whereNull('deleted_at')
       .select('handle')
     ctx.body = {
       slugs: accounts.map(account => account.handle),
@@ -70,9 +74,9 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
   try {
     const { v2, archived, full='false' } = ctx.query;
     const includeBlocks = full === 'true';
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -148,9 +152,9 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', archived=false, full='false' } = ctx.query;
     const includeBlocks = full === 'true';
 
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -215,9 +219,9 @@ router.get('/:publicKeyOrHandle/collected', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', showArchived=false } = ctx.query;
     column = formatColumnForJsonFields(column);
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -276,9 +280,9 @@ router.get('/:publicKeyOrHandle/hubs', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='' } = ctx.query;
     column = formatColumnForJsonFields(column, 'data');
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -307,9 +311,9 @@ router.get('/:publicKeyOrHandle/posts', async (ctx) => {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', full='false' } = ctx.query;
     const includeBlocks = full === 'true';
     column = formatColumnForJsonFields(column, 'data');
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -339,9 +343,9 @@ router.get('/:publicKeyOrHandle/published', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', showArchived=false } = ctx.query;
     column = formatColumnForJsonFields(column);
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -519,9 +523,9 @@ router.get('/:publicKeyOrHandle/following', async (ctx) => {
 router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
   try {
     const { limit=50, offset=0 } = ctx.query;
-    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle});
+    let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
-      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle});
+      account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
         accountNotFound(ctx);
         return;
@@ -537,10 +541,10 @@ router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
     for await (let subscription of subscriptions) {
       if (subscription.subscriptionType === 'hub') {
         const hub = await Hub.query().findOne({ publicKey: subscription.to })
-        hubIds.push(hub.id)
+        if (hub) hubIds.push(hub.id)
       } else if (subscription.subscriptionType === 'account') {
-        const account = await Account.query().findOne({ publicKey: subscription.to })
-        accountIds.push(account.id)
+        const account = await Account.query().findOne({ publicKey: subscription.to }).whereNull('deleted_at')
+        if (account) accountIds.push(account.id)
       }
     }
     const notUserSubquery = Transaction.query()
@@ -548,7 +552,7 @@ router.get('/:publicKeyOrHandle/following/newReleases', async (ctx) => {
       .where('authorityId', account.id)
 
     const transactions = await Transaction.query()
-      .where((builder) => 
+      .where((builder) =>
         builder
           .whereIn('hubId', hubIds)
           .orWhereIn('toHubId', hubIds)
@@ -650,7 +654,11 @@ router.get('/:publicKeyOrHandle/verifications', async (ctx) => {
 router.get('/:publicKey/feed', async (ctx) => {
   try {
     const { limit=50, offset=0 } = ctx.query;
-    const account = await Account.findOrCreate(ctx.params.publicKey);
+    const account = await Account.query().findOne({ publicKey: ctx.params.publicKey }).whereNull('deleted_at');
+    if (!account) {
+      accountNotFound(ctx);
+      return;
+    }
     const subscriptions = await Subscription.query()
       .where('from', account.publicKey)
 
@@ -660,10 +668,10 @@ router.get('/:publicKey/feed', async (ctx) => {
     for await (let subscription of subscriptions) {
       if (subscription.subscriptionType === 'hub') {
         const hub = await Hub.query().findOne({ publicKey: subscription.to })
-        hubIds.push(hub.id)
+        if (hub) hubIds.push(hub.id)
       } else if (subscription.subscriptionType === 'account') {
-        const account = await Account.query().findOne({ publicKey: subscription.to })
-        accountIds.push(account.id)
+        const account = await Account.query().findOne({ publicKey: subscription.to }).whereNull('deleted_at')
+        if (account) accountIds.push(account.id)
       }
     }
     const notUserSubquery = Transaction.query()
@@ -671,7 +679,7 @@ router.get('/:publicKey/feed', async (ctx) => {
       .where('authorityId', account.id)
 
     const transactions = await Transaction.query()
-      .where((builder) => 
+      .where((builder) =>
         builder
           .whereIn('hubId', hubIds)
           .orWhereIn('toHubId', hubIds)

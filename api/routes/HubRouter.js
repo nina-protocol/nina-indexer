@@ -10,7 +10,7 @@ import { ref } from 'objection'
 import * as anchor from '@project-serum/anchor';
 import axios from 'axios';
 
-import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
+import { formatColumnForJsonFields, getDeletedAccountIdsSubQuery, BIG_LIMIT } from '../utils.js';
 import { decode, callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 import { warmCache } from '../../indexer/src/utils/helpers.js';
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
@@ -31,8 +31,11 @@ router.get('/', async (ctx) => {
     let { offset=0, limit=20, sort='desc', column='datetime', query='' } = ctx.query;
     column = formatColumnForJsonFields(column, 'data');
     const hubs = await Hub.query()
-      .where('handle', 'ilike', `%${query}%`)
-      .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
+      .where(function () {
+        this.where('handle', 'ilike', `%${query}%`)
+          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      })
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -57,7 +60,8 @@ router.get('/', async (ctx) => {
 router.get('/sitemap', async (ctx) => {
   try {
     const hubs = await Hub
-      .query()  
+      .query()
+      .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
       .select('handle')
       .orderBy('datetime', 'desc')
     ctx.body = {
@@ -618,9 +622,9 @@ const lookupCollaborator = async (hubCollaboratorPublicKey) => {
 }
 
 const hubForPublicKeyOrHandle = async (ctx) => {
-  let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle})
+  let hub = await Hub.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
   if (!hub) {
-    hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle})
+    hub = await Hub.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
   }
   return hub
 }

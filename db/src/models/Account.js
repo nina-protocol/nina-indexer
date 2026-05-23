@@ -20,6 +20,7 @@ export default class Account extends Model {
       description: { type: 'string' },
       displayName: { type: 'string' },
       handle: { type: 'string' },
+      deleted_at: { type: ['string', 'null'] },
     },
   }
 
