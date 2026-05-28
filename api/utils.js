@@ -21,7 +21,7 @@ export const getPublishedThroughHubSubQuery = async (query) => {
     .select('id')
     .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
     .where(function () {
-      this.where(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      this.whereRaw(`data->>'displayName' ILIKE ?`, [`%${query}%`])
         .orWhere('handle', 'ilike', `%${query}%`)
     });
 
@@ -45,8 +45,8 @@ export const getReleaseSearchSubQuery = async (query) => {
         .select('id', 'metadata')
         .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
         .where(function () {
-          this.where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
-            .orWhere(ref('metadata:properties.tags').castText(), 'ilike', `%${query}%`)
+          this.whereRaw(`metadata->>'name' ILIKE ?`, [`%${query}%`])
+            .orWhereRaw(`metadata#>>'{properties,tags}' ILIKE ?`, [`%${query}%`])
         })
 
       return releases.map(row => row.id);
@@ -62,9 +62,9 @@ export const getPostSearchSubQuery = async (query) => {
       .select('id', 'data')
       .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .where(function () {
-        this.where(ref('data:title').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('data:tags').castText(), 'ilike', `%${query}%`)
+        this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`data->>'tags' ILIKE ?`, [`%${query}%`])
       })
 
     return posts.map(row => row.id);
