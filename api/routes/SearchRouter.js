@@ -10,7 +10,7 @@ import {
 import { ref } from 'objection'
 import _  from 'lodash';
 
-import { getReleaseSearchSubQuery, getPostSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery } from '../utils.js';
+import { getReleaseSearchSubQuery, getPostSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery, getDeletedAccountIdsSubQuery } from '../utils.js';
 
 const idList = [
   '13572',
@@ -43,6 +43,7 @@ router.get('/all', async (ctx) => {
 
     const [accountsPromise, releasesPromise, hubsPromise, tagsPromise] = await Promise.all([
       Account.query()
+        .whereNull('deleted_at')
         .whereIn('id', publisherIds)
         .orderBy('id', sort)
         .range(offset, offset + limit - 1),
@@ -56,6 +57,7 @@ router.get('/all', async (ctx) => {
         return Release.query()
           .where('archived', false)
           .whereNotIn('publisherId', blockedPublisherIds)
+          .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
           .modify((queryBuilder) => {
             if (releaseIds.length > 0) {
               queryBuilder.whereRaw('releases.id = ANY(?::int[])', [releaseIds]);
@@ -80,6 +82,7 @@ router.get('/all', async (ctx) => {
       })(),
 
       Hub.query()
+        .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
         .whereIn('id', hubIds)
         .orderBy('datetime', sort)
         .range(offset, offset + limit - 1),
@@ -152,6 +155,7 @@ router.get('/all', async (ctx) => {
       const postIds = await getPostSearchSubQuery(query);
       const postsQuery = await Post.query()
         .where('archived', false)
+        .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
         .modify((queryBuilder) => {
           if (postIds && postIds.length > 0) {
             queryBuilder.whereIn('id', postIds);
@@ -183,8 +187,11 @@ router.post('/v2', async (ctx) => {
     const includeBlocks = full === 'true';
     console.log('query', ctx.request.body)
     const accounts = await Account.query()
-      .where('displayName', 'ilike', `%${query}%`)
-      .orWhere('handle', 'ilike', `%${query}%`)
+      .whereNull('deleted_at')
+      .where(function () {
+        this.where('displayName', 'ilike', `%${query}%`)
+          .orWhere('handle', 'ilike', `%${query}%`)
+      })
     
     for await (let account of accounts) {
       account.type = 'account'
@@ -195,6 +202,7 @@ router.post('/v2', async (ctx) => {
     const releases = await Release.query()
       .where('archived', false)
       .whereNotIn('publisherId', idList)
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .modify((queryBuilder) => {
         if (releaseIds && releaseIds.length > 0) {
           queryBuilder.whereIn('id', releaseIds);
@@ -209,18 +217,22 @@ router.post('/v2', async (ctx) => {
     }
     
     const hubs = await Hub.query()
-      .where('handle', 'ilike', `%${query}%`)
-      .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-    
+      .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
+      .where(function () {
+        this.where('handle', 'ilike', `%${query}%`)
+          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+      })
+
     for await (let hub of hubs) {
       hub.type = 'hub'
       await hub.format()
     }
-    
+
     const hubIds = await getPublishedThroughHubSubQuery(query);
     const postIds = await getPostSearchSubQuery(query);
     const posts = await Post.query()
     .where('archived', false)
+    .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
@@ -270,11 +282,14 @@ router.post('/', async (ctx) => {
     }
 
     const releases = await Release.query()
-      .where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
-      .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+      .where(function () {
+        this.where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+          .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
+      })
 
     const formattedReleasesResponse = []
     for await (let release of releases) {
@@ -310,9 +325,12 @@ router.post('/', async (ctx) => {
     }
 
     const hubs = await Hub.query()
-      .where('handle', 'ilike', `%${query}%`)
-      .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-      .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
+      .where(function () {
+        this.where('handle', 'ilike', `%${query}%`)
+          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+      })
     
     const formattedHubsResponse = []
     for await (let hub of hubs) {

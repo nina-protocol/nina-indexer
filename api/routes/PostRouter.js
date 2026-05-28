@@ -9,6 +9,7 @@ import * as anchor from '@project-serum/anchor';
 import {
   getPostSearchSubQuery,
   getPublishedThroughHubSubQuery,
+  getDeletedAccountIdsSubQuery,
 } from '../utils.js';
 import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 
@@ -27,6 +28,7 @@ router.get('/', async (ctx) => {
     const posts = await Post
     .query()
     .where('archived', false)
+    .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     .withGraphFetched('releases')
     .where(function () {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
@@ -67,8 +69,9 @@ router.get('/', async (ctx) => {
 router.get('/sitemap', async (ctx) => {
   try {
     const posts = await Post
-      .query()  
+      .query()
       .where('archived', false)
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .select(ref('data:slug').castText())
       .orderBy('datetime', 'desc')
     ctx.body = {
@@ -216,10 +219,12 @@ const postNotFound = (ctx) => {
 const findPostForPublicKeyOrSlug = async (publicKeyOrSlug) => {
   let post = await Post.query()
     .where('archived', false)
+    .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
     .withGraphFetched('releases')
     .findOne({publicKey: publicKeyOrSlug})
   if (!post) {
     post = await Post.query()
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .withGraphFetched('releases')
       .where(ref('data:slug').castText(), 'like', `%${publicKeyOrSlug}%`)
       .first()
