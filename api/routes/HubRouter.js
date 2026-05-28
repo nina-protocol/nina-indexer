@@ -34,7 +34,7 @@ router.get('/', async (ctx) => {
       .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
       .where(function () {
         this.where('handle', 'ilike', `%${query}%`)
-          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+          .orWhereRaw(`data->>'displayName' ILIKE ?`, [`%${query}%`])
       })
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
