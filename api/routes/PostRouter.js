@@ -34,7 +34,7 @@ router.get('/', async (ctx) => {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
         .orWhereIn('hubId', hubIds)
-        .orWhereIn('id', postIds);
+        .orWhereRaw('"id" = ANY(?::int[])', [postIds]);
     })
     .orderBy(column, sort)
     .range(
