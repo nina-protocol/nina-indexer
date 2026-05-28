@@ -82,6 +82,23 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
     const { hubOnly, full='false' } = ctx.query;
     const includeBlocks = full === 'true';
     if (!hub) {
+      // A hub whose authority is soft-deleted is filtered out by hubForPublicKeyOrHandle and lands here.
+      // Don't treat that as "not yet indexed" and re-fetch from chain — that would re-surface deleted content.
+      const deletedAuthorityHub = await Hub.query()
+        .where((builder) => {
+          builder.where('publicKey', ctx.params.publicKeyOrHandle)
+            .orWhere('handle', ctx.params.publicKeyOrHandle)
+        })
+        .whereIn('authorityId', getDeletedAccountIdsSubQuery())
+        .first()
+      if (deletedAuthorityHub) {
+        ctx.status = 404
+        ctx.body = {
+          message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+        }
+        return
+      }
+
       const publicKey = ctx.params.publicKeyOrHandle
       const hubAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed'))
       if (hubAccount) {
