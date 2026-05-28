@@ -157,7 +157,7 @@ router.get('/all', async (ctx) => {
         .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
         .modify((queryBuilder) => {
           if (postIds && postIds.length > 0) {
-            queryBuilder.whereIn('id', postIds);
+            queryBuilder.whereRaw('"id" = ANY(?::int[])', [postIds]);
           }
           if (hubIds && hubIds.length > 0) {
             queryBuilder.orWhereIn('hubId', hubIds);
@@ -204,7 +204,7 @@ router.post('/v2', async (ctx) => {
       .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .modify((queryBuilder) => {
         if (releaseIds && releaseIds.length > 0) {
-          queryBuilder.whereIn('id', releaseIds);
+          queryBuilder.whereRaw('"id" = ANY(?::int[])', [releaseIds]);
         }
       });
     
@@ -236,7 +236,7 @@ router.post('/v2', async (ctx) => {
       this.whereRaw(`data->>'title' ILIKE ?`, [`%${query}%`])
         .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
         .orWhereIn('hubId', hubIds)
-        .orWhereIn('id', postIds);
+        .orWhereRaw('"id" = ANY(?::int[])', [postIds]);
     })
     .orderBy('datetime', 'desc')
     .range(Number(offset), Number(offset) + Number(limit) - 1);

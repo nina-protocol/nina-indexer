@@ -66,20 +66,20 @@ router.get('/', async (ctx) => {
         .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
         .modify((queryBuilder) => {
           if (releaseIds.length > 0) {
-            queryBuilder.whereIn('id', releaseIds);
+            queryBuilder.whereRaw('"id" = ANY(?::int[])', [releaseIds]);
           }
           if (publisherIds.length > 0) {
             if (releaseIds.length > 0) {
-              queryBuilder.orWhereIn('publisherId', publisherIds);
+              queryBuilder.orWhereRaw('"publisherId" = ANY(?::int[])', [publisherIds]);
             } else {
-              queryBuilder.whereIn('publisherId', publisherIds);
+              queryBuilder.whereRaw('"publisherId" = ANY(?::int[])', [publisherIds]);
             }
           }
           if (hubIds.length > 0) {
             if (releaseIds.length > 0 || publisherIds.length > 0) {
-              queryBuilder.orWhereIn('hubId', hubIds);
+              queryBuilder.orWhereRaw('"hubId" = ANY(?::int[])', [hubIds]);
             } else {
-              queryBuilder.whereIn('hubId', hubIds);
+              queryBuilder.whereRaw('"hubId" = ANY(?::int[])', [hubIds]);
             }
           }
         });
