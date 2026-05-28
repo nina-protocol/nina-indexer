@@ -82,6 +82,23 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
     const { hubOnly, full='false' } = ctx.query;
     const includeBlocks = full === 'true';
     if (!hub) {
+      // A hub whose authority is soft-deleted is filtered out by hubForPublicKeyOrHandle and lands here.
+      // Don't treat that as "not yet indexed" and re-fetch from chain — that would re-surface deleted content.
+      const deletedAuthorityHub = await Hub.query()
+        .where((builder) => {
+          builder.where('publicKey', ctx.params.publicKeyOrHandle)
+            .orWhere('handle', ctx.params.publicKeyOrHandle)
+        })
+        .whereIn('authorityId', getDeletedAccountIdsSubQuery())
+        .first()
+      if (deletedAuthorityHub) {
+        ctx.status = 404
+        ctx.body = {
+          message: `Hub not found with publicKey: ${ctx.params.publicKeyOrHandle}`
+        }
+        return
+      }
+
       const publicKey = ctx.params.publicKeyOrHandle
       const hubAccount = await callRpcMethodWithRetry(() => TransactionSyncer.program.account.hub.fetch(new anchor.web3.PublicKey(publicKey), 'confirmed'))
       if (hubAccount) {
@@ -120,7 +137,9 @@ router.get('/:publicKeyOrHandle', async (ctx) => {
       }
     }
 
-    let releases = await hub.$relatedQuery('releases').where('archived', false)
+    let releases = await hub.$relatedQuery('releases')
+      .where('archived', false)
+      .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
 
     if (hubOnly === 'true') {
       await hub.format();
@@ -257,6 +276,7 @@ router.get('/:publicKeyOrHandle/all', async (ctx) => {
       .where('hubs_join.visible', true)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
       .where('archived', false)
+      .whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery())
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
@@ -307,6 +327,7 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
         .joinRelated("hubs")
         .where("hubs_join.hubId", hub.id)
         .where("hubs_join.visible", true)
+        .whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery())
         .orderByRaw("random()")
         .limit(limit);
 
@@ -321,6 +342,7 @@ router.get('/:publicKeyOrHandle/releases', async (ctx) => {
         .where("hubs_join.visible", true)
         .where(ref("metadata:name").castText(), "ilike", `%${query}%`)
         .where("archived", false)
+        .whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery())
         .orderBy(column, sort)
         .range(Number(offset), Number(offset) + Number(limit) - 1);
     }
@@ -360,6 +382,7 @@ router.get('/:publicKeyOrHandle/releases/archived', async (ctx) => {
       .where('hubs_join.hubId', hub.id)
       .where('hubs_join.visible', false)
       .where(ref('metadata:name').castText(), 'ilike', `%${query}%`)
+      .whereNotIn('releases.publisherId', getDeletedAccountIdsSubQuery())
       .orderBy(column, sort)
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 
