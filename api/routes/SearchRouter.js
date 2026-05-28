@@ -7,7 +7,6 @@ import {
   Tag,
   Verification,
 } from '@nina-protocol/nina-db';
-import { ref } from 'objection'
 import _  from 'lodash';
 
 import { getReleaseSearchSubQuery, getPostSearchSubQuery, getPublishedThroughHubSubQuery, getPublisherSubQuery, getDeletedAccountIdsSubQuery } from '../utils.js';
@@ -220,7 +219,7 @@ router.post('/v2', async (ctx) => {
       .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
       .where(function () {
         this.where('handle', 'ilike', `%${query}%`)
-          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
+          .orWhereRaw(`data->>'displayName' ILIKE ?`, [`%${query}%`])
       })
 
     for await (let hub of hubs) {
@@ -284,10 +283,10 @@ router.post('/', async (ctx) => {
     const releases = await Release.query()
       .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
       .where(function () {
-        this.where(ref('metadata:description').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:properties.artist').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:properties.title').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('metadata:symbol').castText(), 'ilike', `%${query}%`)
+        this.whereRaw(`metadata->>'description' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`metadata#>>'{properties,artist}' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`metadata#>>'{properties,title}' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`metadata->>'symbol' ILIKE ?`, [`%${query}%`])
           .orWhereIn('hubId', getPublishedThroughHubSubQuery(query))
       })
 
@@ -328,8 +327,8 @@ router.post('/', async (ctx) => {
       .whereNotIn('authorityId', getDeletedAccountIdsSubQuery())
       .where(function () {
         this.where('handle', 'ilike', `%${query}%`)
-          .orWhere(ref('data:displayName').castText(), 'ilike', `%${query}%`)
-          .orWhere(ref('data:description').castText(), 'ilike', `%${query}%`)
+          .orWhereRaw(`data->>'displayName' ILIKE ?`, [`%${query}%`])
+          .orWhereRaw(`data->>'description' ILIKE ?`, [`%${query}%`])
       })
     
     const formattedHubsResponse = []
