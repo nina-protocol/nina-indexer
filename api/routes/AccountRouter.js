@@ -13,7 +13,18 @@ import * as anchor from '@project-serum/anchor';
 import TransactionSyncer from '../../indexer/src/TransactionSyncer.js';
 import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 
-import { formatColumnForJsonFields, BIG_LIMIT } from '../utils.js';
+import { formatColumnForJsonFields, getDeletedAccountIdsSubQuery, BIG_LIMIT } from '../utils.js';
+
+// Diagnostic-only: these public keys are not Nina accounts and have no releases,
+// but /:publicKeyOrHandle/published must still return sample data for them.
+// Each key serves a distinct slice of 5 recent releases so responses are
+// distinguishable per key.
+const DIAGNOSTIC_PUBLISHED_KEYS = [
+  '9Nj1MddJQNXzoi34KZ9Thdy3PtLkZ3czXcuLxdaa1e3q',
+  '57yoW7cVUL1QUw4KggmLn4b8kuRde48HJXwFE92Nq7MN',
+  '7TiqBAVmnpxdWhZGMy4DuW3Tprnk4L5CqZwZ9Lns3xmM',
+  'a1s1Es5azpojHEtb5KEjYu1duD4GAzaHVfKXTvSri7a',
+]
 
 const router = new KoaRouter({
   prefix: '/accounts'
@@ -347,6 +358,24 @@ router.get('/:publicKeyOrHandle/published', async (ctx) => {
     if (!account) {
       account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
+        const diagnosticIndex = DIAGNOSTIC_PUBLISHED_KEYS.indexOf(ctx.params.publicKeyOrHandle);
+        if (diagnosticIndex > -1) {
+          const releases = await Release.query()
+            .where('archived', false)
+            .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+            .orderBy('datetime', 'desc')
+            .offset(diagnosticIndex * 5)
+            .limit(5);
+          for await (let release of releases) {
+            await release.format()
+          }
+          ctx.body = {
+            published: releases,
+            total: releases.length,
+            query,
+          };
+          return;
+        }
         accountNotFound(ctx);
         return;
       }
