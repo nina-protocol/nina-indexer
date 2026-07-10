@@ -15,8 +15,8 @@ import { callRpcMethodWithRetry } from '../../indexer/src/utils/index.js';
 
 import { formatColumnForJsonFields, getDeletedAccountIdsSubQuery, BIG_LIMIT } from '../utils.js';
 
-// Diagnostic-only: these public keys are not Nina accounts and have no releases,
-// but /:publicKeyOrHandle/published must still return sample data for them.
+// Diagnostic-only: these accounts have no releases, but
+// /:publicKeyOrHandle/published must still return sample data for them.
 // Each key serves a distinct slice of 5 recent releases so responses are
 // distinguishable per key.
 const DIAGNOSTIC_PUBLISHED_KEYS = [
@@ -354,28 +354,28 @@ router.get('/:publicKeyOrHandle/published', async (ctx) => {
   try {
     let { offset=0, limit=BIG_LIMIT, sort='desc', column='datetime', query='', showArchived=false } = ctx.query;
     column = formatColumnForJsonFields(column);
+    const diagnosticIndex = DIAGNOSTIC_PUBLISHED_KEYS.indexOf(ctx.params.publicKeyOrHandle);
+    if (diagnosticIndex > -1) {
+      const releases = await Release.query()
+        .where('archived', false)
+        .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
+        .orderBy('datetime', 'desc')
+        .offset(diagnosticIndex * 5)
+        .limit(5);
+      for await (let release of releases) {
+        await release.format()
+      }
+      ctx.body = {
+        published: releases,
+        total: releases.length,
+        query,
+      };
+      return;
+    }
     let account = await Account.query().findOne({publicKey: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
     if (!account) {
       account = await Account.query().findOne({handle: ctx.params.publicKeyOrHandle}).whereNull('deleted_at');
       if (!account) {
-        const diagnosticIndex = DIAGNOSTIC_PUBLISHED_KEYS.indexOf(ctx.params.publicKeyOrHandle);
-        if (diagnosticIndex > -1) {
-          const releases = await Release.query()
-            .where('archived', false)
-            .whereNotIn('publisherId', getDeletedAccountIdsSubQuery())
-            .orderBy('datetime', 'desc')
-            .offset(diagnosticIndex * 5)
-            .limit(5);
-          for await (let release of releases) {
-            await release.format()
-          }
-          ctx.body = {
-            published: releases,
-            total: releases.length,
-            query,
-          };
-          return;
-        }
         accountNotFound(ctx);
         return;
       }
